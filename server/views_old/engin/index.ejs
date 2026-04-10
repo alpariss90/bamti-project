@@ -1,0 +1,255 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des Engins</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire création / modification -->
+      <form id="enginForm" action="/engin/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="enginId" value="">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-10">
+          <label for="libelle" class="form-label">Libellé</label>
+          <input type="text" class="form-control" id="libelle" name="libelle" value="" required>
+        </div>
+
+        <div class="col-md-2 d-flex justify-content-end gap-2">
+          <button type="submit" id="submitBtn" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+  <!-- Liste des engins -->
+  <div id="enginListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste des engins</h5>
+
+    <% if (engins && engins.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="height: 70vh; overflow-y: scroll; overflow-x: auto; border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-0">
+  <input type="text" id="filterInput" class="form-control form-control-sm w-auto" placeholder="Filtrer par libellé...">
+</div>
+
+        <table class="table table-hover align-middle table-bordered">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Libellé</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% engins.forEach((engin, index) => { %>
+              <tr>
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= engin.libelle %></td>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                      Actions
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <a class="dropdown-item edit-link" href="/engin/index/<%= engin.id %>" data-id="<%= engin.id %>">Modifier</a>
+                      </li>
+                      <li>
+                       <!-- <button type="button" class="dropdown-item text-danger" onclick="showSnackbar('<%= engin.id %>', '<%= engin.libelle %>')">Supprimer</button> -->
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun engin enregistré.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Snackbar de suppression -->
+<div id="snackbar" class="snackbar shadow">
+  <span id="snackbar-message">Confirmer la suppression ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
+  </form>
+</div>
+
+<!-- Styles Snackbar -->
+<style>
+  .snackbar {
+    visibility: hidden;
+    min-width: 300px;
+    background-color: #323232;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    transition: all 0.3s ease-in-out;
+  }
+
+  .snackbar.show {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+<!-- JS -->
+<script>
+  const enginsData = <%- JSON.stringify(engins) %>;
+
+  const enginForm = document.getElementById('enginForm');
+  const enginIdInput = document.getElementById('enginId');
+  const libelleInput = document.getElementById('libelle');
+  const submitText = document.getElementById('submitText');
+  const formStatus = document.getElementById('formStatus');
+  const enginListContainer = document.getElementById('enginListContainer');
+  const cancelBtn = document.getElementById('cancelBtn');
+
+  function fillForm(engin) {
+    enginIdInput.value = engin.id;
+    libelleInput.value = engin.libelle;
+    submitText.textContent = 'Modifier';
+
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${engin.libelle}</strong>
+      </div>
+    `;
+  }
+
+  // Gérer le clic sur "Modifier"
+  document.querySelectorAll('.edit-link').forEach(link => {
+    link.addEventListener('click', function(event) {
+      event.preventDefault();
+
+      const enginId = this.getAttribute('data-id');
+      const engin = enginsData.find(e => e.id == enginId);
+
+      if (engin) {
+        fillForm(engin);
+        enginListContainer.style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Modifier l'URL sans recharger la page
+        history.pushState(null, '', `/engin/index/${enginId}`);
+      } else {
+        alert('Engin non trouvé');
+      }
+    });
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    enginForm.reset();
+    enginIdInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    enginListContainer.style.display = '';
+
+    // Remettre l'URL à /engin/index sans id
+    history.pushState(null, '', '/engin/index');
+  });
+
+  // Fonction pour vérifier l'URL à l'ouverture et pré-remplir le formulaire si id présent
+  function checkURLForId() {
+    const path = window.location.pathname;
+    const regex = /^\/engin\/index\/(\d+)$/; // /engin/index/id
+    const match = path.match(regex);
+
+    if (match) {
+      const enginId = match[1];
+      const engin = enginsData.find(e => e.id == enginId);
+      if (engin) {
+        fillForm(engin);
+        enginListContainer.style.display = 'none';
+      }
+    }
+  }
+
+  // Exécuter au chargement
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+
+    checkURLForId();
+  });
+
+  // Snackbar confirmation suppression
+  const snackbar = document.getElementById('snackbar');
+  const snackbarMessage = document.getElementById('snackbar-message');
+  const snackbarForm = document.getElementById('snackbarForm');
+
+  function showSnackbar(id, libelle) {
+    snackbarMessage.innerHTML = `Supprimer l'engin "<strong>${libelle}</strong>" ?`;
+    snackbarForm.action = `/engin/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+  function hideSnackbar() {
+    snackbar.classList.remove('show');
+  }
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+  const filterInput = document.getElementById('filterInput');
+  const table = document.querySelector('#enginListContainer table');
+  if (!filterInput || !table) return;
+
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+
+  filterInput.addEventListener('input', () => {
+    const filterValue = filterInput.value.toLowerCase();
+
+    rows.forEach(row => {
+      const libelleCell = row.querySelector('td:nth-child(2)');
+      if (libelleCell) {
+        const text = libelleCell.textContent.toLowerCase();
+        if (text.includes(filterValue)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      }
+    });
+  });
+});
+
+</script>
+
+<%- include('../partials/footer') %>

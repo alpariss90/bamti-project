@@ -1,0 +1,290 @@
+<%- include('../partials/header') %>
+
+
+<div class="container-fluid no-margin-top">
+
+
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des clients</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire création / modification -->
+      <form id="clientForm" action="/personnes/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="clientId" value="">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-2">
+          <label for="nom" class="form-label">Nom</label>
+          <input type="text" class="form-control" id="nom" name="nom" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="prenom" class="form-label">Prénom</label>
+          <input type="text" class="form-control" id="prenom" name="prenom">
+        </div>
+
+        <div class="col-md-2">
+          <label for="telephone" class="form-label">Téléphone</label>
+          <input type="text" class="form-control" id="telephone" name="telephone">
+        </div>
+
+        <div class="col-md-4">
+          <label for="adresse" class="form-label">Adresse</label>
+          <input type="text" class="form-control" id="adresse" name="adresse">
+        </div>
+
+        <div class="col-md-2 d-flex justify-content-end gap-2">
+          <button type="submit" id="submitBtn" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <!-- Liste des clients -->
+  <!-- Liste des clients -->
+<div id="clientListContainer" class="mt-4">
+  <h5 class="mb-3 fw-bold">Liste des clients</h5>
+
+  <% if (clients && clients.length > 0) { %>
+    <div class="table-wrapper shadow-sm rounded" style="border: 1px solid #dee2e6;">
+      <div class="d-flex justify-content-end mb-0">
+ <!--  <input type="text" id="searchInput" class="form-control form-control-sm w-auto" placeholder="Rechercher ..."> -->
+</div>
+<table id="dtable" class="table table-hover align-middle table-bordered">
+        <thead class="table-secondary position-sticky top-0">
+          <tr>
+            <th>#</th>
+            <th>Nom</th>
+            <th>Prénom</th>
+            <th>Téléphone</th>
+            <th>Adresse</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% clients.forEach((client, index) => { %>
+            <tr>
+              <th scope="row"><%= index + 1 %></th>
+              <td><%= client.nom %></td>
+              <td><%= client.prenom || '-' %></td>
+              <td><%= client.telephone || '-' %></td>
+              <td><%= client.adresse || '-' %></td>
+              <td class="text-end">
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    Actions
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                      <a class="dropdown-item" href="#" onclick='editClient(<%- JSON.stringify(client) %>)'>Modifier</a>
+                    </li>
+                    <li>
+                    <!--  <button type="button" class="dropdown-item text-danger" onclick="showSnackbar('<%= client.id %>', '<%= client.nom %>')">Supprimer</button> -->
+                    </li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+		 <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" class="d-flex justify-content-center mt-3"></div>
+
+  <% } else { %>
+    <div class="alert alert-info">Aucun client enregistré.</div>
+  <% } %>
+</div>
+
+</div>
+
+<!-- Snackbar suppression -->
+<div id="snackbar" class="snackbar shadow">
+  <span id="snackbar-message">Confirmer la suppression ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
+  </form>
+</div>
+
+<!-- Styles Snackbar -->
+<style>
+  .snackbar {
+    visibility: hidden;
+    min-width: 300px;
+    background-color: #323232;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    transition: all 0.3s ease-in-out;
+  }
+
+  .snackbar.show {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+<!-- JS Interactif -->
+<script>
+  const clientForm = document.getElementById('clientForm');
+  const clientIdInput = document.getElementById('clientId');
+  const nomInput = document.getElementById('nom');
+  const prenomInput = document.getElementById('prenom');
+  const telephoneInput = document.getElementById('telephone');
+  const adresseInput = document.getElementById('adresse');
+  const submitText = document.getElementById('submitText');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const formStatus = document.getElementById('formStatus');
+  const clientListContainer = document.getElementById('clientListContainer');
+
+  function editClient(client) {
+    clientIdInput.value = client.id;
+    nomInput.value = client.nom;
+    prenomInput.value = client.prenom || '';
+    telephoneInput.value = client.telephone || '';
+    adresseInput.value = client.adresse || '';
+
+    submitText.textContent = 'Modifier';
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour le client : <strong>${client.nom}</strong>
+      </div>
+    `;
+
+    clientListContainer.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelBtn.addEventListener('click', () => {
+    clientForm.reset();
+    clientIdInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    clientListContainer.style.display = '';
+  });
+
+  // Snackbar de suppression
+  const snackbar = document.getElementById('snackbar');
+  const snackbarMessage = document.getElementById('snackbar-message');
+  const snackbarForm = document.getElementById('snackbarForm');
+
+  function showSnackbar(id, nom) {
+    snackbarMessage.innerHTML = `Supprimer le client "<strong>${nom}</strong>" ?`;
+    snackbarForm.action = `/personnes/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+  function hideSnackbar() {
+    snackbar.classList.remove('show');
+  }
+</script>
+
+<!-- Auto-hide success alert -->
+<script>
+  function vanish() {
+    const alert = document.getElementById('myAlert');
+    if (alert) alert.style.display = 'none';
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(vanish, 3000);
+  });
+</script>
+<script>
+  // --- PAGINATION ---
+  document.addEventListener('DOMContentLoaded', () => {
+  const table = document.getElementById('clientTable');
+  const searchInput = document.getElementById('searchInput');
+  const paginationContainer = document.getElementById('pagination');
+  const rowsPerPage = 10;
+  let currentPage = 1;
+
+  // On récupère toutes les lignes du tbody (tableau complet)
+  const allRows = Array.from(table.querySelectorAll('tbody tr'));
+
+  // Fonction pour filtrer les lignes en fonction du texte
+  function filterRows(filterText) {
+    filterText = filterText.toLowerCase();
+    return allRows.filter(row => {
+      const nom = row.cells[1].textContent.toLowerCase();
+      const prenom = row.cells[2].textContent.toLowerCase();
+      const telephone = row.cells[3].textContent.toLowerCase();
+      return nom.includes(filterText) || prenom.includes(filterText) || telephone.includes(filterText);
+    });
+  }
+
+  let filteredRows = allRows;
+
+  function renderTable() {
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+
+    allRows.forEach(row => (row.style.display = 'none')); // On cache tout d'abord
+    filteredRows.slice(start, end).forEach(row => (row.style.display = '')); // On affiche la page courante
+  }
+
+  function renderPagination() {
+    paginationContainer.innerHTML = '';
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+    if (totalPages <= 1) return; // Pas besoin de pagination
+
+    for (let i = 1; i <= totalPages; i++) {
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'} mx-1`;
+      btn.addEventListener('click', () => {
+        currentPage = i;
+        renderTable();
+        renderPagination();
+      });
+      paginationContainer.appendChild(btn);
+    }
+  }
+
+  // Événement sur la saisie du filtre
+  searchInput.addEventListener('input', () => {
+    currentPage = 1; // On revient à la 1ère page à chaque filtre
+    const filterText = searchInput.value.trim();
+    if (filterText === '') {
+      filteredRows = allRows;
+    } else {
+      filteredRows = filterRows(filterText);
+    }
+    renderTable();
+    renderPagination();
+  });
+
+  // Initial render
+  renderTable();
+  renderPagination();
+});
+
+</script>
+
+
+<%- include('../partials/footer') %>

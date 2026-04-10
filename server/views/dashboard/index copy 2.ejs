@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAMTI - Tableau de Bord Direction</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Date Range Picker -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+    
+    <style>
+        :root {
+            --bamti-blue: #1E3A8A;
+            --bamti-light-blue: #3B82F6;
+            --bamti-green: #10B981;
+            --bamti-dark-green: #059669;
+            --bamti-red: #EF4444;
+            --bamti-orange: #F59E0B;
+            --bamti-purple: #8B5CF6;
+            --bamti-gray: #6B7280;
+            --bamti-light-gray: #F3F4F6;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 15px;
+        }
+        
+        .header {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--bamti-blue);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .date-filter {
+            max-width: 250px;
+        }
+        
+        .stats-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            border-left: 4px solid var(--bamti-blue);
+            height: 100%;
+            min-height: 140px;
+        }
+        
+        .stats-card.sales {
+            border-left-color: var(--bamti-green);
+        }
+        
+        .stats-card.expenses {
+            border-left-color: var(--bamti-red);
+        }
+        
+        .stats-card.salaries {
+            border-left-color: var(--bamti-orange);
+        }
+        
+        .stats-card.caisse {
+            border-left-color: var(--bamti-purple);
+        }
+        
+        .stats-card.credit {
+            border-left-color: var(--bamti-blue);
+        }
+        
+        .stats-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+        }
+        
+        .stats-icon.sales {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--bamti-green);
+        }
+        
+        .stats-icon.expenses {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--bamti-red);
+        }
+        
+        .stats-icon.salaries {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--bamti-orange);
+        }
+        
+        .stats-icon.clients {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--bamti-light-blue);
+        }
+        
+        .stats-icon.caisse {
+            background-color: rgba(139, 92, 246, 0.1);
+            color: var(--bamti-purple);
+        }
+        
+        .stats-icon.credit {
+            background-color: rgba(30, 58, 138, 0.1);
+            color: var(--bamti-blue);
+        }
+        
+        .stats-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        
+        .stats-label {
+            color: var(--bamti-gray);
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .stats-change {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .stats-change.positive {
+            color: var(--bamti-green);
+        }
+        
+        .stats-change.negative {
+            color: var(--bamti-red);
+        }
+        
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            height: 320px;
+            position: relative; /* Important pour Chart.js */
+        }
+        
+        .full-width-chart {
+            height: 320px;
+            position: relative; /* Important pour Chart.js */
+        }
+        
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--bamti-blue);
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .comparison-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            height: 100%;
+        }
+        
+        .table-responsive {
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        
+        .table thead th {
+            background-color: var(--bamti-blue);
+            color: white;
+            border: none;
+            font-size: 0.9rem;
+            padding: 10px 15px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        
+        .dashboard-section {
+            margin-bottom: 25px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--bamti-blue);
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid rgba(30, 58, 138, 0.1);
+        }
+        
+        .alert {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .alert i {
+            font-size: 1.2rem;
+        }
+        
+        .filter-controls {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+        }
+        
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .btn-logout {
+            background-color: var(--bamti-red);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-logout:hover {
+            background-color: #dc2626;
+            transform: translateY(-2px);
+        }
+        
+        .btn-change-password {
+            background-color: var(--bamti-gray);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-change-password:hover {
+            background-color: #4b5563;
+            transform: translateY(-2px);
+        }
+        
+        /* Ajustements pour les petits écrans */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 10px;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .date-filter {
+                max-width: 100%;
+                margin-top: 10px;
+            }
+            
+            .chart-container {
+                height: 280px;
+            }
+            
+            .full-width-chart {
+                height: 280px;
+            }
+            
+            .user-info {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+        
+        /* Améliorations pour la lisibilité */
+        .compact-row {
+            margin-bottom: -10px;
+        }
+        
+        .compact-row > div {
+            margin-bottom: 10px;
+        }
+        
+        /* Ajustement pour 6 cartes */
+        @media (min-width: 1400px) {
+            .col-xl-2 {
+                flex: 0 0 auto;
+                width: 16.66666667%;
+            }
+        }
+        
+        @media (min-width: 1200px) and (max-width: 1399px) {
+            .col-xl-2 {
+                flex: 0 0 auto;
+                width: 20%;
+            }
+        }
+        
+        @media (min-width: 992px) and (max-width: 1199px) {
+            .col-lg-3 {
+                flex: 0 0 auto;
+                width: 25%;
+            }
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h1 class="h4 mb-1">Tableau de Bord Direction</h1>
+                <p class="text-muted mb-0" style="font-size: 0.9rem;">Vue d'ensemble des activités de BAMTI</p>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <div class="date-filter">
+                    <input type="text" class="form-control form-control-sm" id="dateRange" value="01/01/2023 - 31/12/2023">
+                </div>
+                
+                <div class="user-info">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="user-avatar">AD</div>
+                        <div class="d-none d-md-block">
+                            <div class="fw-bold" style="font-size: 0.9rem;">Admin BAMTI</div>
+                            <div class="text-muted" style="font-size: 0.8rem;">Directeur</div>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-change-password" id="changePasswordBtn">
+                            <i class="fas fa-key"></i>
+                            <span class="d-none d-md-inline">Changer mot de passe</span>
+                        </button>
+                        <button class="btn-logout" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="d-none d-md-inline">Déconnexion</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques Rapides -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Aperçu Général</h2>
+            <div class="row compact-row">
+                <!-- Chiffre d'Affaires -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card sales">
+                        <div class="stats-icon sales">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stats-value" id="total-sales"> <%= (situationGeneral.totalVente || 0).toLocaleString('fr-FR') %></div>
+                        <div class="stats-label">Chiffre d'Affaires Total</div>
+                        <div class="stats-change positive">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dépenses -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card expenses">
+                        <div class="stats-icon expenses">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div class="stats-value" id="total-expenses"><%= (situationGeneral.totalDepense || 0).toLocaleString('fr-FR') %></div>
+                        <div class="stats-label">Dépenses Totales</div>
+                        <div class="stats-change negative">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Salaires -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card salaries">
+                        <div class="stats-icon salaries">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stats-value" id="total-salaries"><%= (situationGeneral.totalSalaire || 0).toLocaleString('fr-FR') %></div>
+                        <div class="stats-label">Salaires du Personnel</div>
+                        <div class="stats-change negative">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Caisse -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card caisse">
+                        <div class="stats-icon caisse">
+                            <i class="fas fa-cash-register"></i>
+                        </div>
+                        <div class="stats-value" id="caisse-montant"><%= (situationGeneral.montantCaisse || 0).toLocaleString('fr-FR') %></div>
+                        <div class="stats-label">Montant en Caisse</div>
+                        <div class="stats-change positive">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Crédit -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card credit">
+                        <div class="stats-icon credit">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+                        <div class="stats-value" id="credit-montant"><%= (situationGeneral.montantCredit || 0).toLocaleString('fr-FR') %></div>
+                        <div class="stats-label">Montant Crédit Clients</div>
+                        <div class="stats-change negative">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Clients Actifs -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card">
+                        <div class="stats-icon clients">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stats-value" id="active-clients"><%= (totalClients || 0).toLocaleString('fr-FR') %></div>
+                        <div class="stats-label">Clients</div>
+                        <div class="stats-change positive">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphiques Principaux -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Évolution des Ventes et Dépenses</h2>
+            
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="chart-container">
+                        <div class="chart-title">Ventes vs Dépenses (Mensuel)</div>
+                        <canvas id="salesExpensesChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-container">
+                        <div class="chart-title">Répartition des Dépenses</div>
+                        <canvas id="expensesPieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphique Journalier -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Ventes vs Dépenses (Journalier)</h2>
+            
+            <div class="filter-controls">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="yearSelect" class="form-label">Année</label>
+                        <select class="form-select" id="yearSelect">
+                            <option value="2026" <% if (yr==2026){ %> selected  <%  } %> >2026</option>
+                            <option value="2025" <% if (yr==2025){ %> selected  <%  } %> >2025</option>
+
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="monthSelect" class="form-label">Mois</label>
+                        <select class="form-select" id="monthSelect">
+                            <option value="1" <% if (mnt==1){ %> selected  <%  } %> >Janvier</option>
+                            <option value="2" <%  if (mnt==2){ %> selected  <% } %> >Février</option>
+                            <option value="3" <%  if (mnt==4){ %> selected  <% } %> >Mars</option>
+                            <option value="4" <%  if (mnt==5){ %> selected  <% } %> >Avril</option>
+                            <option value="5" <%  if (mnt==6){ %> selected  <% } %> >Mai</option>
+                            <option value="6" <%  if (mnt==7){ %> selected  <% } %> >Juin</option>
+                            <option value="7" <%  if (mnt==8){ %> selected  <% } %> >Juillet</option>
+                            <option value="8" <%  if (mnt==8){ %> selected  <% } %> >Août</option>
+                            <option value="9" <%  if (mnt==9){ %> selected  <% } %> >Septembre</option>
+                            <option value="10" <%  if (mnt==10){ %> selected  <% } %> >Octobre</option>
+                            <option value="11" <%  if (mnt==11){ %> selected  <% } %> >Novembre</option>
+                            <option value="12" <% if (mnt==12){ %> selected  <% } %> >Décembre</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn btn-primary" id="updateDailyChart">
+                            <i class="fas fa-sync-alt me-2"></i>Actualiser
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container full-width-chart">
+                        <div class="chart-title">Ventes vs Dépenses Journalières - Décembre 2023</div>
+                        <canvas id="dailySalesExpensesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableaux de Données -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Données Détail</h2>
+            
+            <div class="row compact-row">
+                <div class="col-lg-6">
+                    <div class="comparison-card">
+                        <h6 class="mb-3">Top 10 Clients</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Client</th>
+                                        <th>Total mois courant</th>
+                                        <th>Total mois precedent</th>
+                                        <th>Dernière Commande</th>
+                                      <!--  <th>Tendance</th> -->
+                                    </tr>
+                                </thead>
+                                <tbody id="topClientsTable">
+                                    
+
+                                    <% if (topVentes && topVentes.length > 0) { %>
+                    <% topVentes.forEach(client => { %>
+                        <tr>
+                            <td><strong style="font-size: 0.9rem;"> <%= client.nom %> <%= client.prenom %></strong></td>
+                            <td style="font-size: 0.85rem;"><%= client.total_mois_courant.toLocaleString('fr-FR') %> FCFA</td>
+                            <td style="font-size: 0.85rem;"><%= client.total_mois_precedent.toLocaleString('fr-FR') %></td>
+                            <td style="font-size: 0.85rem;"><%= client.derniere_vente.toLocaleDateString('fr-FR'); %></td>
+                             <!-- <td style="font-size: 0.85rem;">
+                                <% if (client.tedance === 'up') { %>
+                                    <i class="fas fa-arrow-up text-success"></i>
+                                <% } else if (client.tendance === 'down') { %>
+                                    <i class="fas fa-arrow-down text-danger"></i>
+                                <% } else { %>
+                                    <i class="fas fa-minus text-secondary"></i>
+                                <% } %>
+                            </td> -->
+                        </tr>
+                    <% }) %>
+                <% } else { %>
+                    <tr>
+                        <td colspan="5" class="text-center">Aucun client trouvé</td>
+                    </tr>
+                <% } %>
+
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="comparison-card">
+                        <h6 class="mb-3">Dépenses par Catégorie</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Catégorie</th>
+                                        <th>Montant</th>
+                                        <th>% du Total </th>
+                                    
+                                    </tr>
+                                </thead>
+                                <tbody id="expensesTable">
+                                    <% if (depensesParCategorie && depensesParCategorie.length > 0) { %>
+                    <% depensesParCategorie.forEach(dep => { %>
+                                   <tr>
+                                        <td><%= dep.type_depense%> </td>
+                                        <td><%= dep.total_depenses.toLocaleString('fr-FR') %> FCFA</td>
+                                        <td><%= dep.pourcentage %> %</td>
+                                   </tr>
+                                     <% }) %>
+                <% }  %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphique Ventes par Catégorie de Client -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Ventes par Catégorie de Client</h2>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container full-width-chart">
+                        <div class="chart-title">Ventes par Type de Client (Montant en FCFA)</div>
+                        <canvas id="salesByClientChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertes et Notifications -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Alertes et Points d'Attention</h2>
+            
+            <div class="row compact-row">
+                <div class="col-md-4">
+                    <div class="alert alert-warning d-flex align-items-center p-3">
+                        <i class="fas fa-exclamation-triangle fa-lg me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1" style="font-size: 0.9rem;">Retards Paiement (Clients)</h6>
+                            <p class="mb-0" style="font-size: 0.85rem;"><%=paiementRetardClient.nbre%> clients</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-info d-flex align-items-center p-3">
+                        <i class="fas fa-clock fa-lg me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1" style="font-size: 0.9rem;">Retards Paiement (Vente)</h6>
+                            <p class="mb-0" style="font-size: 0.85rem;"><%=paiementRetard.nbre%> ventes</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-success d-flex align-items-center p-3">
+                        <i class="fas fa-trophy fa-lg me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1" style="font-size: 0.9rem;">Record Mensuel</h6>
+                            <p class="mb-0" style="font-size: 0.85rem;">Meilleur mois de vente:  <%= bestMois.annee %> --  <%= bestMois.mois %> -- <%= bestMois.total.toLocaleString('fr-FR')  %>  </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery and Date Range Picker -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+
+    <script>
+        const ventesMensuelles = <%- JSON.stringify(ventesMensuelles || Array(12).fill(0)) %>;
+        const depensesMensuelles = <%- JSON.stringify(depensesMensuelles || Array(12).fill(0)) %>;
+
+        const jours30 = <%- JSON.stringify(joursLabels || Array(12).fill('')) %>;
+        const depenses30 = <%- JSON.stringify(depensesJournalieres || Array(12).fill(0)) %>;
+        const ventes30 = <%- JSON.stringify(ventesJournalieres || Array(12).fill(0)) %>;
+
+
+         const montantTypeVente = <%- JSON.stringify(montantTypeVente || Array(10).fill(0)) %>;
+        const typeVenteLabels = <%- JSON.stringify(typeVenteLabels || Array(10).fill('')) %>;
+
+        const typeDepenseLabels = <%- JSON.stringify(typeDepenseLabels || Array(25).fill(0)) %>;
+        const montantTypeDepense = <%- JSON.stringify(montantTypeDepense || Array(25).fill('')) %>;
+
+      
+        
+        // Données simulées pour le tableau de bord
+        const dashboardData = {
+            monthlyData: {
+                labels: ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"],
+                sales: ventesMensuelles,
+                expenses: depensesMensuelles,
+                salaries: [220000, 225000, 230000, 235000, 240000, 245000, 250000, 255000, 260000, 265000, 270000, 275000],
+                caisse: [1500000, 1550000, 1600000, 1650000, 1700000, 1750000, 1800000, 1850000, 1900000, 1950000, 2000000, 2150000],
+                credit: [1200000, 1250000, 1300000, 1350000, 1400000, 1450000, 1500000, 1550000, 1600000, 1650000, 1750000, 1850750]
+            },
+            dailyData: {
+                // Données pour décembre 2023 (31 jours)
+                labels: jours30,
+                sales: ventes30,
+                expenses: depenses30
+            },
+            expensesByCategory: {
+                labels: typeVenteLabels,
+                data: montantTypeVente,
+               colors: ['#3B82F6', '#10B981']
+            },
+            topClients: [
+                { name: "Super Marché ABC", total: 520000, lastOrder: "2023-12-15", trend: "up" },
+                { name: "Hôtel Plaza", total: 480000, lastOrder: "2023-12-10", trend: "up" },
+                { name: "Restaurant Le Bon Goût", total: 420000, lastOrder: "2023-12-05", trend: "stable" },
+                { name: "École Primaire", total: 380000, lastOrder: "2023-11-28", trend: "up" },
+                { name: "Cafétéria U", total: 350000, lastOrder: "2023-11-20", trend: "down" }
+            ],
+            expensesDetail: [
+                { category: "Sachets", amount: 450000, percentage: 36, change: 5.2 },
+                { category: "Personnel", amount: 350000, percentage: 28, change: 8.1 },
+                { category: "Transport", amount: 120000, percentage: 9.6, change: -2.3 },
+                { category: "Loyer", amount: 180000, percentage: 14.4, change: 0 },
+                { category: "Énergie", amount: 90000, percentage: 7.2, change: 12.5 },
+                { category: "Maintenance", amount: 60000, percentage: 4.8, change: 3.7 }
+            ],
+            salesByClientType: {
+                labels: typeDepenseLabels,
+                data: montantTypeDepense,
+                colors: ['#FF6B6B', '#4ECDC4',   '#FFD166', '#06D6A0',  '#118AB2', '#EF476F', '#FF9A76', '#7B68EE', '#32CD32', '#FF1493', '#00CED1','#FF8C00', // Orange foncé
+    '#9370DB',
+    '#3CB371', 
+    '#FF4500', 
+    '#20B2AA', 
+    '#DA70D6', 
+    '#4682B4',
+    '#9ACD32',
+    '#FF69B4', 
+    '#5F9EA0',
+    '#DAA520',
+    '#CD5C5C', 
+    '#6495ED', 
+    '#8FBC8F']  
+            }
+        };
+
+        // Initialisation des graphiques
+        let salesExpensesChart, expensesPieChart, dailySalesExpensesChart, salesByClientChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser le sélecteur de date
+            $('#dateRange').daterangepicker({
+                opens: 'left',
+                locale: {
+                    format: 'DD/MM/YYYY',
+                    applyLabel: 'Appliquer',
+                    cancelLabel: 'Annuler',
+                    daysOfWeek: ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa'],
+                    monthNames: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'],
+                    firstDay: 1
+                },
+                drops: 'down'
+            });
+
+            // Gestionnaire pour le bouton de déconnexion
+            document.getElementById('logoutBtn').addEventListener('click', function() {
+                if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+                    // Ici vous redirigeriez vers la page de déconnexion
+                    alert('Déconnexion réussie. Redirection vers la page de connexion...');
+                    // window.location.href = '/login'; // Décommentez pour la redirection réelle
+                }
+            });
+
+            // Gestionnaire pour le bouton de changement de mot de passe
+            document.getElementById('changePasswordBtn').addEventListener('click', function() {
+                // Ici vous pouvez ouvrir une modal ou rediriger vers la page de changement de mot de passe
+                alert('Redirection vers la page de changement de mot de passe...');
+                // window.location.href = '/change-password'; // Décommentez pour la redirection réelle
+            });
+
+            // Gestionnaire pour le bouton d'actualisation du graphique journalier
+            document.getElementById('updateDailyChart').addEventListener('click', function() {
+               // updateDailyChart();
+            });
+
+            // Initialiser les tableaux
+            //populateTopClientsTable();
+            //populateExpensesTable();
+
+            // Initialiser les graphiques
+            initSalesExpensesChart();
+            initExpensesPieChart();
+            initDailySalesExpensesChart();
+            initSalesByClientChart();
+            
+            // Mettre à jour le titre du graphique journalier
+          //  updateDailyChartTitle();
+        });
+
+        function initSalesExpensesChart() {
+            const ctx = document.getElementById('salesExpensesChart').getContext('2d');
+            salesExpensesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dashboardData.monthlyData.labels,
+                    datasets: [
+                        {
+                            label: 'Ventes',
+                            data: dashboardData.monthlyData.sales,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Dépenses',
+                            data: dashboardData.monthlyData.expenses,
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 10,
+                            right: 10,
+                            bottom: 10,
+                            left: 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)} FCFA`;
+                                }
+                            },
+                            titleFont: {
+                                size: 11
+                            },
+                            bodyFont: {
+                                size: 11
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value/1000).toFixed(0) + 'K';
+                                    return value;
+                                },
+                                font: {
+                                    size: 9
+                                },
+                                maxTicksLimit: 5,
+                                padding: 5
+                            },
+                            grid: {
+                                drawBorder: false
+                            },
+                            title: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 9
+                                },
+                                maxRotation: 0,
+                                padding: 5
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initExpensesPieChart() {
+            const ctx = document.getElementById('expensesPieChart').getContext('2d');
+            expensesPieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: dashboardData.expensesByCategory.labels,
+                    datasets: [{
+                        data: dashboardData.expensesByCategory.data,
+                        backgroundColor: dashboardData.expensesByCategory.colors,
+                        borderWidth: 1.5,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    layout: {
+                        padding: {
+                            top: 10,
+                            right: 10,
+                            bottom: 10,
+                            left: 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            align: 'center',
+                            labels: {
+                                padding: 8,
+                                font: {
+                                    size: 9
+                                },
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${formatCurrency(value)} FCFA (${percentage}%)`;
+                                }
+                            },
+                            titleFont: {
+                                size: 10
+                            },
+                            bodyFont: {
+                                size: 10
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initDailySalesExpensesChart() {
+            const ctx = document.getElementById('dailySalesExpensesChart').getContext('2d');
+            dailySalesExpensesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dashboardData.dailyData.labels,
+                    datasets: [
+                        {
+                            label: 'Ventes Journalières',
+                            data: dashboardData.dailyData.sales,
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: '#10B981',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Dépenses Journalières',
+                            data: dashboardData.dailyData.expenses,
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                            borderColor: '#EF4444',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 10,
+                            right: 10,
+                            bottom: 10,
+                            left: 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)} FCFA`;
+                                }
+                            },
+                            titleFont: {
+                                size: 11
+                            },
+                            bodyFont: {
+                                size: 11
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value/1000).toFixed(0) + 'K';
+                                    return value;
+                                },
+                                font: {
+                                    size: 9
+                                },
+                                maxTicksLimit: 5,
+                                padding: 5
+                            },
+                            grid: {
+                                drawBorder: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Montant (FCFA)',
+                                font: {
+                                    size: 10
+                                },
+                                padding: {
+                                    top: 0,
+                                    bottom: 5
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 8
+                                },
+                                maxRotation: 0,
+                                padding: 3
+                            },
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Jours',
+                                font: {
+                                    size: 10
+                                },
+                                padding: {
+                                    top: 5,
+                                    bottom: 0
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initSalesByClientChart() {
+            const ctx = document.getElementById('salesByClientChart').getContext('2d');
+            salesByClientChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dashboardData.salesByClientType.labels,
+                    datasets: [{
+                        label: 'Ventes par Type de Client',
+                        data: dashboardData.salesByClientType.data,
+                        backgroundColor: dashboardData.salesByClientType.colors,
+                        borderColor: '#1E3A8A',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 10,
+                            right: 10,
+                            bottom: 10,
+                            left: 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${formatCurrency(context.raw)} FCFA`;
+                                }
+                            },
+                            titleFont: {
+                                size: 10
+                            },
+                            bodyFont: {
+                                size: 10
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value/1000).toFixed(0) + 'K';
+                                    return value;
+                                },
+                                font: {
+                                    size: 9
+                                },
+                                maxTicksLimit: 5,
+                                padding: 5
+                            },
+                            grid: {
+                                drawBorder: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Montant (FCFA)',
+                                font: {
+                                    size: 10
+                                },
+                                padding: {
+                                    top: 0,
+                                    bottom: 5
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 9
+                                },
+                                maxRotation: 45,
+                                padding: 5
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function populateTopClientsTable() {
+            const tbody = document.getElementById('topClientsTable');
+            tbody.innerHTML = '';
+            
+            dashboardData.topClients.forEach(client => {
+                const row = document.createElement('tr');
+                
+                let trendIcon = '';
+                let trendClass = '';
+                
+                if (client.trend === 'up') {
+                    trendIcon = '<i class="fas fa-arrow-up text-success"></i>';
+                    trendClass = 'text-success';
+                } else if (client.trend === 'down') {
+                    trendIcon = '<i class="fas fa-arrow-down text-danger"></i>';
+                    trendClass = 'text-danger';
+                } else {
+                    trendIcon = '<i class="fas fa-minus text-secondary"></i>';
+                    trendClass = 'text-secondary';
+                }
+                
+                row.innerHTML = `
+                    <td><strong style="font-size: 0.9rem;">${client.name}</strong></td>
+                    <td style="font-size: 0.85rem;">${formatCurrency(client.total)}</td>
+                    <td style="font-size: 0.85rem;">${formatDate(client.lastOrder)}</td>
+                    <td class="${trendClass}" style="font-size: 0.85rem;">${trendIcon}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+       /* function populateExpensesTable() {
+            const tbody = document.getElementById('expensesTable');
+            tbody.innerHTML = '';
+            
+            dashboardData.expensesDetail.forEach(expense => {
+                const row = document.createElement('tr');
+                
+                let changeClass = expense.change >= 0 ? 'text-danger' : 'text-success';
+                let changeIcon = expense.change >= 0 ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
+                
+                row.innerHTML = `
+                    <td><strong style="font-size: 0.9rem;">${expense.category}</strong></td>
+                    <td style="font-size: 0.85rem;">${formatCurrency(expense.amount)}</td>
+                    <td style="font-size: 0.85rem;">${expense.percentage}%</td>
+                    <td class="${changeClass}" style="font-size: 0.85rem;">${changeIcon} ${Math.abs(expense.change)}%</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }*/
+
+        function updateDailyChart() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+            
+            // Ici, normalement, vous feriez un appel API pour récupérer les données
+            // Pour l'exemple, nous générons des données aléatoires
+            const daysInMonth = getDaysInMonth(parseInt(year), parseInt(month));
+            
+            // Générer de nouvelles données aléatoires
+            const newLabels = Array.from({length: daysInMonth}, (_, i) => (i + 1).toString());
+            const newSales = Array.from({length: daysInMonth}, () => Math.floor(Math.random() * 50000) + 15000);
+            const newExpenses = Array.from({length: daysInMonth}, () => Math.floor(Math.random() * 15000) + 5000);
+            
+            // Mettre à jour le graphique
+            dailySalesExpensesChart.data.labels = newLabels;
+            dailySalesExpensesChart.data.datasets[0].data = newSales;
+            dailySalesExpensesChart.data.datasets[1].data = newExpenses;
+            dailySalesExpensesChart.update();
+            
+            // Mettre à jour le titre
+            updateDailyChartTitle();
+            
+            console.log(`Graphique mis à jour pour ${month}/${year}`);
+        }
+
+        function updateDailyChartTitle() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+            const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+                               "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+            const monthName = monthNames[parseInt(month) - 1];
+            
+            document.querySelector('#dailySalesExpensesChart').previousElementSibling.textContent = 
+                `Ventes vs Dépenses Journalières - ${monthName} ${year}`;
+        }
+
+        function getDaysInMonth(year, month) {
+            // Retourne le nombre de jours dans un mois donné
+            return new Date(year, month, 0).getDate();
+        }
+
+        // Fonctions utilitaires
+        function formatCurrency(amount) {
+            if (amount >= 1000000) {
+                return (amount/1000000).toFixed(1) + 'M';
+            }
+            if (amount >= 1000) {
+                return (amount/1000).toFixed(0) + 'K';
+            }
+            return amount.toLocaleString('fr-FR');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+        }
+
+        // Simuler la mise à jour des données en temps réel
+        setInterval(() => {
+            // Mettre à jour aléatoirement certaines valeurs pour simuler des données en temps réel
+           // updateRandomValue('total-sales', 5000);
+            //updateRandomValue('total-expenses', 2000);
+            //updateRandomValue('total-salaries', 1000);
+            //updateRandomValue('caisse-montant', 3000);
+            //updateRandomValue('credit-montant', 2500);
+            
+            // Mettre à jour le nombre de clients actifs
+            const clientsElement = document.getElementById('active-clients');
+            const currentClients = parseInt(clientsElement.textContent);
+            const clientChange = Math.random() > 0.7 ? 1 : (Math.random() > 0.9 ? -1 : 0);
+            const newClients = Math.max(0, currentClients + clientChange);
+            clientsElement.textContent = newClients;
+        }, 15000);
+
+        function updateRandomValue(elementId, maxChange) {
+            const element = document.getElementById(elementId);
+            const currentValue = parseInt(element.textContent.replace(/[^0-9]/g, ''));
+            const randomChange = Math.floor(Math.random() * maxChange * 2) - maxChange;
+            const newValue = Math.max(0, currentValue + randomChange);
+            element.textContent = formatCurrency(newValue);
+        }
+    </script>
+</body>
+</html>

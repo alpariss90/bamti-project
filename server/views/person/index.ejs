@@ -1,0 +1,253 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ 
+
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion du personnel</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire -->
+      <form id="personnelForm" action="/person/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="personnelId">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-3">
+          <label for="nom" class="form-label">Nom</label>
+          <input type="text" class="form-control" id="nom" name="nom" required>
+        </div>
+
+        <div class="col-md-3">
+          <label for="prenom" class="form-label">Prénom</label>
+          <input type="text" class="form-control" id="prenom" name="prenom" required>
+        </div>
+
+        <div class="col-md-3">
+          <label for="telephone" class="form-label">Téléphone</label>
+          <input type="text" class="form-control" id="telephone" name="telephone">
+        </div>
+
+        <div class="col-md-3 d-flex justify-content-end gap-2">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+  <!-- Liste du personnel -->
+  <div id="personnelListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste du personnel</h5>
+
+    <% if (personnels && personnels.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-0">
+
+</div>
+
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Nom</th>
+              <th>Prénom</th>
+              <th>Téléphone</th>
+              <th>État</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% personnels.forEach((personnel, index) => { %>
+              <tr>
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= personnel.nom %></td>
+                <td><%= personnel.prenom %></td>
+                <td><%= personnel.telephone || '-' %></td>
+                <td>
+                  <% if (personnel.etat) { %>
+                    <span class="badge bg-success">Actif</span>
+                  <% } else { %>
+                    <span class="badge bg-danger">Inactif</span>
+                  <% } %>
+                </td>
+               <td class="text-end">
+  <div class="dropdown">
+    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+      Actions
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <% if (personnel.etat) { %>
+        <li>
+          <form action="/person/deactivate/<%= personnel.id %>" method="POST" class="d-inline">
+            <button type="submit" class="dropdown-item text-warning">
+              <i class="bi bi-person-x"></i> Désactiver
+            </button>
+          </form>
+        </li>
+      <% } else { %>
+        <li>
+          <form action="/person/activate/<%= personnel.id %>" method="POST" class="d-inline">
+            <button type="submit" class="dropdown-item text-success">
+              <i class="bi bi-person-check"></i> Activer
+            </button>
+          </form>
+        </li>
+      <% } %>
+     <li> <a class="dropdown-item text-warning" href="#" onclick='editPersonnel(<%- JSON.stringify(personnel) %>)'>
+      <i class="bi bi-pencil"></i> Modifier</a> 
+    </li>
+    </ul>
+  </div>
+</td>
+
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun personnel enregistré.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Snackbar de suppression -->
+<div id="snackbar" class="snackbar shadow">
+  <span id="snackbar-message">Confirmer la suppression ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
+  </form>
+</div>
+
+<!-- Snackbar styles -->
+<style>
+  .snackbar {
+    visibility: hidden;
+    min-width: 320px;
+    max-width: 90%;
+    background-color: #323232;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s;
+  }
+
+  .snackbar.show {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+<!-- Scripts -->
+<script>
+  const personnelForm = document.getElementById('personnelForm');
+  const personnelIdInput = document.getElementById('personnelId');
+  const nomInput = document.getElementById('nom');
+  const prenomInput = document.getElementById('prenom');
+  const telephoneInput = document.getElementById('telephone');
+  const submitText = document.getElementById('submitText');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const formStatus = document.getElementById('formStatus');
+  const personnelListContainer = document.getElementById('personnelListContainer');
+
+  function editPersonnel(personnel) {
+    personnelIdInput.value = personnel.id;
+    nomInput.value = personnel.nom;
+    prenomInput.value = personnel.prenom || '';
+    telephoneInput.value = personnel.telephone || '';
+    submitText.textContent = 'Modifier';
+
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${personnel.nom}</strong>
+      </div>
+    `;
+
+    personnelListContainer.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelBtn.addEventListener('click', () => {
+    personnelForm.reset();
+    personnelIdInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    personnelListContainer.style.display = '';
+  });
+
+  // Auto-hide success message
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+  });
+
+  // Snackbar logic
+  const snackbar = document.getElementById('snackbar');
+  const snackbarMessage = document.getElementById('snackbar-message');
+  const snackbarForm = document.getElementById('snackbarForm');
+
+  function showSnackbar(id, nom) {
+    snackbarMessage.innerHTML = `Supprimer le personnel "<strong>${nom}</strong>" ?`;
+    snackbarForm.action = `/person/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+  function hideSnackbar() {
+    snackbar.classList.remove('show');
+  }
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+  const filterInput = document.getElementById('filterPersonnelInput');
+  const table = document.querySelector('#personnelListContainer table');
+  if (!filterInput || !table) return;
+
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+
+  filterInput.addEventListener('input', () => {
+    const filterValue = filterInput.value.toLowerCase();
+
+    rows.forEach(row => {
+      const nomCell = row.querySelector('td:nth-child(2)');
+      const telCell = row.querySelector('td:nth-child(4)');
+      const nomText = nomCell ? nomCell.textContent.toLowerCase() : '';
+      const telText = telCell ? telCell.textContent.toLowerCase() : '';
+
+      // Afficher si nom OU téléphone contient le filtre
+      if (nomText.includes(filterValue) || telText.includes(filterValue)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  });
+});
+
+</script>
+<%- include('../partials/footer') %>

@@ -1,0 +1,41 @@
+# Ignorer les dossiers de dépendances (server et client)
+node_modules/
+
+# Ignorer les fichiers de logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignorer les dossiers de build (Express, Vue, Ionic)
+dist/
+build/
+www/                # Dossier de build par défaut pour Ionic
+
+# Ignorer les dossiers de cache et temporaires
+.cache/
+.tmp/
+.ionic/             # Cache Ionic
+.DS_Store
+
+# Ignorer les fichiers de configuration locaux
+.env
+.env.local
+.env.*.local
+
+# Ignorer les dossiers et fichiers d’éditeur
+.vscode/
+.idea/
+*.swp
+
+# Ignorer les rapports de couverture de test
+coverage/
+
+# Ignorer les fichiers générés par le compilateur (TypeScript)
+*.js.map
+*.d.ts.map
+
+# Optionnel : ignorer les fichiers de verrouillage (décommente si nécessaire)
+# package-lock.json
+# yarn.lock

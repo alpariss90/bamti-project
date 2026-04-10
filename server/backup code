@@ -1,0 +1,58 @@
+<!-- 
+    <% if (salaires && salaires.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="height: 70vh; overflow-y: scroll; overflow-x: auto; border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-2">
+          <input type="text" id="filterSalaireInput" class="form-control form-control-sm w-auto" placeholder="Filtrer par nom ...">
+        </div>
+
+        <table class="table table-hover align-middle table-bordered">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Nom et Prénom</th>
+              <th>Salaire de base</th>
+              <th>Total crédits</th>
+              <th>Total gratifications</th>
+              <th>Montant à payer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% salaires.forEach((s, i) => { %>
+              <tr>
+                <th scope="row"><%= i + 1 %></th>
+                <td><%= s.nom %> <%= s.prenom %></td>
+                <td><%= parseFloat(s.salaire_base || 0).toFixed(2) %></td>
+                <td><%= Math.abs(parseFloat(s.total_credit || 0)).toFixed(2) %></td>
+                <td><%= parseFloat(s.total_gratification || 0).toFixed(2) %></td>
+                <td class="fw-bold text-primary"><%= parseFloat(s.montant_a_payer || 0).toFixed(2) %></td>
+              </tr>
+            <% }) %>
+
+            <tr class="table-secondary fw-bold">
+              <th colspan="2">Totaux généraux</th>
+              <td><%= parseFloat(totaux.salaire_base || 0).toFixed(2) %></td>
+              <td><%= Math.abs(parseFloat(totaux.total_credit || 0)).toFixed(2) %></td>
+              <td><%= parseFloat(totaux.total_gratification || 0).toFixed(2) %></td>
+              <td><%= parseFloat(totaux.montant_a_payer || 0).toFixed(2) %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun salaire trouvé pour ce mois.</div>
+    <% } %>
+  </div>
+  -->
+
+   <% if (salaires && salaires.length > 0) { %>
+         <div class="col-md-2 d-flex justify-content-end gap-2">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-circle-fill
+"></i> GENERER SALAIRE
+          </button>
+        </div>
+        <% } %>
+
+
+
+        decommente la partie 404 dans le fichier app js avant de mettre en prod

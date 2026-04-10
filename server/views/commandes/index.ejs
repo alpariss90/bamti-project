@@ -1,0 +1,278 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des Commandes</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire -->
+      <form id="commandeForm" action="/commandes/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="commandeId">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-3">
+          <label for="id_client" class="form-label">Client</label>
+          <select class="form-control" id="id_client" name="id_client" required>
+            <option value="">-- Sélectionner un client --</option>
+            <% if (clients) { %>
+              <% clients.forEach(client => { %>
+                <option value="<%= client.id %>"><%= client.nom %> <%= client.prenom %></option>
+              <% }) %>
+            <% } %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label for="quantite" class="form-label">Quantité</label>
+          <input type="number" class="form-control" id="quantite" name="quantite" min="1" value="1" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="quantite" class="form-label">Prix unitaire</label>
+          <input type="number" class="form-control" id="quantite" name="prix_unitaire" min="1" value="350" required>
+        </div>
+
+
+        <div class="col-md-2">
+          <label for="date_commande" class="form-label">Date Commande</label>
+          <input type="date" class="form-control" id="date_commande" name="date_commande"  required>
+        </div>
+     <!--   
+        <div class="col-md-2">
+          <label for="statut" class="form-label">Statut</label>
+          <select class="form-control" id="statut" name="statut" required>
+            <option value="en attente">En attente</option>
+            <option value="livrée">Livrée</option>
+            <option value="annulée">Annulée</option>
+          </select>
+        </div>
+        -->
+        <div class="col-md-3 d-flex justify-content-end gap-2">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <% if (message) { %>
+    <div class="container-fluid p-0">
+      <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+        <%= message.text %>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- Liste des commandes -->
+  <div id="commandeListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste des commandes</h5>
+
+    <% if (commandes && commandes.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-0">
+          <!--  <input type="text" id="filterCommandeInput" class="form-control form-control-sm w-auto" placeholder="Filtrer ..."> -->
+        </div>
+
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Client</th>
+              <th>Quantité</th>
+              <th>Statut</th>
+              <th>Date</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% commandes.forEach((commande, index) => { %>
+              <tr>
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= commande.Client ? commande.Client.nom + ' ' + commande.Client.prenom : '-' %></td>
+                <td><%= commande.quantite %></td>
+                <td>
+                  <% if (commande.statut === 'en attente') { %>
+                    <span class="badge bg-warning text-dark">En attente</span>
+                  <% } else if (commande.statut === 'livrée') { %>
+                    <span class="badge bg-success">Livrée</span>
+                  <% } else { %>
+                    <span class="badge bg-danger">Annulée</span>
+                  <% } %>
+                </td>
+                <td><%= commande.date_commande.toLocaleDateString() %></td>
+                <td class="text-end">
+                   <% if (commande.statut === 'en attente') { %>
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                      Actions
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <a class="dropdown-item text-warning" href="#" onclick='showSnackbarvalider(<%= commande.id %>, "<%= commande.Client ? commande.Client.nom : "" %>")'>
+                          <i class="bi bi-pencil"></i> Valider
+                        </a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item text-danger" href="#" onclick='showSnackbar(<%= commande.id %>, "<%= commande.Client ? commande.Client.nom : "" %>")'>
+                          <i class="bi bi-trash"></i> Supprimer
+                        </a>
+                      </li>
+                    </ul>
+                  </div>  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucune commande enregistrée.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Snackbar de suppression -->
+<div id="snackbar" class="snackbar shadow">
+  <span id="snackbar-message">Confirmer la suppression ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
+  </form>
+</div>
+
+<!-- Snackbar de validation -->
+<div id="snackbarv" class="snackbar shadow">
+  <span id="snackbar-messagev">Confirmer la validation ?</span>
+  <form id="snackbarFormv" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-success btn-sm ms-3">Oui, valider</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
+  </form>
+</div>
+
+<!-- Snackbar styles -->
+<style>
+  .snackbar {
+    visibility: hidden;
+    min-width: 320px;
+    max-width: 90%;
+    background-color: #323232;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s;
+  }
+
+  .snackbar.show {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+<!-- Scripts -->
+<script>
+  const commandeForm = document.getElementById('commandeForm');
+  const commandeIdInput = document.getElementById('commandeId');
+  const clientInput = document.getElementById('id_client');
+  const quantiteInput = document.getElementById('quantite');
+  const statutInput = document.getElementById('statut');
+  const submitText = document.getElementById('submitText');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const formStatus = document.getElementById('formStatus');
+  const commandeListContainer = document.getElementById('commandeListContainer');
+
+  function editCommande(commande) {
+    commandeIdInput.value = commande.id;
+    clientInput.value = commande.id_client;
+    quantiteInput.value = commande.quantite;
+    statutInput.value = commande.statut;
+    submitText.textContent = 'Modifier';
+
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${commande.Client ? commande.Client.nom : ""}</strong>
+      </div>
+    `;
+
+    commandeListContainer.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelBtn.addEventListener('click', () => {
+    commandeForm.reset();
+    commandeIdInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    commandeListContainer.style.display = '';
+  });
+
+  // Auto-hide flash messages
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) setTimeout(() => alert.style.display = 'none', 3000);
+  });
+
+  // Snackbar logic
+  const snackbar = document.getElementById('snackbar');
+  const snackbarMessage = document.getElementById('snackbar-message');
+  const snackbarForm = document.getElementById('snackbarForm');
+
+   const snackbarv = document.getElementById('snackbarv');
+  const snackbarMessagev = document.getElementById('snackbar-messagev');
+  const snackbarFormv = document.getElementById('snackbarFormv');
+
+  function showSnackbar(id, clientName) {
+    snackbarMessage.innerHTML = `Supprimer la commande du client "<strong>${clientName}</strong>" ?`;
+    snackbarForm.action = `/commandes/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+
+  function showSnackbarvalider(id, clientName) {
+    snackbarMessagev.innerHTML = `Valider la commande du client "<strong>${clientName}</strong>" ?`;
+    snackbarFormv.action = `/commandes/valider/${id}`;
+    snackbarv.classList.add('show');
+  }
+
+  function hideSnackbar() {
+    snackbar.classList.remove('show');
+  }
+
+  // Filtre de table
+  document.addEventListener('DOMContentLoaded', () => {
+    const filterInput = document.getElementById('filterCommandeInput');
+    const table = document.querySelector('#commandeListContainer table');
+    if (!filterInput || !table) return;
+
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    filterInput.addEventListener('input', () => {
+      const filterValue = filterInput.value.toLowerCase();
+      rows.forEach(row => {
+        const clientCell = row.querySelector('td:nth-child(2)');
+        const statutCell = row.querySelector('td:nth-child(4)');
+        const clientText = clientCell ? clientCell.textContent.toLowerCase() : '';
+        const statutText = statutCell ? statutCell.textContent.toLowerCase() : '';
+        row.style.display = (clientText.includes(filterValue) || statutText.includes(filterValue)) ? '' : 'none';
+      });
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>

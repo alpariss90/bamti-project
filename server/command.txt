@@ -1,0 +1,39 @@
+hash 1234 $2b$10$tpbacV4alRlWA21xiyYvoubQMc5n2Bo5r78awlJ/YTyI1rkKLb9z2
+
+
+insert into salaires (id_personnel , mois, annee, montant_salaire, montant_credit, montant_gratification,createdAt, updatedAt)  
+SELECT
+p.id, :m as mois, :a as annee,  m.salaire, 0, 0, :c as createdat, :u as updetedat
+FROM
+personnels p join montant_personnel m on m.id_personnel=p.id where p.etat=1
+
+
+create view vpersonnel_avance as SELECT id_personnel, mois, annee, type, sum(montant) as montant FROM `personnel_avances` group by id_personnel, mois, annee, type
+
+
+update salaires s join vpersonnel_avance vp on vp.id_personnel=s.id_personnel set s.montant_credit=vp.montant where vp.type='credit'
+update salaires s join vpersonnel_avance vp on vp.id_personnel=s.id_personnel set s.montant_gratification=vp.montant where vp.type='gratification'
+
+
+create view vsalaires as SELECT
+s.id, s.id_personnel, p.nom, p.prenom, p.telephone, s.mois, s.annee, s.montant_salaire, s.montant_credit, s.montant_gratification, (s.montant_salaire + s.montant_credit + s.montant_gratification) as montant_reçu, ss.ms, ss.mc, ss.mg, ss.mr
+FROM
+salaires s
+JOIN
+(select ss.mois, ss.annee, sum(ss.montant_salaire) as ms, sum(ss.montant_credit) as mc, sum(ss.montant_gratification) as mg, sum(ss.montant_salaire + ss.montant_credit + ss.montant_gratification) as mr from salaires ss group by ss.mois, ss.annee) ss
+on s.mois=ss.mois and s.annee=ss.annee
+join (select * from personnels) p on p.id=s.id_personnel 
+
+
+db online password Mz2~ip3&WgMloha9
+
+
+
+header
+vente (contrl, route, modekl)
+ALTER TABLE ventes ADD COLUMN user INT NULL;
+UPDATE ventes SET user = 1;
+ALTER TABLE ventes MODIFY COLUMN user INT NOT NULL;
+ajout vente/caissier
+modif vente/index
+modif vente/filtre

@@ -1,0 +1,7 @@
+{
+  "name": "bamti-revendeur",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}

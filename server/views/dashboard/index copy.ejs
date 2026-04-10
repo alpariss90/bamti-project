@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= pageTitle %> - BAMTI</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Date Range Picker -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+    
+    <style>
+        :root {
+            --bamti-blue: #1E3A8A;
+            --bamti-light-blue: #3B82F6;
+            --bamti-green: #10B981;
+            --bamti-dark-green: #059669;
+            --bamti-red: #EF4444;
+            --bamti-orange: #F59E0B;
+            --bamti-purple: #8B5CF6;
+            --bamti-gray: #6B7280;
+            --bamti-light-gray: #F3F4F6;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            background-color: var(--bamti-blue);
+            color: white;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 70px;
+            padding-top: 20px;
+            box-shadow: 3px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: width 0.3s;
+        }
+        
+        .sidebar:hover {
+            width: 250px;
+        }
+        
+        .sidebar:hover .logo-text,
+        .sidebar:hover .nav-text {
+            display: inline;
+        }
+        
+        .logo-container {
+            text-align: center;
+            padding: 20px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--bamti-light-blue), var(--bamti-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .sidebar-nav {
+            padding-left: 0;
+        }
+        
+        .sidebar-nav li {
+            list-style: none;
+            margin-bottom: 5px;
+        }
+        
+        .sidebar-nav a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            border-radius: 5px;
+            transition: all 0.3s;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .sidebar-nav i {
+            width: 25px;
+            text-align: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: 70px;
+            padding: 15px;
+            transition: margin-left 0.3s;
+        }
+        
+        .sidebar:hover ~ .main-content {
+            margin-left: 250px;
+        }
+        
+        .header {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--bamti-blue);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .date-filter {
+            max-width: 250px;
+        }
+        
+        .stats-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            border-left: 4px solid var(--bamti-blue);
+            height: 100%;
+            min-height: 140px;
+        }
+        
+        .stats-card.sales {
+            border-left-color: var(--bamti-green);
+        }
+        
+        .stats-card.expenses {
+            border-left-color: var(--bamti-red);
+        }
+        
+        .stats-card.salaries {
+            border-left-color: var(--bamti-orange);
+        }
+        
+        .stats-card.caisse {
+            border-left-color: var(--bamti-purple);
+        }
+        
+        .stats-card.credit {
+            border-left-color: var(--bamti-blue);
+        }
+        
+        .stats-card.clients {
+            border-left-color: var(--bamti-light-blue);
+        }
+        
+        .stats-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+        }
+        
+        .stats-icon.sales {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--bamti-green);
+        }
+        
+        .stats-icon.expenses {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--bamti-red);
+        }
+        
+        .stats-icon.salaries {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--bamti-orange);
+        }
+        
+        .stats-icon.clients {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--bamti-light-blue);
+        }
+        
+        .stats-icon.caisse {
+            background-color: rgba(139, 92, 246, 0.1);
+            color: var(--bamti-purple);
+        }
+        
+        .stats-icon.credit {
+            background-color: rgba(30, 58, 138, 0.1);
+            color: var(--bamti-blue);
+        }
+        
+        .stats-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        
+        .stats-label {
+            color: var(--bamti-gray);
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .stats-change {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .stats-change.positive {
+            color: var(--bamti-green);
+        }
+        
+        .stats-change.negative {
+            color: var(--bamti-red);
+        }
+        
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            height: 320px;
+        }
+        
+        .full-width-chart {
+            height: 320px;
+        }
+        
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--bamti-blue);
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .comparison-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            height: 100%;
+        }
+        
+        .table-responsive {
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        
+        .table thead th {
+            background-color: var(--bamti-blue);
+            color: white;
+            border: none;
+            font-size: 0.9rem;
+            padding: 10px 15px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        
+        .dashboard-section {
+            margin-bottom: 25px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--bamti-blue);
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid rgba(30, 58, 138, 0.1);
+        }
+        
+        .alert {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .alert i {
+            font-size: 1.2rem;
+        }
+        
+        .filter-controls {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+        }
+        
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .btn-logout {
+            background-color: var(--bamti-red);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-logout:hover {
+            background-color: #dc2626;
+            transform: translateY(-2px);
+        }
+        
+        /* Ajustements pour les petits écrans */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 10px;
+            }
+            
+            .sidebar {
+                width: 0;
+                overflow: hidden;
+            }
+            
+            .sidebar:hover {
+                width: 250px;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .date-filter {
+                max-width: 100%;
+                margin-top: 10px;
+            }
+            
+            .chart-container {
+                height: 280px;
+            }
+            
+            .full-width-chart {
+                height: 280px;
+            }
+            
+            .user-info {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+        
+        /* Améliorations pour la lisibilité */
+        .compact-row {
+            margin-bottom: -10px;
+        }
+        
+        .compact-row > div {
+            margin-bottom: 10px;
+        }
+        
+        /* Ajustement pour 6 cartes */
+        @media (min-width: 1400px) {
+            .col-xl-2 {
+                flex: 0 0 auto;
+                width: 16.66666667%;
+            }
+        }
+        
+        @media (min-width: 1200px) and (max-width: 1399px) {
+            .col-xl-2 {
+                flex: 0 0 auto;
+                width: 20%;
+            }
+        }
+        
+        @media (min-width: 992px) and (max-width: 1199px) {
+            .col-lg-3 {
+                flex: 0 0 auto;
+                width: 25%;
+            }
+        }
+        
+        @media (max-width: 991px) {
+            .col-md-6 {
+                flex: 0 0 auto;
+                width: 50%;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .col-12 {
+                flex: 0 0 auto;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo-container">
+            <div class="logo">BAM.TI</div>
+            <div class="logo-text" style="display: none;">Tableau de Bord</div>
+        </div>
+        
+        <ul class="sidebar-nav">
+            <li><a href="#" class="active"><i class="fas fa-tachometer-alt"></i> <span class="nav-text" style="display: none;">Tableau de Bord</span></a></li>
+            <li><a href="#"><i class="fas fa-chart-line"></i> <span class="nav-text" style="display: none;">Analytique</span></a></li>
+            <li><a href="#"><i class="fas fa-users"></i> <span class="nav-text" style="display: none;">Clients</span></a></li>
+            <li><a href="#"><i class="fas fa-shopping-cart"></i> <span class="nav-text" style="display: none;">Ventes</span></a></li>
+            <li><a href="#"><i class="fas fa-money-bill-wave"></i> <span class="nav-text" style="display: none;">Dépenses</span></a></li>
+            <li><a href="#"><i class="fas fa-boxes"></i> <span class="nav-text" style="display: none;">Stock</span></a></li>
+            <li><a href="#"><i class="fas fa-user-tie"></i> <span class="nav-text" style="display: none;">Personnel</span></a></li>
+            <li><a href="#"><i class="fas fa-cog"></i> <span class="nav-text" style="display: none;">Paramètres</span></a></li>
+        </ul>
+        
+        <div style="position: absolute; bottom: 15px; width: 100%; padding: 0 15px; overflow: hidden; white-space: nowrap;">
+            <div class="text-center">
+                <small style="display: none;">Version 1.0</small><br>
+                <small style="display: none;">© 2023 BAMTI</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h1 class="h4 mb-1">Tableau de Bord Direction</h1>
+                <p class="text-muted mb-0" style="font-size: 0.9rem;">Vue d'ensemble des activités de BAMTI</p>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <div class="date-filter">
+                    <input type="text" class="form-control form-control-sm" id="dateRange" 
+                           value="<%= new Date().getDate().toString().padStart(2, '0') %>/<%= (new Date().getMonth() + 1).toString().padStart(2, '0') %>/<%= new Date().getFullYear() %>">
+                </div>
+                
+                <div class="user-info">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="user-avatar">
+                            <% if (user && user.prenom && user.nom) { %>
+                                <%= user.prenom.charAt(0) %><%= user.nom.charAt(0) %>
+                            <% } else { %>
+                                AD
+                            <% } %>
+                        </div>
+                        <div class="d-none d-md-block">
+                            <div class="fw-bold" style="font-size: 0.9rem;">
+                                <% if (user) { %>
+                                    <%= user.prenom %> <%= user.nom %>
+                                <% } else { %>
+                                    Admin BAMTI
+                                <% } %>
+                            </div>
+                            <div class="text-muted" style="font-size: 0.8rem;">
+                                <% if (user && user.role) { %>
+                                    <%= user.role %>
+                                <% } else { %>
+                                    Administrateur
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="/logout" class="btn-logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span class="d-none d-md-inline">Déconnexion</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Flash -->
+        <% if (message) { %>
+            <div class="alert alert-<%= message.type %> alert-dismissible fade show" role="alert">
+                <%= message.text %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <% } %>
+
+        <!-- Statistiques Rapides -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Aperçu Général</h2>
+            <div class="row compact-row">
+                <!-- Chiffre d'Affaires -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card sales">
+                        <div class="stats-icon sales">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stats-value" id="total-sales">
+                            <%= (situationGeneral.totalVente || 0).toLocaleString('fr-FR') %>
+                        </div>
+                        <div class="stats-label">Chiffre d'Affaires Total</div>
+                        <div class="stats-change positive">
+                            <i class="fas fa-chart-line"></i> Total général
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dépenses -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card expenses">
+                        <div class="stats-icon expenses">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div class="stats-value" id="total-expenses">
+                            <%= (situationGeneral.totalDepense || 0).toLocaleString('fr-FR') %>
+                        </div>
+                        <div class="stats-label">Dépenses Totales</div>
+                        <div class="stats-change negative">
+                            <i class="fas fa-chart-line"></i> Total général
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Salaires -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card salaries">
+                        <div class="stats-icon salaries">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stats-value" id="total-salaries">
+                            <%= (situationGeneral.totalSalaire || 0).toLocaleString('fr-FR') %>
+                        </div>
+                        <div class="stats-label">Salaires du Personnel</div>
+                        <div class="stats-change negative">
+                            <i class="fas fa-chart-line"></i> Total général
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Caisse -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card caisse">
+                        <div class="stats-icon caisse">
+                            <i class="fas fa-cash-register"></i>
+                        </div>
+                        <div class="stats-value" id="caisse-montant">
+                            <%= (situationGeneral.montantCaisse || 0).toLocaleString('fr-FR') %>
+                        </div>
+                        <div class="stats-label">Montant en Caisse</div>
+                        <div class="stats-change positive">
+                            <i class="fas fa-chart-line"></i> Disponible
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Crédit -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card credit">
+                        <div class="stats-icon credit">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+                        <div class="stats-value" id="credit-montant">
+                            <%= (situationGeneral.montantCredit || 0).toLocaleString('fr-FR') %>
+                        </div>
+                        <div class="stats-label">Montant Crédit Clients</div>
+                        <div class="stats-change negative">
+                            <i class="fas fa-chart-line"></i> En attente
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Clients Actifs -->
+                <div class="col-xl-2 col-lg-4 col-md-6">
+                    <div class="stats-card clients">
+                        <div class="stats-icon clients">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stats-value" id="active-clients">
+                            <%= (totalClients || 0).toLocaleString('fr-FR') %>
+                        </div>
+                        <div class="stats-label">Clients Actifs</div>
+                        <div class="stats-change positive">
+                            <i class="fas fa-chart-line"></i> Total clients
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphiques Principaux -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Évolution des Ventes et Dépenses</h2>
+            
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="chart-container">
+                        <div class="chart-title">Ventes vs Dépenses (Mensuel)</div>
+                        <canvas id="salesExpensesChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-container">
+                        <div class="chart-title">Répartition des Dépenses</div>
+                        <canvas id="expensesPieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphique Journalier -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Ventes vs Dépenses (Journalier)</h2>
+            
+            <div class="filter-controls">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="yearSelect" class="form-label">Année</label>
+                        <select class="form-select" id="yearSelect">
+                            <option value="2025" <%= currentYear == 2025 ? 'selected' : '' %>>2025</option>
+                            <option value="2026" <%= currentYear == 2026 ? 'selected' : '' %>>2026</option>
+
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="monthSelect" class="form-label">Mois</label>
+                        <select class="form-select" id="monthSelect">
+                            <option value="1" <%= currentMonth == 1 ? 'selected' : '' %>>Janvier</option>
+                            <option value="2" <%= currentMonth == 2 ? 'selected' : '' %>>Février</option>
+                            <option value="3" <%= currentMonth == 3 ? 'selected' : '' %>>Mars</option>
+                            <option value="4" <%= currentMonth == 4 ? 'selected' : '' %>>Avril</option>
+                            <option value="5" <%= currentMonth == 5 ? 'selected' : '' %>>Mai</option>
+                            <option value="6" <%= currentMonth == 6 ? 'selected' : '' %>>Juin</option>
+                            <option value="7" <%= currentMonth == 7 ? 'selected' : '' %>>Juillet</option>
+                            <option value="8" <%= currentMonth == 8 ? 'selected' : '' %>>Août</option>
+                            <option value="9" <%= currentMonth == 9 ? 'selected' : '' %>>Septembre</option>
+                            <option value="10" <%= currentMonth == 10 ? 'selected' : '' %>>Octobre</option>
+                            <option value="11" <%= currentMonth == 11 ? 'selected' : '' %>>Novembre</option>
+                            <option value="12" <%= currentMonth == 12 ? 'selected' : '' %>>Décembre</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn btn-primary" id="updateDailyChart">
+                            <i class="fas fa-sync-alt me-2"></i>Actualiser
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container full-width-chart">
+                        <div class="chart-title" id="dailyChartTitle">
+                            Ventes vs Dépenses Journalières - 
+                            <% 
+                                const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+                                                   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+                            %>
+                            <%= monthNames[currentMonth - 1] %> <%= currentYear %>
+                        </div>
+                        <canvas id="dailySalesExpensesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableaux de Données -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Données Détail</h2>
+            
+            <div class="row compact-row">
+                <div class="col-lg-6">
+                    <div class="comparison-card">
+                        <h6 class="mb-3">Top 5 Clients</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Client</th>
+                                        <th>Montant</th>
+                                        <th>Date</th>
+                                        <th>Contact</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="topClientsTable">
+                                    <% if (topVentes && topVentes.length > 0) { %>
+                                        <% topVentes.forEach(vente => { %>
+                                            <tr>
+                                                <td>
+                                                    <strong><%= vente.Client ? vente.Client.nom + ' ' + vente.Client.prenom : 'Client inconnu' %></strong>
+                                                </td>
+                                                <td><%= (vente.montant || 0).toLocaleString('fr-FR') %> FCFA</td>
+                                                <td><%= vente.date_vente ? new Date(vente.date_vente).toLocaleDateString('fr-FR') : '' %></td>
+                                                <td><%= vente.Client ? vente.Client.telephone : '' %></td>
+                                            </tr>
+                                        <% }); %>
+                                    <% } else { %>
+                                        <tr>
+                                            <td colspan="4" class="text-center">Aucune vente trouvée</td>
+                                        </tr>
+                                    <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="comparison-card">
+                        <h6 class="mb-3">Dépenses par Catégorie</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Catégorie</th>
+                                        <th>Montant</th>
+                                        <th>% du Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expensesTable">
+                                    <% if (depensesParCategorie && depensesParCategorie.length > 0) { %>
+                                        <% depensesParCategorie.forEach(depense => { %>
+                                            <tr>
+                                                <td><strong><%= depense.type_depense %></strong></td>
+                                                <td><%= (parseFloat(depense.total_depenses) || 0).toLocaleString('fr-FR') %> FCFA</td>
+                                                <td><%= (parseFloat(depense.pourcentage) || 0).toFixed(1) %>%</td>
+                                            </tr>
+                                        <% }); %>
+                                    <% } else { %>
+                                        <tr>
+                                            <td colspan="3" class="text-center">Aucune dépense trouvée</td>
+                                        </tr>
+                                    <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphique Ventes par Catégorie de Client -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Ventes par Type de Client</h2>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="chart-container full-width-chart">
+                        <div class="chart-title">Répartition des Ventes par Type de Client</div>
+                        <canvas id="salesByClientChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertes et Notifications -->
+        <div class="dashboard-section">
+            <h2 class="section-title">Alertes et Points d'Attention</h2>
+            
+            <div class="row compact-row">
+                <div class="col-md-4">
+                    <div class="alert alert-warning d-flex align-items-center p-3">
+                        <i class="fas fa-exclamation-triangle fa-lg me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1" style="font-size: 0.9rem;">Crédit Clients</h6>
+                            <p class="mb-0" style="font-size: 0.85rem;">
+                                <%= (situationGeneral.montantCredit || 0).toLocaleString('fr-FR') %> FCFA en attente
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-info d-flex align-items-center p-3">
+                        <i class="fas fa-chart-line fa-lg me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1" style="font-size: 0.9rem;">Performance</h6>
+                            <p class="mb-0" style="font-size: 0.85rem;">
+                                Chiffre d'affaires: <%= (situationGeneral.totalVente || 0).toLocaleString('fr-FR') %> FCFA
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-success d-flex align-items-center p-3">
+                        <i class="fas fa-trophy fa-lg me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1" style="font-size: 0.9rem;">Clients Actifs</h6>
+                            <p class="mb-0" style="font-size: 0.85rem;">
+                                <%= totalClients %> clients enregistrés
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery and Date Range Picker -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+
+    <script>
+        // Données injectées depuis EJS
+        const dashboardData = {
+            monthlyData: {
+                labels: <%= JSON.stringify(moisLabels) %>,
+                sales: <%= JSON.stringify(ventesMensuelles) %>,
+                expenses: <%= JSON.stringify(depensesMensuelles) %>
+            },
+            dailyData: {
+                labels: <%= JSON.stringify(joursLabels) %>,
+                sales: <%= JSON.stringify(ventesJournalieres) %>,
+                expenses: <%= JSON.stringify(depensesJournalieres) %>
+            },
+            expensesByCategory: {
+                labels: <%= JSON.stringify(depensesParCategorie ? depensesParCategorie.map(d => d.type_depense) : []) %>,
+                data: <%= JSON.stringify(depensesParCategorie ? depensesParCategorie.map(d => parseFloat(d.total_depenses) || 0) : []) %>,
+                colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4']
+            },
+            salesByClientType: {
+                labels: <%= JSON.stringify(ventesParTypeClient ? ventesParTypeClient.map(v => v.type_vente) : []) %>,
+                data: <%= JSON.stringify(ventesParTypeClient ? ventesParTypeClient.map(v => parseFloat(v.pourcentage) || 0) : []) %>,
+                colors: ['#1E3A8A', '#3B82F6', '#10B981', '#F59E0B', '#6B7280']
+            }
+        };
+
+        // Initialisation des graphiques
+        let salesExpensesChart, expensesPieChart, dailySalesExpensesChart, salesByClientChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser le sélecteur de date
+            $('#dateRange').daterangepicker({
+                opens: 'left',
+                locale: {
+                    format: 'DD/MM/YYYY',
+                    applyLabel: 'Appliquer',
+                    cancelLabel: 'Annuler',
+                    daysOfWeek: ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa'],
+                    monthNames: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'],
+                    firstDay: 1
+                },
+                drops: 'down'
+            });
+
+            // Gestionnaire pour le bouton d'actualisation du graphique journalier
+            document.getElementById('updateDailyChart').addEventListener('click', function() {
+                updateDailyChart();
+            });
+
+            // Initialiser les graphiques
+            initSalesExpensesChart();
+            initExpensesPieChart();
+            initDailySalesExpensesChart();
+            initSalesByClientChart();
+        });
+
+        function initSalesExpensesChart() {
+            const ctx = document.getElementById('salesExpensesChart').getContext('2d');
+            salesExpensesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dashboardData.monthlyData.labels,
+                    datasets: [
+                        {
+                            label: 'Ventes',
+                            data: dashboardData.monthlyData.sales,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Dépenses',
+                            data: dashboardData.monthlyData.expenses,
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)} FCFA`;
+                                }
+                            },
+                            titleFont: {
+                                size: 11
+                            },
+                            bodyFont: {
+                                size: 11
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value/1000).toFixed(0) + 'K';
+                                    return value;
+                                },
+                                font: {
+                                    size: 10
+                                },
+                                maxTicksLimit: 6
+                            },
+                            grid: {
+                                drawBorder: false
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                maxRotation: 0
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initExpensesPieChart() {
+            const ctx = document.getElementById('expensesPieChart').getContext('2d');
+            expensesPieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: dashboardData.expensesByCategory.labels,
+                    datasets: [{
+                        data: dashboardData.expensesByCategory.data,
+                        backgroundColor: dashboardData.expensesByCategory.colors,
+                        borderWidth: 1.5,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 10,
+                                font: {
+                                    size: 10
+                                },
+                                boxWidth: 12,
+                                boxHeight: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${formatCurrency(value)} FCFA (${percentage}%)`;
+                                }
+                            },
+                            titleFont: {
+                                size: 11
+                            },
+                            bodyFont: {
+                                size: 11
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initDailySalesExpensesChart() {
+            const ctx = document.getElementById('dailySalesExpensesChart').getContext('2d');
+            dailySalesExpensesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dashboardData.dailyData.labels,
+                    datasets: [
+                        {
+                            label: 'Ventes Journalières',
+                            data: dashboardData.dailyData.sales,
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: '#10B981',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Dépenses Journalières',
+                            data: dashboardData.dailyData.expenses,
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                            borderColor: '#EF4444',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)} FCFA`;
+                                }
+                            },
+                            titleFont: {
+                                size: 11
+                            },
+                            bodyFont: {
+                                size: 11
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value/1000).toFixed(0) + 'K';
+                                    return value;
+                                },
+                                font: {
+                                    size: 10
+                                },
+                                maxTicksLimit: 6
+                            },
+                            grid: {
+                                drawBorder: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Montant (FCFA)',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 9
+                                },
+                                maxRotation: 0
+                            },
+                            grid: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Jours du mois',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initSalesByClientChart() {
+            const ctx = document.getElementById('salesByClientChart').getContext('2d');
+            salesByClientChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dashboardData.salesByClientType.labels,
+                    datasets: [{
+                        label: 'Pourcentage des ventes',
+                        data: dashboardData.salesByClientType.data,
+                        backgroundColor: dashboardData.salesByClientType.colors,
+                        borderColor: '#1E3A8A',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}% des ventes`;
+                                }
+                            },
+                            titleFont: {
+                                size: 11
+                            },
+                            bodyFont: {
+                                size: 11
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                font: {
+                                    size: 10
+                                },
+                                maxTicksLimit: 6
+                            },
+                            grid: {
+                                drawBorder: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Pourcentage des ventes',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 10
+                                },
+                                maxRotation: 45
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function updateDailyChart() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+            console.log(year+"-"+month);
+            
+            try {
+                const response = await fetch(`/dashboard/api/daily-data/${year}/${month}`);
+                const data = await response.json();
+                console.log(data);
+                
+                if (data.success) {
+                    // Mettre à jour les données du graphique
+                    dailySalesExpensesChart.data.labels = data.jours;
+                    dailySalesExpensesChart.data.datasets[0].data = data.ventes;
+                    dailySalesExpensesChart.data.datasets[1].data = data.depenses;
+                    dailySalesExpensesChart.update();
+                    
+                    // Mettre à jour le titre
+                    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+                                       "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+                    const monthName = monthNames[parseInt(month) - 1];
+                    document.getElementById('dailyChartTitle').textContent = 
+                        `Ventes vs Dépenses Journalières - ${monthName} ${year}`;
+                    
+                    console.log(`Graphique mis à jour pour ${month}/${year}`);
+                }
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour du graphique:', error);
+                alert('Erreur lors de la mise à jour des données');
+            }
+        }
+
+        // Fonctions utilitaires
+        function formatCurrency(amount) {
+            if (amount >= 1000000) {
+                return (amount/1000000).toFixed(1) + 'M';
+            }
+            if (amount >= 1000) {
+                return (amount/1000).toFixed(0) + 'K';
+            }
+            return amount.toLocaleString('fr-FR');
+        }
+    </script>
+</body>
+</html>

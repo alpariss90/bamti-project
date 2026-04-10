@@ -1,0 +1,189 @@
+<%- include('../partials/header', { title: pageTitle }) %>
+
+<div class="container-fluid no-margin-top">
+
+  <!-- Carte principale -->
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center"><i class="bi bi-cash-coin me-2"></i>Gestion des salaires du personnel</h4>
+    </div>
+
+    <div class="card-body">
+
+      <!-- Message flash -->
+      <% if (message) { %>
+        <div class="alert alert-<%= message.type %> w-75 mb-3" id="myAlert" role="alert">
+          <%= message.text %>
+        </div>
+      <% } %>
+
+      <!-- Tableau des personnels -->
+      <div class="table-wrapper shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-2">
+         <!-- <input type="text" id="searchInput" class="form-control form-control-sm w-auto" placeholder="Rechercher ..."> -->
+        </div>
+
+        <table id="dtable" class="table table-hover align-middle table-bordered">
+          <thead class="table-secondary position-sticky top-0">
+            <tr>
+              <th>#</th>
+              <th>Nom</th>
+              <th>Prénom</th>
+              <th>Téléphone</th>
+              <th>Salaire actuel</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (personnels.length === 0) { %>
+              <tr>
+                <td colspan="6" class="text-center text-muted">Aucun personnel trouvé.</td>
+              </tr>
+            <% } else { %>
+              <% personnels.forEach((p, i) => { %>
+                <tr>
+                  <th scope="row"><%= i + 1 %></th>
+                  <td><%= p.nom %></td>
+                  <td><%= p.prenom %></td>
+                  <td><%= p.telephone || '-' %></td>
+                  <td>
+                    <% if (p.MontantPersonnel && p.MontantPersonnel.salaire) { %>
+                      <span class="badge bg-success"><%= new Intl.NumberFormat('fr-FR').format(p.MontantPersonnel.salaire) %> FCFA</span>
+                    <% } else { %>
+                      <span class="text-danger fst-italic">Non défini</span>
+                    <% } %>
+                  </td>
+                  <td class="text-end">
+                    <% if (!p.MontantPersonnel || !p.MontantPersonnel.salaire) { %>
+                      <!-- Bouton pour définir un nouveau salaire -->
+                      <button 
+                        class="btn btn-warning btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalSalaire"
+                        data-id="<%= p.id %>"
+                        data-nom="<%= p.nom %>"
+                        data-prenom="<%= p.prenom %>"
+                        data-salaire="">
+                        <i class="bi bi-pencil-square"></i> Définir
+                      </button>
+                    <% } else { %>
+                      <!-- Bouton pour modifier un salaire existant -->
+                      <button 
+                        class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalSalaire"
+                        data-id="<%= p.id %>"
+                        data-nom="<%= p.nom %>"
+                        data-prenom="<%= p.prenom %>"
+                        data-salaire="<%= p.MontantPersonnel.salaire %>">
+                        <i class="bi bi-pencil"></i> Modifier
+                      </button>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODALE DE DÉFINITION / MODIFICATION DU SALAIRE -->
+  <div class="modal fade" id="modalSalaire" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form action="/montant_personnel/updateSalaire" method="POST" class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Définir le salaire du personnel</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="id_personnel" name="id_personnel">
+          <div class="mb-3">
+            <label for="nom_prenom" class="form-label">Personnel</label>
+            <input type="text" id="nom_prenom" class="form-control" readonly>
+          </div>
+
+          <div class="mb-3">
+            <label for="salaire" class="form-label">Salaire (FCFA)</label>
+            <input type="number" step="0.01" min="0" class="form-control" id="salaire" name="salaire" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-save"></i> Enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<!-- JS Interactif -->
+<script>
+  const modalSalaire = document.getElementById('modalSalaire');
+  modalSalaire.addEventListener('show.bs.modal', event => {
+    const button = event.relatedTarget;
+    const id = button.getAttribute('data-id');
+    const nom = button.getAttribute('data-nom');
+    const prenom = button.getAttribute('data-prenom');
+    const salaire = button.getAttribute('data-salaire');
+
+    modalSalaire.querySelector('#id_personnel').value = id;
+    modalSalaire.querySelector('#nom_prenom').value = `${nom} ${prenom}`;
+    modalSalaire.querySelector('#salaire').value = salaire || '';
+
+    // Change le titre selon si on modifie ou définit un salaire
+    const modalTitle = modalSalaire.querySelector('.modal-title');
+    modalTitle.textContent = salaire
+      ? 'Modifier le salaire du personnel'
+      : 'Définir le salaire du personnel';
+  });
+
+  // Recherche et pagination simple
+  document.addEventListener('DOMContentLoaded', () => {
+    const table = document.getElementById('personnelTable');
+    const searchInput = document.getElementById('searchInput');
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const rowsPerPage = 10;
+    let currentPage = 1;
+    let filteredRows = rows;
+
+    function renderTable() {
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      rows.forEach(r => r.style.display = 'none');
+      filteredRows.slice(start, end).forEach(r => r.style.display = '');
+    }
+
+    searchInput.addEventListener('input', () => {
+      const filterText = searchInput.value.toLowerCase();
+      filteredRows = rows.filter(r => {
+        const nom = r.cells[1].textContent.toLowerCase();
+        const prenom = r.cells[2].textContent.toLowerCase();
+        const telephone = r.cells[3].textContent.toLowerCase();
+        return nom.includes(filterText) || prenom.includes(filterText) || telephone.includes(filterText);
+      });
+      currentPage = 1;
+      renderTable();
+    });
+
+    renderTable();
+  });
+
+  // Auto-hide alert
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      const alert = document.getElementById('myAlert');
+      if (alert) alert.style.display = 'none';
+    }, 3000);
+  });
+</script>
+
+<%- include('../partials/footer') %>

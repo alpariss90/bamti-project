@@ -1,0 +1,167 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des salaires</h4>
+    </div>
+
+
+
+    <div class="card-body">
+      <!-- Formulaire de filtrage par mois et année -->
+      <form id="salaireForm" action="/salaire/execute" method="post" class="row g-2 align-items-end">
+
+        <!-- Mois -->
+        <div class="col-md-2">
+          <label for="mois" class="form-label">Mois</label>
+           <select class="form-select" name="mois" id="mois" required>
+           <!-- <% for(let m = 1; m <= 12; m++) { %>
+              <option value="<%= m %>" <%= selectedMois && parseInt(selectedMois) === m ? 'selected' : '' %>>
+                <%= m %>
+              </option> 
+            <% } %> -->
+           
+              <option value="1" <%= selectedMois && parseInt(selectedMois) === 1 ? 'selected' : '' %>>
+                JANVIER
+              </option>
+              <option value="2" <%= selectedMois && parseInt(selectedMois) === 2 ? 'selected' : '' %>>
+                FEVRIER
+              </option>
+              <option value="3" <%= selectedMois && parseInt(selectedMois) === 3 ? 'selected' : '' %>>
+                MARS
+              </option>
+              <option value="4" <%= selectedMois && parseInt(selectedMois) === 4 ? 'selected' : '' %>>
+                AVRIL
+              </option>
+              <option value="5" <%= selectedMois && parseInt(selectedMois) === 5 ? 'selected' : '' %>>
+                MAI
+              </option>
+              <option value="6" <%= selectedMois && parseInt(selectedMois) === 6 ? 'selected' : '' %>>
+                JUIN
+              </option>
+              <option value="7" <%= selectedMois && parseInt(selectedMois) === 7 ? 'selected' : '' %>>
+                JUILLET
+              </option>
+              <option value="8" <%= selectedMois && parseInt(selectedMois) === 8 ? 'selected' : '' %>>
+                AOUT
+              </option>
+              <option value="9" <%= selectedMois && parseInt(selectedMois) === 9 ? 'selected' : '' %>>
+                SEPTEMBRE
+              </option>
+              <option value="10" <%= selectedMois && parseInt(selectedMois) === 10 ? 'selected' : '' %>>
+                OCTOBRE
+              </option>
+              <option value="11" <%= selectedMois && parseInt(selectedMois) === 11 ? 'selected' : '' %>>
+                NOVEMBRE
+              </option>
+              <option value="12" <%= selectedMois && parseInt(selectedMois) === 12 ? 'selected' : '' %>>
+                DECEMBRE
+              </option>
+          </select>
+        </div>
+
+        <!-- Année -->
+        <div class="col-md-2">
+          <label for="annee" class="form-label">Année</label>
+          <select class="form-select" name="annee" id="annee" required>
+            
+            <% for(let y = 2025; y <= 2035; y++) { %>
+              <option value="<%= y %>" <%= selectedAnnee && parseInt(selectedAnnee) === y ? 'selected' : '' %>>
+                <%= y %>
+              </option>
+            <% } %>
+          </select>
+        </div>
+
+        <div class="col-md-2 d-flex justify-content-end gap-2">
+           <button type="submit" class="btn btn-success" value="execute" name="btn_salaire" onclick="return window.confirm('Etes vous sûre de vouloir preparer le salaire pour le mois et annee choisi.')">
+            <i class="bi bi-arrow-clockwise"></i> EFFECTUER SALAIRE
+          </button>
+        </div>
+
+        <div class="col-md-2 d-flex justify-content-end gap-2">
+           <button type="submit" class="btn btn-success" name="btn_salaire" value="recherche">
+            <i class="bi bi-arrow-clockwise"></i> RECHERCHE SALAIRE
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <% if (message) { %>
+    <div class="container-fluid p-0 mt-2">
+      <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+        <%= message.text %>
+      </div>
+    </div>
+  <% } %>
+
+  <div id="salaireListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste des salaires</h5>
+
+
+
+       <% if (salaires && salaires.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-2">
+       <!--   <input type="text" id="filterSalaireInput" class="form-control form-control-sm w-auto" placeholder="Filtrer par nom ..."> -->
+        </div>
+
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>mois</th>
+              <th>annee</th>
+              <th>Nom et Prénom</th>
+               <th>Telephone</th>
+              <th>Salaires</th>
+              <th>Total crédits</th>
+              <th>Total gratifications</th>
+              <th>Montant à payer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% salaires.forEach((s, i) => { %>
+              <tr>
+                <th scope="row"><%= i + 1 %></th>
+                <td><%= ["","JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"][s.mois] %></td>
+                <td><%= s.annee %></td>
+                <td><%= s.nom %> <%= s.prenom %></td>
+                <td><%= s.telephone %></td>
+                <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(s.montant_salaire)) %> FCFA</td>
+                <td><%= new Intl.NumberFormat('fr-FR').format(Math.abs(s.montant_credit)) %> FCFA</td>
+                <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(s.montant_gratification)) %> FCFA</td>
+                <td class="fw-bold text-primary"><%= new Intl.NumberFormat('fr-FR').format(parseInt(s.montant_reçu)) %> FCFA</td>
+              </tr>
+            <% }) %>
+
+
+            <tr class="table-secondary fw-bold">
+              <th colspan="5">Totaux généraux</th>
+              <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(salaires[0].ms))  %> FCFA</td>
+              <td><%= new Intl.NumberFormat('fr-FR').format(Math.abs(salaires[0].mc))  %> FCFA</td>
+              <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(salaires[0].mg))  %> FCFA</td>
+              <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(salaires[0].mr))  %> FCFA</td>
+            </tr>
+
+
+           
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun salaire trouvé pour ce mois.</div>
+    <% } %>
+  </div>
+
+
+
+
+</div>
+
+<%- include('../partials/footer') %>

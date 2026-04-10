@@ -1,0 +1,466 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des Tickets</h4>
+    </div>
+
+    <div class="card-body">
+      <% if (currentUser && currentUser.profil === 'admin') { %>
+      <!-- Formulaire -->
+      <form id="ticketForm" action="/tickets/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="ticketId">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-3">
+          <label for="id_client" class="form-label">Client</label>
+          <select class="form-control" id="id_client" name="id_client" required>
+            <option value="">-- Sélectionner un client --</option>
+            <% if (clients) { %>
+              <% clients.forEach(client => { %>
+                <option value="<%= client.id %>"><%= client.nom %> <%= client.prenom %></option>
+              <% }) %>
+            <% } %>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label for="quantite" class="form-label">Quantité</label>
+          <input type="number" class="form-control" id="quantite" name="quantite" min="1" value="1" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="nom_chauffeur" class="form-label">Nom chauffeur</label>
+          <input type="text" class="form-control" id="nom_chauffeur" name="nom_chauffeur"  required>
+        </div>
+
+
+        <div class="col-md-2">
+          <label for="marque_voiture" class="form-label">Marque voiture</label>
+          <input type="text" class="form-control" id="marque_voiture" name="marque_voiture"  required>
+        </div>
+     <!--   
+        <div class="col-md-2">
+          <label for="statut" class="form-label">Statut</label>
+          <select class="form-control" id="statut" name="statut" required>
+            <option value="en attente">En attente</option>
+            <option value="livrée">Livrée</option>
+            <option value="annulée">Annulée</option>
+          </select>
+        </div>
+        -->
+        <div class="col-md-3 d-flex justify-content-end gap-2">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Annuler
+          </button>
+        </div>
+      </form>
+
+      <% } %>
+    </div>
+  </div>
+
+  <% if (message) { %>
+    <div class="container-fluid p-0">
+      <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+        <%= message.text %>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- Liste des tickets -->
+  <div id="ticketListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste des tickets</h5>
+
+    <% if (tickets && tickets.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-0">
+          <!--  <input type="text" id="filterticketInput" class="form-control form-control-sm w-auto" placeholder="Filtrer ..."> -->
+        </div>
+
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Client</th>
+              <th>Quantité</th>
+              <th>Nom chaffeur</th>
+              <th>marque voiture</th>
+              <th>status</th>
+              <th>Date creation</th>
+              <th>Date livraison</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% tickets.forEach((ticket, index) => { %>
+              <% if (currentUser && ticket.statut != 'VENTE EFFECTUEE') { %>
+               <tr id="ticket-<%= ticket.id %>">
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= ticket.Client ? ticket.Client.nom + ' ' + ticket.Client.prenom : '-' %></td>
+                <td><%= ticket.quantite %></td>
+               
+               <td><%= ticket.nom_chauffeur %></td>
+               <td><%= ticket.marque_voiture %></td>
+                <td>
+                  <% if ( ticket.statut =='NON LIVRE') { %>
+                    <span class="badge bg-danger text-dark"><%=ticket.statut %></span>
+<% }%>
+                    <% if (ticket.statut !='NON LIVRE') { %>
+                    <span class="badge bg-success text-dark"><%=ticket.statut %></span>
+                    <% }%>
+                </td>
+                <td>  <%= new Date(ticket.createdAt).toLocaleDateString('fr-FR') %></td>
+                <td><%= ticket.date_livraison ? new Date(ticket.date_livraison).toLocaleDateString('fr-FR') : '' %></td>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                      Actions
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                          <% if (currentUser && currentUser.profil === 'caissier' && ticket.statut =='NON LIVRE') { %>
+                      <li>
+                        <a class="dropdown-item text-warning" href="#" onclick='showSnackbarvalider(<%= ticket.id %>, "<%= ticket.Client ? ticket.Client.nom : "" %>")'>
+                          <i class="bi bi-pencil"></i> Livré
+                        </a>
+                      </li>
+                          <% }%>
+                        <% if (currentUser && currentUser.profil === 'caissier' && ticket.statut != 'NON LIVRE') { %>
+                      <li>
+                        <button  class="btn btn-secondary " onclick="imprimerTicket(<%= ticket.id %>)">
+                <i class="bi bi-printer"></i> print
+                </button>
+                       
+                      </li>
+                      <% }%>
+<% if (currentUser && currentUser.profil === 'admin' && ticket.statut == 'NON LIVRE') { %>
+                      <li>
+                        <a class="dropdown-item text-danger" href="#" onclick='showSnackbar(<%= ticket.id %>, "<%= ticket.Client ? ticket.Client.nom : "" %>")'>
+                          <i class="bi bi-trash"></i> Supprimer
+                        </a>
+                      </li>
+                      <% }%>
+
+                      <% if (currentUser && currentUser.profil === 'admin' && ticket.statut != 'NON LIVRE') { %>
+                      <li>
+                        <a class="dropdown-item text-success" href="#" onclick='showSnackbarvv(<%= index + 1 %>, "<%= ticket.Client ? ticket.Client.nom : "" %>", <%= ticket.id %>)'>
+                          <i class="bi bi-check"></i> Effectuer vente
+                        </a>
+                      </li>
+                      <% }%>
+
+
+                    </ul>
+                  </div>  
+                </td>
+              </tr>
+              <% }%>
+            <% }) %>
+
+             
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucune ticket enregistrée.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Snackbar de suppression -->
+<div id="snackbar" class="snackbar shadow">
+  <span id="snackbar-message">Confirmer la suppression ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
+  </form>
+</div>
+
+<!-- Snackbar de validation -->
+<div id="snackbarv" class="snackbar shadow">
+  <span id="snackbar-messagev">Confirmer la validation ?</span>
+  <form id="snackbarFormv" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-success btn-sm ms-3">Oui, valider</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbarv()">Annuler</button>
+  </form>
+</div>
+
+<div id="snackbarvv" class="snackbar shadow">
+  <span id="snackbar-messagevv">Confirmer la vente ?</span>
+  <form id="snackbarFormvv" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-success btn-sm ms-3">Oui, valider</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbarvv()">Annuler</button>
+  </form>
+</div>
+
+<!-- Snackbar styles -->
+<style>
+  .snackbar {
+    visibility: hidden;
+    min-width: 320px;
+    max-width: 90%;
+    background-color: #323232;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s;
+  }
+
+  .snackbar.show {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+<!-- Scripts -->
+<script>
+  const ticketForm = document.getElementById('ticketForm');
+  const ticketIdInput = document.getElementById('ticketId');
+  const clientInput = document.getElementById('id_client');
+  const quantiteInput = document.getElementById('quantite');
+  const statutInput = document.getElementById('statut');
+  const submitText = document.getElementById('submitText');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const formStatus = document.getElementById('formStatus');
+  const ticketListContainer = document.getElementById('ticketListContainer');
+
+  function editticket(ticket) {
+    ticketIdInput.value = ticket.id;
+    clientInput.value = ticket.id_client;
+    quantiteInput.value = ticket.quantite;
+    statutInput.value = ticket.statut;
+    submitText.textContent = 'Modifier';
+
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${ticket.Client ? ticket.Client.nom : ""}</strong>
+      </div>
+    `;
+
+    ticketListContainer.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+if (cancelBtn) {
+  cancelBtn.addEventListener('click', () => {
+    ticketForm.reset();
+    ticketIdInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    ticketListContainer.style.display = '';
+  });
+}
+  // Auto-hide flash messages
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) setTimeout(() => alert.style.display = 'none', 3000);
+  });
+
+  // Snackbar logic
+  const snackbar = document.getElementById('snackbar');
+  const snackbarMessage = document.getElementById('snackbar-message');
+  const snackbarForm = document.getElementById('snackbarForm');
+  const snackbarFormvv = document.getElementById('snackbarFormvv');
+
+   const snackbarv = document.getElementById('snackbarv');
+    const snackbarvv = document.getElementById('snackbarvv');
+  const snackbarMessagev = document.getElementById('snackbar-messagev');
+  const snackbarFormv = document.getElementById('snackbarFormv');
+
+  function showSnackbar(id, clientName) {
+    snackbarMessage.innerHTML = `Supprimer la ticket du client "<strong>${clientName}</strong>" ?`;
+    snackbarForm.action = `/tickets/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+  function showSnackbarvv(id, clientName, idticket) {
+    snackbarMessage.innerHTML = `Effectuer la vente du ticket `+id+` du client "<strong>${clientName}</strong>" ?`;
+    snackbarFormvv.action = `/tickets/vente/${idticket}`;
+    snackbarvv.classList.add('show');
+  }
+
+
+  function showSnackbarvalider(id, clientName) {
+    snackbarMessagev.innerHTML = `Livré le ticket du client "<strong>${clientName}</strong>" ?`;
+    snackbarFormv.action = `/tickets/livre/${id}`;
+    snackbarv.classList.add('show');
+  }
+
+  function hideSnackbar() {
+    snackbar.classList.remove('show');
+  }
+
+  function hideSnackbarv() {
+    snackbarv.classList.remove('show');
+  }
+
+    function hideSnackbarv() {
+    snackbarvv.classList.remove('show');
+  }
+
+  // Filtre de table
+  document.addEventListener('DOMContentLoaded', () => {
+    const filterInput = document.getElementById('filterticketInput');
+    const table = document.querySelector('#ticketListContainer table');
+    if (!filterInput || !table) return;
+
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    filterInput.addEventListener('input', () => {
+      const filterValue = filterInput.value.toLowerCase();
+      rows.forEach(row => {
+        const clientCell = row.querySelector('td:nth-child(2)');
+        const statutCell = row.querySelector('td:nth-child(4)');
+        const clientText = clientCell ? clientCell.textContent.toLowerCase() : '';
+        const statutText = statutCell ? statutCell.textContent.toLowerCase() : '';
+        row.style.display = (clientText.includes(filterValue) || statutText.includes(filterValue)) ? '' : 'none';
+      });
+    });
+  });
+
+
+
+  function imprimerTicket(idTicket) {
+  const row = document.querySelector(`#ticket-${idTicket}`);
+  if (!row) return alert("Ticket introuvable.");
+
+  const data = Array.from(row.children).map(td => td.innerText);
+  console.log(row);
+  
+  const dateImpression = new Date().toLocaleDateString('fr-FR');
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Fiche de ticket - BAMTI</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+        <style>
+          body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 40px;
+            color: #333;
+          }
+          .facture-container {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+          }
+          .entete {
+            text-align: center;
+            border-bottom: 2px solid #0d6efd;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+          }
+          .entete h3 {
+            color: #0d6efd;
+            font-weight: bold;
+          }
+          table {
+            width: 100%;
+            margin-top: 10px;
+          }
+          th {
+            background-color: #e9ecef !important;
+          }
+          .signature {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+          }
+          .signature div {
+            width: 45%;
+            text-align: center;
+            font-size: 14px;
+          }
+          footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 13px;
+            color: #777;
+          }
+          @media print {
+            button { display: none; }
+            body { margin: 10mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container facture-container">
+        
+		  
+		  <div class="entete">
+            <h2>Entreprise BAMTI</h2>
+            <p>NIF:64750/P </p>
+            <p>Adresse : SONUCI KOUBIA | Tél : 99582158/90231123</p>
+            <small>Date d'impression : ${dateImpression}</small>
+          </div>
+
+          <h5 class="text-center text-primary mb-3">Détails du ticket</h5>
+
+          <table class="table table-bordered table-striped">
+            <thead class="table-light">
+              <tr>
+                
+                <th scope="col">Client</th>
+                <th scope="col">Quantité</th>
+                <th scope="col">Nom chauffeur</th>
+                <th scope="col">Marque</th>
+           
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+               <td>${data[1]}</td>
+                <td>${data[2]}</td>
+                <td>${data[3]}</td>
+                <td>${data[4]}</td>
+               
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="signature mt-5">
+            <div>
+              <p>________________________</p>
+              <p><strong>Signature Chauffeur</strong></p>
+            </div>
+            <div>
+              <p>________________________</p>
+              <p><strong>Signature Caissier</strong><br> <%= currentUser.nom %></p>
+            </div>
+          </div>
+
+          <footer>
+            <p>Merci pour votre confiance  — © Entreprise BAMTI</p>
+          </footer>
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+}
+
+
+</script>
+
+<%- include('../partials/footer') %>

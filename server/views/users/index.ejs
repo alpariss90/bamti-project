@@ -1,0 +1,191 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+  <% if(message) { %>
+    <div class="container">
+      <div class="alert alert-success w-50" id="myAlert" role="alert">
+        <%= message  %>
+      </div>  
+    </div>
+  <% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center text-white">Gestion des utilisateurs</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire de création/modification -->
+      <form id="userForm" action="/users/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="userId" value="">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-2">
+          <label for="nom" class="form-label">Nom</label>
+          <input type="text" class="form-control" id="nom" name="nom" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="telephone" class="form-label">Téléphone</label>
+          <input type="text" class="form-control" id="telephone" name="telephone">
+        </div>
+
+        <div class="col-md-2">
+          <label for="login" class="form-label">Login</label>
+          <input type="text" class="form-control" id="login" name="login" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="profil" class="form-label">Profil</label>
+          <select class="form-select" id="profil" name="profil" required>
+            <option value="">Selectionner un profil</option>
+            <option value="admin">Admin</option>
+            <option value="caissier">Caissier</option>
+            <option value="magasinier">Magasinier</option>
+            <option value="visualisation">Visualisation</option>
+          </select>
+        </div>
+
+        <div class="col-md-4 d-flex justify-content-end gap-2">
+          <button type="submit" id="submitBtn" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Retour
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Liste des utilisateurs -->
+  <div id="userListContainer" class="mt-4" style="min-height: 70vh; width: 100%;">
+    <h5 class="mb-3 fw-bold">Liste des utilisateurs</h5>
+
+    <% if (users && users.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Nom</th>
+              <th>Téléphone</th>
+              <th>Login</th>
+              <th>Profil</th>
+              <th>Statut</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% users.forEach((user, index) => { %>
+              <tr>
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= user.nom %></td>
+                <td><%= user.telephone || '-' %></td>
+                <td><%= user.login %></td>
+                <td><%= user.profil %></td>
+                <td>
+                  <% if (!user.isActive) { %>
+                    <span class="badge bg-danger">Inactif</span>
+                  <% } else { %>
+                    <span class="badge bg-success">Actif</span>
+                  <% } %>
+                </td>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                      Actions
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <a class="dropdown-item" href="#" onclick='editUser(<%- JSON.stringify(user) %>)'>Modifier</a>
+                      </li>
+                      <li>
+                        <form action="/users/<%= user.isActive ? 'deactivate' : 'activate' %>/<%= user.id %>" method="POST" class="d-inline">
+                          <button class="dropdown-item <%= user.isActive ? 'text-danger' : 'text-success' %>" type="submit">
+                            <%= user.isActive ? 'Désactiver' : 'Activer' %>
+                          </button>
+                        </form>
+                      </li>
+                      <li>
+                        <form action="/users/reset-password/<%= user.id %>" method="POST" class="d-inline">
+                          <button class="dropdown-item text-warning" type="submit">Réinitialiser mot de passe</button>
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun utilisateur enregistré.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- JS INTERACTIF -->
+<script>
+  const userForm = document.getElementById('userForm');
+  const userIdInput = document.getElementById('userId');
+  const nomInput = document.getElementById('nom');
+  const telephoneInput = document.getElementById('telephone');
+  const loginInput = document.getElementById('login');
+  const profilSelect = document.getElementById('profil');
+  const submitText = document.getElementById('submitText');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const formStatus = document.getElementById('formStatus');
+  const userListContainer = document.getElementById('userListContainer');
+
+  function editUser(user) {
+    userIdInput.value = user.id;
+    nomInput.value = user.nom;
+    telephoneInput.value = user.telephone || '';
+    loginInput.value = user.login;
+    profilSelect.value = user.profil;
+
+    loginInput.setAttribute('readonly', true); // Griser le champ login
+    loginInput.classList.add('bg-light');      // Style visuel
+
+    submitText.textContent = 'Modifier';
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour l'utilisateur : <strong>${user.nom}</strong>
+      </div>
+    `;
+
+    userListContainer.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelBtn.addEventListener('click', () => {
+    userForm.reset();
+    userIdInput.value = '';
+    loginInput.removeAttribute('readonly');
+    loginInput.classList.remove('bg-light');
+
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    userListContainer.style.display = '';
+  });
+</script>
+
+<!-- Flash auto-hide -->
+<script>
+  function vanish() {
+    const alert = document.getElementById('myAlert');
+    if (alert) alert.style.display = 'none';
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(vanish, 3000);
+  });
+</script>
+
+<%- include('../partials/footer') %>

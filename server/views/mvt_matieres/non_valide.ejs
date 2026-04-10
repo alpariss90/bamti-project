@@ -1,0 +1,222 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des Mouvements de Matière non valide   </h4>
+    </div>
+
+   
+  </div>
+
+  <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- Liste -->
+  <div id="mvtListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste des Mouvements Matière non valide</h5>
+
+
+
+
+    <% if (mvtMatieres && mvtMatieres.length > 0) { %>
+      <div class="d-flex justify-content-end mb-2">
+       <!-- <input type="text" id="filterMvtInput" class="form-control form-control-sm w-auto" placeholder="Filtrer...">   -->
+      </div>
+
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;" id="ddtable">
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Type Matière</th>
+              <th>Type Mvt</th>
+              <th>Quantité</th>
+              <th>Prix</th>
+              <th>Montant Total</th>
+              <th>Observation</th>
+              <th>Statut</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% mvtMatieres.forEach((mvt, index) => { %>
+              <tr>
+                <td><%= index + 1 %></td>
+                <td><%= mvt.date_mvt %></td>
+                <td><%= mvt.type_matiere %></td>
+                <td><%= mvt.type_mvt %></td>
+                <td><%= new Intl.NumberFormat('fr-FR').format(Math.abs(Number(mvt.quantite))) %> kg</td>
+                <td><%= new Intl.NumberFormat('fr-FR').format(Number(mvt.prix || 0).toFixed(2)) %> FCFA</td>
+                <td><%= new Intl.NumberFormat('fr-FR').format(Number(mvt.montant_total || 0).toFixed(2))  %> FCFA</td>
+
+                <td><%= mvt.observation || '-' %></td>
+                <td>
+                  <% if (mvt.isValid) { %>
+                    <span class="badge bg-success">Validé</span>
+                  <% } else { %>
+                    <span class="badge bg-warning text-dark">En attente</span>
+                  <% } %>
+                </td>
+                <td class="text-end">
+                  <% if (!mvt.isValid) { %>
+                    <div class="dropdown">
+                      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        Actions
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                       
+                        <li>
+                          <a class="dropdown-item text-danger" type="button" href="/mvt_matieres/delete/<%= mvt.id %>" onclick="return window.confirm('Voulez vous supprimer ?')">
+                            <i class="bi bi-trash"></i> Supprimer
+                          </a>
+                        </li>
+                        <li>
+                          <form action="/mvt_matieres/validate/<%= mvt.id %>" method="POST" class="d-inline">
+                            <button type="submit" class="dropdown-item text-success">
+                              <i class="bi bi-check2-circle"></i> Valider
+                            </button>
+                          </form>
+                        </li>
+                      </ul>
+                    </div>
+                  <% } else { %>
+                    <span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Validé</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun mouvement enregistré.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Snackbar -->
+<div id="snackbar" class="snackbar shadow">
+  <span id="snackbar-message">Confirmer la suppression ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
+  </form>
+</div>
+
+<style>
+  .snackbar {
+    visibility: hidden;
+    background-color: #333;
+    color: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
+  .snackbar.show { visibility: visible; opacity: 1; }
+</style>
+
+<script>
+  const mvtForm = document.getElementById('mvtForm');
+  const mvtId = document.getElementById('mvtId');
+  const typeMatiere = document.getElementById('type_matiere');
+  const typeMvt = document.getElementById('type_mvt');
+  const prixContainer = document.getElementById('prixContainer');
+  const prixInput = document.getElementById('prix');
+  const quantiteInput = document.getElementById('quantite');
+  const dateMvt = document.getElementById('date_mvt');
+  const observation = document.getElementById('observation');
+  const submitText = document.getElementById('submitText');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const formStatus = document.getElementById('formStatus');
+  const mvtListContainer = document.getElementById('mvtListContainer');
+
+  //  Gérer la visibilité du champ prix
+  typeMvt.addEventListener('change', () => {
+    if (typeMvt.value === 'achat') {
+      prixContainer.style.display = '';
+      prixInput.value = '';
+      quantiteInput.value = Math.abs(quantiteInput.value);
+    } else {
+      prixContainer.style.display = 'none';
+      prixInput.value = 0;
+      quantiteInput.value = -Math.abs(quantiteInput.value);
+    }
+  });
+
+  //  Remplir le formulaire en mode édition
+  function editMvt(mvt) {
+    mvtId.value = mvt.id;
+    typeMatiere.value = mvt.type_matiere;
+    typeMvt.value = mvt.type_mvt;
+    prixInput.value = mvt.prix;
+    quantiteInput.value = Math.abs(mvt.quantite);
+    dateMvt.value = mvt.date_mvt;
+    observation.value = mvt.observation || '';
+
+    if (mvt.type_mvt === 'achat') prixContainer.style.display = '';
+    else prixContainer.style.display = 'none';
+
+    submitText.textContent = 'Modifier';
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${mvt.type_matiere}</strong>
+      </div>
+    `;
+    mvtListContainer.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelBtn.addEventListener('click', () => {
+    mvtForm.reset();
+    mvtId.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    mvtListContainer.style.display = '';
+    prixContainer.style.display = '';
+  });
+
+  // Snackbar suppression
+  const snackbar = document.getElementById('snackbar');
+  const snackbarMessage = document.getElementById('snackbar-message');
+  const snackbarForm = document.getElementById('snackbarForm');
+
+  function showSnackbar(id, nom) {
+    snackbarMessage.innerHTML = `Supprimer le mouvement de "<strong>${nom}</strong>" ?`;
+    snackbarForm.action = `/mvt_matieres/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+  function hideSnackbar() { snackbar.classList.remove('show'); }
+
+  // Filtre
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) setTimeout(() => alert.style.display = 'none', 3000);
+
+    const filterInput = document.getElementById('filterMvtInput');
+    const rows = document.querySelectorAll('#mvtListContainer tbody tr');
+
+    filterInput.addEventListener('input', () => {
+      const val = filterInput.value.toLowerCase();
+      rows.forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(val) ? '' : 'none';
+      });
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>

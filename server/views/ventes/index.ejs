@@ -1,0 +1,597 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+  <% if (message) { %>
+    <div id="myAlert" class="alert alert-<%= message.type %> alert-dismissible fade show mt-2" role="alert">
+      <%= message.text %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des ventes</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire création / modification -->
+      <form id="venteForm" action="/ventes/createOrUpdate" method="POST" class="row g-2 align-items-end needs-validation" novalidate>
+        <input type="hidden" name="id" id="venteId" value="">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <!-- Sélection du client -->
+        <div class="col-md-3">
+          <label for="id_client" class="form-label">Client</label>
+          <select class="form-select select2-client" id="id_client" name="id_client"  required>
+            <option value="">-- Choisir un client --</option>
+            <% clients.forEach(client => { %>
+              <option value="<%= client.id %>"><%= client.nom %> <%= client.prenom || '' %></option>
+            <% }) %>
+          </select>
+          <div class="invalid-feedback">Veuillez sélectionner un client.</div>
+        </div>
+
+        <div class="col-md-2">
+          <label for="type_vente" class="form-label">Type de vente</label>
+          <select class="form-select" id="type_vente" name="type_vente" required>
+            <option value="">-- Choisir --</option>
+            <option value="livrer">Livrée</option>
+            <option value="usine">Usine</option>
+          </select>
+          <div class="invalid-feedback">Veuillez choisir le type de vente.</div>
+        </div>
+
+        <div class="col-md-2">
+          <label for="quantite" class="form-label">Quantité</label>
+          <input type="number" min="1" class="form-control" id="quantite" name="quantite" required>
+          <div class="invalid-feedback">Quantité requise.</div>
+        </div>
+
+        <div class="col-md-2">
+          <label for="prix_unitaire" class="form-label">Prix unitaire</label>
+          <input type="number" step="0.01" min="0" value="350" class="form-control" id="prix_unitaire" name="prix_unitaire" required>
+          <div class="invalid-feedback">Prix unitaire obligatoire.</div>
+        </div>
+
+        <div class="col-md-2">
+          <label for="type_paiement" class="form-label">Type de paiement</label>
+          <select class="form-select" id="type_paiement" name="type_paiement" required>
+            <option value="">-- Choisir --</option>
+            <option value="total">Total</option>
+            <option value="echellonner">Échelonner</option>
+          </select>
+          <div class="invalid-feedback">Type de paiement requis.</div>
+        </div>
+
+      <div class="col-md-2">
+          <label for="date_vente" class="form-label">Date de vente</label>
+          <input type="date" class="form-control" id="date_vente" name="date_vente" required>
+          <div class="invalid-feedback">Date obligatoire.</div>
+        </div>
+
+        <div class="col-md-12 d-flex justify-content-end gap-2 mt-2">
+          <button type="submit" id="submitBtn" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <a href="/ventes/filtre" class="btn btn-secondary">
+            <i class="bi bi-funnel"></i> Filtrer
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- <div class="card mt-4">
+  <div class="card-header bg-info text-white">
+    <h5 class="mb-0">Filtrer les ventes par date</h5>
+  </div>
+  <div class="card-body">
+    <form id="filterForm" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label for="startDate" class="form-label">Date début</label>
+        <input type="date" id="startDate" class="form-control">
+      </div>
+      <div class="col-md-3">
+        <label for="endDate" class="form-label">Date fin</label>
+        <input type="date" id="endDate" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <button type="button" class="btn btn-primary" onclick="filterVentes()">
+          Filtrer
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="resetFilter()">
+          Réinitialiser
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+-->
+
+  <!-- Liste des ventes -->
+ <div id="venteListContainer" class="mt-4">
+<h5 class="mb-3 fw-bold">Liste des ventes</h5>
+   <div class="d-flex justify-content-end mt-3">
+    <!--  <button class="btn btn-secondary" onclick="imprimerToutesLesVentes()">
+        <i class="bi bi-printer"></i> Imprimer toutes les ventes
+      </button> -->
+    </div>
+  
+  <% if (ventes && ventes.length > 0) { %>
+
+    <!--  Conteneur scrollable propre -->
+   <div class="table-responsive shadow-sm rounded"
+     style="border: 1px solid #dee2e6;">
+  <table id="dtable" class="table table-hover align-middle table-bordered mb-0">
+    <thead class="table-secondary position-sticky top-0" >
+      <tr>
+
+        <th>X</th>
+        <th>#</th>
+        <th>Client</th>
+        <th>Type vente</th>
+        <th>Quantité</th>
+        <th>Prix unitaire</th>
+        <th>Montant total</th>
+        <th>Type paiement</th>
+        <th>Montant payé</th>
+        <th>Reste à payer</th>
+        <th>Date</th>
+        <th class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% ventes.forEach((vente, index) => { %>
+        <tr id="vente-<%= vente.id %>" >
+        <th scope="row"> <a class="btn btn-danger" href="/ventes/annuler/<%= vente.id %>" class="dropdown-item" onclick="return window.confirm('etes vous sure de vouloir annler cette vente????? (cette action est irreversible)')">
+                          <i class="bi bi-trash"></i> Annuler la vente
+                        </a></th>
+          <th scope="row"><%= index + 1 %></th>
+          <td><%= vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-' %></td>
+          <td><%= vente.type_vente %></td>
+          <td><%= vente.quantite %></td>
+          <td><%= new Intl.NumberFormat('fr-FR').format(vente.prix_unitaire.toFixed(2)) %> FCFA</td>
+          <td><%= new Intl.NumberFormat('fr-FR').format(vente.montantTotal.toFixed(2)) %> FCFA</td>
+          <td>
+            <span class="badge <%= vente.type_paiement === 'echellonner' ? 'bg-warning text-dark' : 'bg-success' %>">
+              <%= vente.type_paiement %>
+            </span>
+          </td>
+          <td><%= new Intl.NumberFormat('fr-FR').format(vente.montantPayes.toFixed(2)) %> FCFA</td>
+          <td><%= new Intl.NumberFormat('fr-FR').format(vente.reste.toFixed(2)) %> FCFA</td>
+          <td><%= new Date(vente.date_vente).toLocaleDateString('fr-FR') %></td>
+          <td class="text-end">
+            <% if (vente.type_paiement === 'echellonner') { %>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                  Actions
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <% if (vente.reste > 0) { %>
+                    <li>
+                      <button type="button" class="dropdown-item" onclick="openVersementModal(<%= vente.id %>)">
+                        <i class="bi bi-cash"></i> Faire un versement
+                      </button>
+                    </li>
+                  <% } %>
+                  <li>
+                    <a class="dropdown-item" href="/ventes/versements/<%= vente.id_client %>">
+                      <i class="bi bi-info-circle"></i> Détails
+                    </a>
+                  </li>
+                  <li>
+                        <button type="button" class="dropdown-item" onclick="imprimerVente(<%= vente.id %>)">
+                          <i class="bi bi-printer"></i> Imprimer
+                        </button>
+                      </li>
+                </ul>
+              </div>
+            <% } else { %>
+                <button  class="btn btn-secondary " onclick="imprimerVente(<%= vente.id %>)">
+                <i class="bi bi-printer"></i> print
+                </button>
+                      
+            <% } %>
+           
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+	   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+</div>
+
+
+  <% } else { %>
+    <div class="alert alert-info">Aucune vente enregistrée.</div>
+  <% } %>
+</div>
+
+</div>
+
+<!-- Modal Versement -->
+
+<div class="modal fade" id="versementModal" tabindex="-1" aria-labelledby="versementModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="versementForm" action="/ventes/ajouterVersement" method="POST">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="versementModalLabel">Faire un versement</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="id_vente" name="id_vente">
+
+          <div class="mb-3">
+            <label for="montant_versement" class="form-label">Montant du versement</label>
+            <input type="number" step="0.01" min="0" class="form-control" id="montant_versement" name="montant" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="date_versement" class="form-label">Date du versement</label>
+            <input type="date" class="form-control" id="date_versement" name="date" required>
+          </div>
+
+          <!--  Champ Observation ajouté ici -->
+          <div class="mb-3">
+            <label for="observation" class="form-label">Observation (optionnelle)</label>
+            <textarea
+              class="form-control"
+              id="observation"
+              name="observation"
+              rows="3"
+              placeholder="Ex : Paiement partiel, acompte, remise, etc."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-circle"></i> Enregistrer
+          </button>
+          <a href="/ventes/index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Retour
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+
+<script>
+  (function () {
+    'use strict';
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(form => {
+      form.addEventListener('submit', event => {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    });
+  })();
+
+  const modalVersement = new bootstrap.Modal(document.getElementById('versementModal'));
+
+  function openVersementModal(idVente) {
+ const modalElement = document.getElementById('versementModal');
+        if (modalElement) {
+            const modalVersement = new bootstrap.Modal(modalElement);
+            document.getElementById('id_vente').value = idVente;
+            document.getElementById('montant_versement').value = '';
+            document.getElementById('date_versement').value = new Date().toISOString().split('T')[0];
+            modalVersement.show();
+        }
+    
+   
+  }
+</script>
+
+
+<script>
+ function imprimerToutesLesVentes() {
+    const contenu = document.getElementById("venteTable").outerHTML;
+    const date = new Date().toLocaleDateString('fr-FR');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Facture - Liste des ventes</title>
+          <style>
+            body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            color: #333;
+            background-color: #fff;
+          }
+
+          .entete {
+            text-align: center;
+            border-bottom: 3px solid #0d6efd;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+          }
+
+          .entete h2 {
+            margin: 0;
+            color: #0d6efd;
+            font-weight: bold;
+            letter-spacing: 1px;
+          }
+
+          .entete p {
+            margin: 0;
+            color: #555;
+          }
+
+          .info {
+            text-align: right;
+            font-size: 15px;
+            margin-bottom: 10px;
+          }
+
+          h3 {
+            text-align: center;
+            background-color: #0d6efd;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 18px;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+          }
+
+          th, td {
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            vertical-align: middle;
+            text-align: center;
+          }
+
+          th {
+            background-color: #f8f9fa;
+            color: #212529;
+            font-weight: 600;
+          }
+
+          tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+
+          .signature {
+            margin-top: 60px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+          }
+
+          .signature div {
+            width: 45%;
+            text-align: center;
+          }
+
+          footer {
+            text-align: center;
+            font-size: 13px;
+            color: #777;
+            margin-top: 50px;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+          }
+             /*  Masquer la colonne "Actions" (la dernière) */
+          table th:last-child,
+          table td:last-child {
+            display: none;
+          }
+
+          }
+            @media print {
+              button { display: none; }
+              body { margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="entete">
+            <h2>Entreprise BAMTI</h2>
+            <p>NIF:64750/P </p>
+            <p>Adresse : SONUCI KOUBIA | Tél : 99582158/90231123</p>
+            
+          </div>
+          <div class="info">
+            <strong>Date :</strong> ${date}
+          </div>
+          <h3>Facture - Liste complète des ventes</h3>
+          ${contenu}
+          <div class="signature">
+            <div>
+              <p>________________________</p>
+              <p><strong>Signature Client</strong></p>
+            </div>
+            <div>
+              <p>________________________</p>
+              <p><strong>Signature Responsable</strong><br> <%= currentUser.nom %></p>
+            </div>
+          </div>
+          <footer>
+            <p>Merci pour votre confiance - © Entreprise BAMTI</p>
+          </footer>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  }
+  // imprimer une vente spécifique par son ID
+  function imprimerVente(idVente) {
+  const row = document.querySelector(`#vente-${idVente}`);
+  if (!row) return alert("Vente introuvable.");
+
+  const data = Array.from(row.children).map(td => td.innerText);
+  const dateImpression = new Date().toLocaleDateString('fr-FR');
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Fiche de Vente - BAMTI</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+        <style>
+          body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 40px;
+            color: #333;
+          }
+          .facture-container {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+          }
+          .entete {
+            text-align: center;
+            border-bottom: 2px solid #0d6efd;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+          }
+          .entete h3 {
+            color: #0d6efd;
+            font-weight: bold;
+          }
+          table {
+            width: 100%;
+            margin-top: 10px;
+          }
+          th {
+            background-color: #e9ecef !important;
+          }
+          .signature {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+          }
+          .signature div {
+            width: 45%;
+            text-align: center;
+            font-size: 14px;
+          }
+          footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 13px;
+            color: #777;
+          }
+          @media print {
+            button { display: none; }
+            body { margin: 10mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container facture-container">
+        
+		  
+		  <div class="entete">
+            <h2>Entreprise BAMTI</h2>
+            <p>NIF:64750/P </p>
+            <p>Adresse : SONUCI KOUBIA | Tél : 99582158/90231123</p>
+            <small>Date d'impression : ${dateImpression}</small>
+          </div>
+
+          <h5 class="text-center text-primary mb-3">Détails de la vente</h5>
+
+          <table class="table table-bordered table-striped">
+            <thead class="table-light">
+              <tr>
+                
+                <th scope="col">Client</th>
+                <th scope="col">Type Vente</th>
+                <th scope="col">Quantité</th>
+                <th scope="col">Prix Unitaire</th>
+                <th scope="col">Montant Payé</th>
+                <th scope="col">Reste</th>
+                <th scope="col">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+               <td>${data[2]}</td>
+                <td>${data[2]}</td>
+                <td>${data[4]}</td>
+                <td>${data[5]}</td>
+                <td>${data[8]}</td>
+                <td>${data[9]}</td>
+                <td>${data[10]}</td>
+               
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="signature mt-5">
+            <div>
+              <p>________________________</p>
+              <p><strong>Signature Client</strong></p>
+            </div>
+            <div>
+              <p>________________________</p>
+              <p><strong>Signature Responsable</strong><br> <%= currentUser.nom %></p>
+            </div>
+          </div>
+
+          <footer>
+            <p>Merci pour votre confiance  — © Entreprise BAMTI</p>
+          </footer>
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.print();
+}
+
+ 
+</script>
+
+<script>
+function filterVentes() {
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+  const rows = document.querySelectorAll('#venteTable tbody tr');
+
+  rows.forEach(row => {
+    const dateVente = row.children[9].innerText.split('/'); // jj/mm/aaaa
+    const dateISO = `${dateVente[2]}-${dateVente[1]}-${dateVente[0]}`;
+    
+    if ((!start || dateISO >= start) && (!end || dateISO <= end)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+function resetFilter() {
+  document.getElementById('startDate').value = '';
+  document.getElementById('endDate').value = '';
+  const rows = document.querySelectorAll('#venteTable tbody tr');
+  rows.forEach(row => row.style.display = '');
+}
+</script>
+
+<%- include('../partials/footer') %>
