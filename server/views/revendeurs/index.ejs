@@ -1,0 +1,182 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+  <% if (message) { %>
+    <div class="alert alert-<%= message.type || 'info' %> alert-dismissible fade show" id="myAlert" role="alert">
+      <i class="bi bi-info-circle me-2"></i> <%= message.text %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <!-- ── Formulaire Ajout / Modification ─────────────────────────── -->
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center text-white">
+        <i class="bi bi-person-badge me-2"></i>Gestion des Revendeurs
+      </h4>
+    </div>
+    <div class="card-body">
+      <form id="revendeurForm" action="/revendeurs/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="revendeurId" value="">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-2">
+          <label class="form-label">Nom <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="nom" id="nom" required>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Prénom <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="prenom" id="prenom" required>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Téléphone</label>
+          <input type="text" class="form-control" name="telephone" id="telephone">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Adresse</label>
+          <input type="text" class="form-control" name="adresse" id="adresse">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Gain / sachet (FCFA) <span class="text-danger">*</span></label>
+          <input type="number" class="form-control" name="gain_par_sachet" id="gain_par_sachet" min="0" step="1" required>
+        </div>
+
+        <div class="col-md-2 d-flex justify-content-end gap-2 align-items-end">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-counterclockwise"></i> Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Liste des revendeurs ─────────────────────────────────────── -->
+  <div id="listContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">
+      <i class="bi bi-people me-2"></i>Liste des revendeurs
+      <span class="badge bg-secondary ms-2"><%= revendeurs.length %></span>
+    </h5>
+
+    <% if (revendeurs && revendeurs.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Nom & Prénom</th>
+              <th>Téléphone</th>
+              <th>Adresse</th>
+              <th>Gain/sachet</th>
+              <th>Login</th>
+              <th>Statut compte</th>
+              <th class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% revendeurs.forEach((r, i) => { %>
+              <tr>
+                <td><%= i + 1 %></td>
+                <td class="fw-semibold"><%= r.prenom %> <%= r.nom %></td>
+                <td><%= r.telephone || '-' %></td>
+                <td><%= r.adresse || '-' %></td>
+                <td class="text-end fw-bold text-success"><%= Number(r.gain_par_sachet).toLocaleString('fr-FR') %> F</td>
+                <td>
+                  <% if (r.user) { %>
+                    <code><%= r.user.login %></code>
+                  <% } else { %>
+                    <span class="text-muted">-</span>
+                  <% } %>
+                </td>
+                <td class="text-center">
+                  <% if (r.user && r.user.isActive) { %>
+                    <span class="badge bg-success">Actif</span>
+                  <% } else { %>
+                    <span class="badge bg-danger">Inactif</span>
+                  <% } %>
+                </td>
+                <td class="text-center">
+                  <div class="btn-group btn-group-sm" role="group">
+                    <!-- Détail -->
+                    <a href="/revendeurs/detail/<%= r.id %>" class="btn btn-outline-info" title="Voir détail">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <!-- Modifier -->
+                    <button type="button" class="btn btn-outline-warning"
+                      title="Modifier"
+                      onclick='editRevendeur(<%- JSON.stringify(r) %>)'>
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <!-- Supprimer -->
+                    <form action="/revendeurs/delete/<%= r.id %>" method="POST" class="d-inline"
+                      onsubmit="return confirm('Supprimer ce revendeur ? Son compte sera désactivé.')">
+                      <button type="submit" class="btn btn-outline-danger" title="Supprimer">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <br/><br/><br/>
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>Aucun revendeur enregistré.
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+  const form         = document.getElementById('revendeurForm');
+  const idInput      = document.getElementById('revendeurId');
+  const submitText   = document.getElementById('submitText');
+  const cancelBtn    = document.getElementById('cancelBtn');
+  const formStatus   = document.getElementById('formStatus');
+  const listContainer= document.getElementById('listContainer');
+
+  function editRevendeur(r) {
+    idInput.value                                  = r.id;
+    document.getElementById('nom').value           = r.nom;
+    document.getElementById('prenom').value        = r.prenom;
+    document.getElementById('telephone').value     = r.telephone || '';
+    document.getElementById('adresse').value       = r.adresse  || '';
+    document.getElementById('gain_par_sachet').value = r.gain_par_sachet;
+    submitText.textContent = 'Modifier';
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-2">
+        <i class="bi bi-pencil-square me-1"></i>
+        Mode <strong>modification</strong> — ${r.prenom} ${r.nom}
+      </div>`;
+    listContainer.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelBtn.addEventListener('click', () => {
+    form.reset();
+    idInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    listContainer.style.display = '';
+  });
+</script>
+
+<script>
+  setTimeout(() => {
+    const a = document.getElementById('myAlert');
+    if (a) a.style.display = 'none';
+  }, 4000);
+</script>
+
+<%- include('../partials/footer') %>

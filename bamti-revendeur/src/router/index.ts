@@ -1,13 +1,14 @@
 /**
  * Router Ionic + VueJS — BAM.TI Revendeur
  * Intègre un guard de navigation pour protéger les routes privées.
+ * Seuls les utilisateurs avec le profil 'revendeur' peuvent accéder aux routes privées.
  */
 import { createRouter, createWebHistory } from '@ionic/vue-router';
 import { RouteRecordRaw } from 'vue-router';
 
 // ── Définition des routes ────────────────────────────────────────────────────
 const routes: Array<RouteRecordRaw> = [
-  // Redirection racine → login si non authentifié, sinon home
+  // Redirection racine → home
   {
     path: '/',
     redirect: '/home',
@@ -21,7 +22,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: false },
   },
 
-  // ── Routes privées : nécessitent un token JWT valide ───────────────────
+  // ── Route d'accueil ─────────────────────────────────────────────────────
   {
     path: '/home',
     name: 'Home',
@@ -29,15 +30,57 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true },
   },
 
-  // Ajout futur : commandes, ventes, clients…
-  // {
-  //   path: '/commandes',
-  //   name: 'Commandes',
-  //   component: () => import('@/views/CommandesPage.vue'),
-  //   meta: { requiresAuth: true },
-  // },
+  // ── Gestion Clients ─────────────────────────────────────────────────────
+  {
+    path: '/clients',
+    name: 'Clients',
+    component: () => import('@/views/ClientsPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/clients/nouveau',
+    name: 'NouveauClient',
+    component: () => import('@/views/ClientFormPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/clients/modifier/:id',
+    name: 'ModifierClient',
+    component: () => import('@/views/ClientFormPage.vue'),
+    meta: { requiresAuth: true },
+  },
 
-  // Fallback : toute route inconnue → login
+  // ── Gestion Ventes ──────────────────────────────────────────────────────
+  {
+    path: '/ventes',
+    redirect: '/ventes/jour',
+  },
+  {
+    path: '/ventes/nouvelle',
+    name: 'NouvelleVente',
+    component: () => import('@/views/NouvelleVentePage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/ventes/jour',
+    name: 'RecetteJour',
+    component: () => import('@/views/RecetteJourPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/ventes/periode',
+    name: 'SituationDate',
+    component: () => import('@/views/SituationDatePage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/ventes/redevables',
+    name: 'Redevables',
+    component: () => import('@/views/RedevablesPage.vue'),
+    meta: { requiresAuth: true },
+  },
+
+  // Fallback
   {
     path: '/:pathMatch(.*)*',
     redirect: '/login',
@@ -52,18 +95,37 @@ const router = createRouter({
 
 // ── Guard global de navigation ───────────────────────────────────────────────
 router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('bamti_token');
-  const requiresAuth = to.meta.requiresAuth !== false; // par défaut : protégé
+  const token       = localStorage.getItem('bamti_token');
+  const userJson    = localStorage.getItem('bamti_user');
+  const requiresAuth = to.meta.requiresAuth !== false;
 
   if (requiresAuth && !token) {
-    // Pas de token → redirection vers login
-    next({ name: 'Login' });
-  } else if (to.name === 'Login' && token) {
-    // Déjà connecté → ne pas afficher le login, rediriger vers home
-    next({ name: 'Home' });
-  } else {
-    next();
+    // Pas de token → login
+    return next({ name: 'Login' });
   }
+
+  if (to.name === 'Login' && token) {
+    // Déjà connecté → home
+    return next({ name: 'Home' });
+  }
+
+  // Vérification du profil revendeur pour les routes protégées
+  if (requiresAuth && token && userJson) {
+    try {
+      const user = JSON.parse(userJson);
+      if (user.profil !== 'revendeur') {
+        // Profil non autorisé → déconnexion
+        localStorage.removeItem('bamti_token');
+        localStorage.removeItem('bamti_user');
+        localStorage.removeItem('bamti_last_login_date');
+        return next({ name: 'Login' });
+      }
+    } catch {
+      return next({ name: 'Login' });
+    }
+  }
+
+  next();
 });
 
 export default router;

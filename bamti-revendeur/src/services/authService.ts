@@ -13,8 +13,10 @@ export interface UserProfile {
   nom: string;
   login: string;
   telephone: string | null;
-  profil: 'admin' | 'caissier' | 'visualisation' | 'magasinier';
+  profil: 'admin' | 'caissier' | 'visualisation' | 'magasinier' | 'revendeur';
   isActive?: boolean;
+  id_revendeur?: number | null;
+  gain_par_sachet?: number;
   createdAt?: string;
 }
 

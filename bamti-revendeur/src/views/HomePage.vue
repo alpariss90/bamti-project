@@ -10,7 +10,7 @@
           <span class="title-bam">BAM</span><span class="title-dot">.</span><span class="title-ti">TI</span>
         </ion-title>
         <ion-buttons slot="end">
-          <ion-button @click="confirmLogout" class="logout-btn" :disabled="authStore.loading">
+          <ion-button @click="confirmLogout" class="logout-btn">
             <ion-icon :icon="logOutOutline" slot="icon-only" />
           </ion-button>
         </ion-buttons>
@@ -28,18 +28,16 @@
         <div class="welcome-text">
           <p class="welcome-label">Bienvenue,</p>
           <h2 class="welcome-name">{{ authStore.userName }}</h2>
-          <ion-badge :color="profilColor" class="profil-badge">
-            {{ profilLabel }}
-          </ion-badge>
+          <ion-badge color="primary" class="profil-badge">Revendeur</ion-badge>
         </div>
       </div>
 
-      <!-- Grille de navigation rapide -->
-      <div class="section-title">Menu principal</div>
+      <!-- Section Clients -->
+      <div class="section-title">Gestion Clients</div>
       <ion-grid class="nav-grid">
         <ion-row>
-          <ion-col size="6" v-for="item in menuItems" :key="item.label">
-            <div class="nav-card" @click="item.action && item.action()">
+          <ion-col size="6" v-for="item in clientItems" :key="item.label">
+            <div class="nav-card" @click="router.push(item.url)">
               <div class="nav-icon-wrapper" :style="{ background: item.gradient }">
                 <ion-icon :icon="item.icon" class="nav-icon" />
               </div>
@@ -49,7 +47,22 @@
         </ion-row>
       </ion-grid>
 
-      <!-- Informations du compte -->
+      <!-- Section Ventes -->
+      <div class="section-title">Gestion Ventes</div>
+      <ion-grid class="nav-grid">
+        <ion-row>
+          <ion-col size="6" v-for="item in venteItems" :key="item.label">
+            <div class="nav-card" @click="router.push(item.url)">
+              <div class="nav-icon-wrapper" :style="{ background: item.gradient }">
+                <ion-icon :icon="item.icon" class="nav-icon" />
+              </div>
+              <p class="nav-label">{{ item.label }}</p>
+            </div>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+
+      <!-- Gain par sachet -->
       <div class="section-title">Mon compte</div>
       <ion-card class="info-card">
         <ion-card-content>
@@ -69,27 +82,26 @@
               </ion-label>
             </ion-item>
             <ion-item class="info-item">
-              <ion-icon :icon="shieldCheckmarkOutline" slot="start" color="primary" />
+              <ion-icon :icon="cashOutline" slot="start" color="success" />
               <ion-label>
-                <p class="info-key">Rôle</p>
-                <h3 class="info-val">{{ profilLabel }}</h3>
+                <p class="info-key">Gain par sachet</p>
+                <h3 class="info-val gain-val">{{ authStore.gainParSachet.toLocaleString('fr-FR') }} FCFA</h3>
               </ion-label>
             </ion-item>
           </ion-list>
         </ion-card-content>
       </ion-card>
 
-      <!-- Bouton de déconnexion -->
+      <!-- Bouton Synchroniser -->
       <ion-button
         expand="block"
-        class="logout-full-btn"
-        color="danger"
-        fill="outline"
-        @click="confirmLogout"
-        :disabled="authStore.loading"
+        class="sync-btn"
+        color="primary"
+        @click="synchroniser"
+        :disabled="syncing"
       >
-        <ion-icon :icon="logOutOutline" slot="start" />
-        <span>Se déconnecter</span>
+        <ion-icon :icon="syncOutline" slot="start" />
+        <span>{{ syncing ? 'Synchronisation...' : 'Synchroniser les données' }}</span>
       </ion-button>
 
     </ion-content>
@@ -102,6 +114,15 @@
       :buttons="alertButtons"
       @didDismiss="showLogoutAlert = false"
     />
+
+    <!-- Toast pour messages -->
+    <ion-toast
+      :is-open="toast.show"
+      :message="toast.message"
+      :color="toast.color"
+      :duration="3000"
+      @didDismiss="toast.show = false"
+    />
   </ion-page>
 </template>
 
@@ -112,78 +133,87 @@ import {
   IonContent, IonCard, IonCardContent,
   IonList, IonItem, IonLabel,
   IonIcon, IonGrid, IonRow, IonCol,
-  IonBadge, IonAlert,
+  IonBadge, IonAlert, IonToast,
 } from '@ionic/vue';
 import {
   logOutOutline, personOutline, personCircleOutline,
-  callOutline, shieldCheckmarkOutline,
-  bagHandleOutline, receiptOutline, cashOutline,
-  documentTextOutline, statsChartOutline, settingsOutline,
+  callOutline, cashOutline, syncOutline,
+  peopleOutline, personAddOutline,
+  receiptOutline, addCircleOutline, calendarOutline,
+  walletOutline, alertCircleOutline,
 } from 'ionicons/icons';
-import { ref, computed } from 'vue';
+import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import api from '../services/api';
+import { getUnsyncedData, markAllSynced } from '../services/db';
 
 const router    = useRouter();
 const authStore = useAuthStore();
+const syncing   = ref(false);
 
-// ── Confirmation logout ───────────────────────────────────────────────────
+const toast = reactive({ show: false, message: '', color: 'success' });
 const showLogoutAlert = ref(false);
+
+// ── Menu Clients ────────────────────────────────────────────────────────────
+const clientItems = [
+  { label: 'Liste clients',  url: '/clients',            icon: peopleOutline,    gradient: 'linear-gradient(135deg, #1A9FE0, #1B2A6B)' },
+  { label: 'Nouveau client', url: '/clients/nouveau',    icon: personAddOutline, gradient: 'linear-gradient(135deg, #27AE60, #1e7e44)' },
+];
+
+// ── Menu Ventes ─────────────────────────────────────────────────────────────
+const venteItems = [
+  { label: 'Nouvelle vente',       url: '/ventes/nouvelle',   icon: addCircleOutline,   gradient: 'linear-gradient(135deg, #F39C12, #c27d10)' },
+  { label: 'Recette du jour',      url: '/ventes/jour',       icon: receiptOutline,     gradient: 'linear-gradient(135deg, #2E86C1, #1a5276)' },
+  { label: 'Situation par date',   url: '/ventes/periode',    icon: calendarOutline,    gradient: 'linear-gradient(135deg, #8E44AD, #5b2c6f)' },
+  { label: 'Ventes non soldées',   url: '/ventes/redevables', icon: alertCircleOutline, gradient: 'linear-gradient(135deg, #E74C3C, #922b21)' },
+];
+
+// ── Synchronisation ─────────────────────────────────────────────────────────
+async function synchroniser() {
+  syncing.value = true;
+  try {
+    const { clients, ventes, paiements } = await getUnsyncedData();
+    if (clients.length === 0 && ventes.length === 0 && paiements.length === 0) {
+      toast.message = 'Tout est déjà synchronisé !';
+      toast.color   = 'success';
+      toast.show    = true;
+      return;
+    }
+    const { data } = await api.post('/api/mobile/sync', { clients, ventes, paiements });
+    if (data.success) {
+      await markAllSynced();
+      toast.message = `Synchronisation réussie : ${data.resultats.ventes} vente(s), ${data.resultats.clients} client(s).`;
+      toast.color   = 'success';
+    } else {
+      toast.message = 'Synchronisation échouée.';
+      toast.color   = 'danger';
+    }
+  } catch {
+    toast.message = 'Impossible de synchroniser. Vérifiez votre connexion.';
+    toast.color   = 'danger';
+  } finally {
+    syncing.value = false;
+    toast.show    = true;
+  }
+}
+
+// ── Déconnexion ─────────────────────────────────────────────────────────────
+function confirmLogout() {
+  showLogoutAlert.value = true;
+}
 
 const alertButtons = [
   { text: 'Annuler', role: 'cancel' },
   {
     text: 'Déconnecter',
     role: 'confirm',
-    cssClass: 'alert-danger',
     handler: async () => {
       await authStore.logout();
       await router.replace({ name: 'Login' });
     },
   },
 ];
-
-function confirmLogout() {
-  showLogoutAlert.value = true;
-}
-
-// ── Profil coloré ──────────────────────────────────────────────────────────
-const profilLabel = computed(() => {
-  const labels: Record<string, string> = {
-    admin:         'Administrateur',
-    caissier:      'Caissier',
-    visualisation: 'Visualisation',
-    magasinier:    'Magasinier',
-  };
-  return labels[authStore.userProfil ?? ''] ?? authStore.userProfil ?? '';
-});
-
-const profilColor = computed(() => {
-  const colors: Record<string, string> = {
-    admin:         'secondary',
-    caissier:      'primary',
-    visualisation: 'tertiary',
-    magasinier:    'warning',
-  };
-  return colors[authStore.userProfil ?? ''] ?? 'medium';
-});
-
-// ── Menu rapide ────────────────────────────────────────────────────────────
-interface MenuItem {
-  label: string;
-  icon: string;
-  gradient: string;
-  action?: () => void;
-}
-
-const menuItems = computed((): MenuItem[] => [
-  { label: 'Commandes',    icon: bagHandleOutline,    gradient: 'linear-gradient(135deg, #1A9FE0, #1B2A6B)' },
-  { label: 'Ventes',       icon: receiptOutline,      gradient: 'linear-gradient(135deg, #27AE60, #1e7e44)' },
-  { label: 'Paiements',    icon: cashOutline,         gradient: 'linear-gradient(135deg, #F39C12, #c27d10)' },
-  { label: 'Tickets',      icon: documentTextOutline, gradient: 'linear-gradient(135deg, #2E86C1, #1a5276)' },
-  { label: 'Statistiques', icon: statsChartOutline,   gradient: 'linear-gradient(135deg, #8E44AD, #5b2c6f)' },
-  { label: 'Paramètres',   icon: settingsOutline,     gradient: 'linear-gradient(135deg, #5B6E8C, #34495e)' },
-]);
 </script>
 
 <style scoped>
@@ -202,7 +232,6 @@ const menuItems = computed((): MenuItem[] => [
 .title-bam { color: #ffffff; }
 .title-dot { color: #f0c040; }
 .title-ti  { color: #90caf9; }
-
 .logout-btn { --color: rgba(255,255,255,0.85); }
 
 /* ── Contenu ──────────────────────────────────────────────────────── */
@@ -322,9 +351,13 @@ const menuItems = computed((): MenuItem[] => [
   margin: 2px 0 0;
 }
 
-/* ── Bouton déconnexion ───────────────────────────────────────────── */
-.logout-full-btn {
-  margin: 20px 16px 32px;
+.gain-val {
+  color: var(--ion-color-success);
+}
+
+/* ── Bouton sync ──────────────────────────────────────────────────── */
+.sync-btn {
+  margin: 20px 16px 12px;
   --border-radius: 12px;
   height: 48px;
   font-weight: 600;

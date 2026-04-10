@@ -19,7 +19,7 @@
           </div>
           <div class="menu-user-info">
             <p class="menu-user-name">{{ authStore.user.nom }}</p>
-            <p class="menu-user-profil">{{ profilLabel }}</p>
+            <p class="menu-user-profil">Revendeur</p>
           </div>
         </div>
 
@@ -29,7 +29,7 @@
               :router-link="page.url"
               router-direction="root"
               class="menu-item"
-              :class="{ 'menu-item-active': currentPath === page.url }"
+              :class="{ 'menu-item-active': currentPath.startsWith(page.url) }"
             >
               <ion-icon :icon="page.icon" slot="start" class="menu-item-icon" />
               <ion-label>{{ page.title }}</ion-label>
@@ -77,10 +77,8 @@ import {
 } from '@ionic/vue';
 import {
   homeOutline,
-  cartOutline,
   receiptOutline,
   peopleOutline,
-  statsChartOutline,
   personCircleOutline,
   logOutOutline,
 } from 'ionicons/icons';
@@ -97,23 +95,12 @@ onMounted(async () => {
 
 const currentPath = computed(() => route.path);
 
+// Menu simplifié : uniquement Accueil, Clients, Ventes
 const menuPages = [
-  { title: 'Accueil',      url: '/home',       icon: homeOutline       },
-  { title: 'Commandes',    url: '/commandes',  icon: cartOutline       },
-  { title: 'Ventes',       url: '/ventes',     icon: receiptOutline    },
-  { title: 'Clients',      url: '/clients',    icon: peopleOutline     },
-  { title: 'Statistiques', url: '/stats',      icon: statsChartOutline },
+  { title: 'Accueil',  url: '/home',    icon: homeOutline    },
+  { title: 'Clients',  url: '/clients', icon: peopleOutline  },
+  { title: 'Ventes',   url: '/ventes',  icon: receiptOutline },
 ];
-
-const profilLabel = computed(() => {
-  const labels: Record<string, string> = {
-    admin:         'Administrateur',
-    caissier:      'Caissier',
-    visualisation: 'Lecture seule',
-    magasinier:    'Magasinier',
-  };
-  return labels[authStore.userProfil ?? ''] ?? authStore.userProfil ?? 'Utilisateur';
-});
 
 async function handleLogout() {
   const alert = await alertController.create({

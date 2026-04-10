@@ -225,6 +225,21 @@
                                     </ul>
                                 </div>
                             </li>
+
+                            <!-- ── Gestion Revendeurs ── -->
+                            <li class="nav-item">
+                                <a class="nav-link menu-link" href="#menuRevendeurs" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menuRevendeurs">
+                                    <i class="ri-store-2-line fw-bold text-white"></i>
+                                    <span class="fw-bold text-white">Gestion Revendeurs</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="menuRevendeurs">
+                                    <ul class="nav nav-sm flex-column">
+                                        <li class="nav-item"><a href="/revendeurs/index" class="nav-link text-white">Liste des revendeurs</a></li>
+                                        <li class="nav-item"><a href="/revendeurs/recette/jour" class="nav-link text-white">Recette du jour</a></li>
+                                        <li class="nav-item"><a href="/revendeurs/recette/periode" class="nav-link text-white">Recette par période</a></li>
+                                    </ul>
+                                </div>
+                            </li>
                         <% } 
                         
                         if (currentUser && currentUser.profil === 'caissier') { %>

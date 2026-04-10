@@ -19,6 +19,7 @@ const DepenseModel = require('./depense')(sequelize, DataTypes);
 const MvtMatiereModel = require('./mvt_matiere')(sequelize, DataTypes);
 const CommandeModel = require('./commande')(sequelize, DataTypes);
 const TicketModel = require('./ticket')(sequelize, DataTypes);
+const RevendeurModel = require('./revendeur')(sequelize, DataTypes);
 //relations entre les tables
 ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
@@ -41,6 +42,10 @@ ClientModel.hasMany(CommandeModel, { foreignKey: 'id_client', onDelete: 'CASCADE
 CommandeModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
 TicketModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
 ClientModel.hasMany(TicketModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
+
+// Revendeur <-> User
+RevendeurModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'user' });
+UserModel.hasOne(RevendeurModel, { foreignKey: 'id_user', as: 'revendeur' });
 
 
 // Synchronisation automatique
@@ -67,5 +72,6 @@ module.exports = {
   Depense:DepenseModel,
   MvtMatiere:MvtMatiereModel,
   Commande:CommandeModel,
-  Ticket: TicketModel
+  Ticket: TicketModel,
+  Revendeur: RevendeurModel
 };

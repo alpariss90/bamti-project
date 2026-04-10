@@ -256,6 +256,28 @@
   <li class="menu-title"><span class="fw-bold text-white">Menu</span></li>
 
   <% if (currentUser && currentUser.profil === 'admin') { %>
+    <!-- Revendeurs -->
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="/revendeurs/index">
+        <i class="ri-user-star-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Revendeurs</span>
+      </a>
+    </li>
+
+    <!-- Recette Revendeurs -->
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarRevendeurRecette" data-bs-toggle="collapse">
+        <i class="ri-bar-chart-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Recettes Revendeurs</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarRevendeurRecette">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/revendeurs/recette/jour" class="nav-link text-white">Recette du jour</a></li>
+          <li><a href="/revendeurs/recette/periode" class="nav-link text-white">Recette par période</a></li>
+        </ul>
+      </div>
+    </li>
+
     <!-- Tout le menu pour l'admin -->
     <li class="nav-item">
   <a class="nav-link menu-link" href="#sidebarLanding" data-bs-toggle="collapse">
