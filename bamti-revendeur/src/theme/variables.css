@@ -1,2 +1,113 @@
-/* For information on how to create your own theme, please refer to:
-http://ionicframework.com/docs/theming/ */
+/*
+ * ═══════════════════════════════════════════════════════
+ *  CHARTE GRAPHIQUE BAM.TI
+ *  Couleurs extraites du logo officiel BAM.TI
+ * ═══════════════════════════════════════════════════════
+ *
+ *  Primaire   : Bleu ciel vif        #1A9FE0  (fond dégradé du logo)
+ *  Secondaire : Bleu marine foncé    #1B2A6B  (texte BAM.TI, contours)
+ *  Accent     : Bleu moyen           #2E86C1  (éléments intermédiaires)
+ *  Fond       : Blanc pur            #FFFFFF
+ *  Texte      : Bleu marine          #1B2A6B
+ *  Danger     : Rouge                #E74C3C
+ *  Succès     : Vert                 #27AE60
+ */
+
+:root {
+  /* ── Couleur Primaire : Bleu ciel BAM.TI ── */
+  --ion-color-primary: #1A9FE0;
+  --ion-color-primary-rgb: 26, 159, 224;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #178cc5;
+  --ion-color-primary-tint: #31ace3;
+
+  /* ── Couleur Secondaire : Bleu marine foncé ── */
+  --ion-color-secondary: #1B2A6B;
+  --ion-color-secondary-rgb: 27, 42, 107;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #18255e;
+  --ion-color-secondary-tint: #323f7a;
+
+  /* ── Tertiary : Bleu moyen ── */
+  --ion-color-tertiary: #2E86C1;
+  --ion-color-tertiary-rgb: 46, 134, 193;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast-rgb: 255, 255, 255;
+  --ion-color-tertiary-shade: #2876aa;
+  --ion-color-tertiary-tint: #4392c7;
+
+  /* ── Success ── */
+  --ion-color-success: #27AE60;
+  --ion-color-success-rgb: 39, 174, 96;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #229954;
+  --ion-color-success-tint: #3db670;
+
+  /* ── Warning ── */
+  --ion-color-warning: #F39C12;
+  --ion-color-warning-rgb: 243, 156, 18;
+  --ion-color-warning-contrast: #ffffff;
+  --ion-color-warning-contrast-rgb: 255, 255, 255;
+  --ion-color-warning-shade: #d48910;
+  --ion-color-warning-tint: #f4a62a;
+
+  /* ── Danger ── */
+  --ion-color-danger: #E74C3C;
+  --ion-color-danger-rgb: 231, 76, 60;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #cb4335;
+  --ion-color-danger-tint: #e95e50;
+
+  /* ── Dark ── */
+  --ion-color-dark: #1B2A6B;
+  --ion-color-dark-rgb: 27, 42, 107;
+  --ion-color-dark-contrast: #ffffff;
+  --ion-color-dark-contrast-rgb: 255, 255, 255;
+  --ion-color-dark-shade: #18255e;
+  --ion-color-dark-tint: #323f7a;
+
+  /* ── Medium ── */
+  --ion-color-medium: #5B6E8C;
+  --ion-color-medium-rgb: 91, 110, 140;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast-rgb: 255, 255, 255;
+  --ion-color-medium-shade: #50617b;
+  --ion-color-medium-tint: #6b7d98;
+
+  /* ── Light ── */
+  --ion-color-light: #EBF5FB;
+  --ion-color-light-rgb: 235, 245, 251;
+  --ion-color-light-contrast: #1B2A6B;
+  --ion-color-light-contrast-rgb: 27, 42, 107;
+  --ion-color-light-shade: #cfd8dd;
+  --ion-color-light-tint: #edf6fc;
+
+  /* ── Fond et texte globaux ── */
+  --ion-background-color: #f0f7ff;
+  --ion-background-color-rgb: 240, 247, 255;
+  --ion-text-color: #1B2A6B;
+  --ion-text-color-rgb: 27, 42, 107;
+
+  /* ── Variables personnalisées BAM.TI ── */
+  --bamti-gradient: linear-gradient(135deg, #1A9FE0 0%, #1B2A6B 100%);
+  --bamti-gradient-light: linear-gradient(135deg, #31ace3 0%, #2E86C1 100%);
+  --bamti-card-shadow: 0 4px 16px rgba(26, 159, 224, 0.18);
+  --bamti-border-radius: 16px;
+  --bamti-header-bg: #1B2A6B;
+}
+
+/* ── Mode sombre (optionnel) ── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ion-background-color: #0d1b3e;
+    --ion-background-color-rgb: 13, 27, 62;
+    --ion-text-color: #e8f4fc;
+    --ion-text-color-rgb: 232, 244, 252;
+    --ion-color-light: #1e3a5f;
+    --ion-color-light-contrast: #e8f4fc;
+  }
+}

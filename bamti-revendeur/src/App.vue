@@ -1,233 +1,237 @@
 <template>
   <ion-app>
-    <ion-split-pane content-id="main-content">
-      <ion-menu content-id="main-content" type="overlay">
-        <ion-content>
-          <ion-list id="inbox-list">
-            <ion-list-header>Inbox</ion-list-header>
-            <ion-note>hi@ionicframework.com</ion-note>
+    <!-- ── Menu latéral (affiché uniquement si authentifié) ── -->
+    <ion-menu content-id="main-content" type="overlay" v-if="authStore.isAuthenticated">
+      <ion-header>
+        <ion-toolbar class="menu-toolbar">
+          <div class="menu-brand">
+            <span class="menu-brand-name">BAM.TI</span>
+            <span class="menu-brand-sub">Revendeur</span>
+          </div>
+        </ion-toolbar>
+      </ion-header>
 
-            <ion-menu-toggle :auto-hide="false" v-for="(p, i) in appPages" :key="i">
-              <ion-item @click="selectedIndex = i" router-direction="root" :router-link="p.url" lines="none" :detail="false" class="hydrated" :class="{ selected: selectedIndex === i }">
-                <ion-icon aria-hidden="true" slot="start" :ios="p.iosIcon" :md="p.mdIcon"></ion-icon>
-                <ion-label>{{ p.title }}</ion-label>
-              </ion-item>
-            </ion-menu-toggle>
-          </ion-list>
+      <ion-content class="menu-content">
+        <!-- Profil utilisateur -->
+        <div class="menu-user" v-if="authStore.user">
+          <div class="menu-avatar">
+            <ion-icon :icon="personCircleOutline" />
+          </div>
+          <div class="menu-user-info">
+            <p class="menu-user-name">{{ authStore.user.nom }}</p>
+            <p class="menu-user-profil">{{ profilLabel }}</p>
+          </div>
+        </div>
 
-          <ion-list id="labels-list">
-            <ion-list-header>Labels</ion-list-header>
-
-            <ion-item v-for="(label, index) in labels" lines="none" :key="index">
-              <ion-icon aria-hidden="true" slot="start" :ios="bookmarkOutline" :md="bookmarkSharp"></ion-icon>
-              <ion-label>{{ label }}</ion-label>
+        <ion-list lines="none" class="menu-list">
+          <ion-menu-toggle :auto-hide="false" v-for="(page, i) in menuPages" :key="i">
+            <ion-item
+              :router-link="page.url"
+              router-direction="root"
+              class="menu-item"
+              :class="{ 'menu-item-active': currentPath === page.url }"
+            >
+              <ion-icon :icon="page.icon" slot="start" class="menu-item-icon" />
+              <ion-label>{{ page.title }}</ion-label>
             </ion-item>
-          </ion-list>
-        </ion-content>
-      </ion-menu>
-      <ion-router-outlet id="main-content"></ion-router-outlet>
-    </ion-split-pane>
+          </ion-menu-toggle>
+        </ion-list>
+      </ion-content>
+
+      <ion-footer class="menu-footer">
+        <ion-button
+          expand="block"
+          fill="clear"
+          class="menu-logout-btn"
+          @click="handleLogout"
+        >
+          <ion-icon :icon="logOutOutline" slot="start" />
+          Déconnexion
+        </ion-button>
+      </ion-footer>
+    </ion-menu>
+
+    <!-- ── Outlet principal ── -->
+    <ion-router-outlet id="main-content" />
   </ion-app>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   IonApp,
   IonContent,
+  IonHeader,
+  IonFooter,
   IonIcon,
   IonItem,
   IonLabel,
   IonList,
-  IonListHeader,
   IonMenu,
   IonMenuToggle,
-  IonNote,
   IonRouterOutlet,
-  IonSplitPane,
+  IonToolbar,
+  IonButton,
+  alertController,
 } from '@ionic/vue';
-import { ref } from 'vue';
 import {
-  archiveOutline,
-  archiveSharp,
-  bookmarkOutline,
-  bookmarkSharp,
-  heartOutline,
-  heartSharp,
-  mailOutline,
-  mailSharp,
-  paperPlaneOutline,
-  paperPlaneSharp,
-  trashOutline,
-  trashSharp,
-  warningOutline,
-  warningSharp,
+  homeOutline,
+  cartOutline,
+  receiptOutline,
+  peopleOutline,
+  statsChartOutline,
+  personCircleOutline,
+  logOutOutline,
 } from 'ionicons/icons';
+import { useAuthStore } from './stores/auth';
 
-const selectedIndex = ref(0);
-const appPages = [
-  {
-    title: 'Inbox',
-    url: '/folder/Inbox',
-    iosIcon: mailOutline,
-    mdIcon: mailSharp,
-  },
-  {
-    title: 'Outbox',
-    url: '/folder/Outbox',
-    iosIcon: paperPlaneOutline,
-    mdIcon: paperPlaneSharp,
-  },
-  {
-    title: 'Favorites',
-    url: '/folder/Favorites',
-    iosIcon: heartOutline,
-    mdIcon: heartSharp,
-  },
-  {
-    title: 'Archived',
-    url: '/folder/Archived',
-    iosIcon: archiveOutline,
-    mdIcon: archiveSharp,
-  },
-  {
-    title: 'Trash',
-    url: '/folder/Trash',
-    iosIcon: trashOutline,
-    mdIcon: trashSharp,
-  },
-  {
-    title: 'Spam',
-    url: '/folder/Spam',
-    iosIcon: warningOutline,
-    mdIcon: warningSharp,
-  },
+const route     = useRoute();
+const router    = useRouter();
+const authStore = useAuthStore();
+
+// Restaure la session depuis localStorage au démarrage
+onMounted(async () => {
+  await authStore.initFromStorage();
+});
+
+const currentPath = computed(() => route.path);
+
+const menuPages = [
+  { title: 'Accueil',      url: '/home',       icon: homeOutline       },
+  { title: 'Commandes',    url: '/commandes',  icon: cartOutline       },
+  { title: 'Ventes',       url: '/ventes',     icon: receiptOutline    },
+  { title: 'Clients',      url: '/clients',    icon: peopleOutline     },
+  { title: 'Statistiques', url: '/stats',      icon: statsChartOutline },
 ];
-const labels = ['Family', 'Friends', 'Notes', 'Work', 'Travel', 'Reminders'];
 
-const path = window.location.pathname.split('folder/')[1];
-if (path !== undefined) {
-  selectedIndex.value = appPages.findIndex((page) => page.title.toLowerCase() === path.toLowerCase());
+const profilLabel = computed(() => {
+  const labels: Record<string, string> = {
+    admin:         'Administrateur',
+    caissier:      'Caissier',
+    visualisation: 'Lecture seule',
+    magasinier:    'Magasinier',
+  };
+  return labels[authStore.userProfil ?? ''] ?? authStore.userProfil ?? 'Utilisateur';
+});
+
+async function handleLogout() {
+  const alert = await alertController.create({
+    header:  'Déconnexion',
+    message: 'Voulez-vous vraiment vous déconnecter ?',
+    buttons: [
+      { text: 'Annuler', role: 'cancel' },
+      {
+        text:    'Déconnecter',
+        role:    'confirm',
+        handler: async () => {
+          await authStore.logout();
+          router.replace('/login');
+        },
+      },
+    ],
+  });
+  await alert.present();
 }
 </script>
 
 <style scoped>
-ion-menu ion-content {
-  --background: var(--ion-item-background, var(--ion-background-color, #fff));
+/* ── Toolbar menu ────────────────────────────────────────────────── */
+.menu-toolbar {
+  --background: var(--bamti-gradient, linear-gradient(135deg, #1A9FE0, #1B2A6B));
+  --color: #ffffff;
+  --padding-top: 16px;
+  --padding-bottom: 16px;
 }
 
-ion-menu.md ion-content {
-  --padding-start: 8px;
-  --padding-end: 8px;
-  --padding-top: 20px;
-  --padding-bottom: 20px;
+.menu-brand {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px;
 }
 
-ion-menu.md ion-list {
-  padding: 20px 0;
-}
-
-ion-menu.md ion-note {
-  margin-bottom: 30px;
-}
-
-ion-menu.md ion-list-header,
-ion-menu.md ion-note {
-  padding-left: 10px;
-}
-
-ion-menu.md ion-list#inbox-list {
-  border-bottom: 1px solid var(--ion-background-color-step-150, #d7d8da);
-}
-
-ion-menu.md ion-list#inbox-list ion-list-header {
+.menu-brand-name {
   font-size: 22px;
-  font-weight: 600;
-
-  min-height: 20px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #ffffff;
 }
 
-ion-menu.md ion-list#labels-list ion-list-header {
-  font-size: 16px;
-
-  margin-bottom: 18px;
-
-  color: #757575;
-
-  min-height: 26px;
+.menu-brand-sub {
+  font-size: 11px;
+  opacity: 0.8;
+  color: #ffffff;
+  letter-spacing: 1px;
 }
 
-ion-menu.md ion-item {
-  --padding-start: 10px;
-  --padding-end: 10px;
-  border-radius: 4px;
+/* ── Contenu du menu ─────────────────────────────────────────────── */
+.menu-content {
+  --background: #f5faff;
 }
 
-ion-menu.md ion-item.selected {
-  --background: rgba(var(--ion-color-primary-rgb), 0.14);
-}
-
-ion-menu.md ion-item.selected ion-icon {
-  color: var(--ion-color-primary);
-}
-
-ion-menu.md ion-item ion-icon {
-  color: #616e7e;
-}
-
-ion-menu.md ion-item ion-label {
-  font-weight: 500;
-}
-
-ion-menu.ios ion-content {
-  --padding-bottom: 20px;
-}
-
-ion-menu.ios ion-list {
-  padding: 20px 0 0 0;
-}
-
-ion-menu.ios ion-note {
-  line-height: 24px;
-  margin-bottom: 20px;
-}
-
-ion-menu.ios ion-item {
-  --padding-start: 16px;
-  --padding-end: 16px;
-  --min-height: 50px;
-}
-
-ion-menu.ios ion-item.selected ion-icon {
-  color: var(--ion-color-primary);
-}
-
-ion-menu.ios ion-item ion-icon {
-  font-size: 24px;
-  color: #73849a;
-}
-
-ion-menu.ios ion-list#labels-list ion-list-header {
+/* ── Profil dans le menu ─────────────────────────────────────────── */
+.menu-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 16px;
+  border-bottom: 1px solid #d0dff0;
   margin-bottom: 8px;
 }
 
-ion-menu.ios ion-list-header,
-ion-menu.ios ion-note {
-  padding-left: 16px;
-  padding-right: 16px;
+.menu-avatar ion-icon {
+  font-size: 44px;
+  color: var(--ion-color-primary);
 }
 
-ion-menu.ios ion-note {
-  margin-bottom: 8px;
+.menu-user-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ion-color-secondary);
+  margin: 0 0 2px;
 }
 
-ion-note {
-  display: inline-block;
-  font-size: 16px;
-
-  color: var(--ion-color-medium-shade);
+.menu-user-profil {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+  margin: 0;
 }
 
-ion-item.selected {
+/* ── Liste du menu ───────────────────────────────────────────────── */
+.menu-list {
+  padding: 8px;
+}
+
+.menu-item {
+  --border-radius: 12px;
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --min-height: 48px;
+  margin-bottom: 4px;
+  --color: var(--ion-color-secondary);
+}
+
+.menu-item-active {
+  --background: rgba(26, 159, 224, 0.12);
   --color: var(--ion-color-primary);
+  font-weight: 600;
+}
+
+.menu-item-icon {
+  color: var(--ion-color-primary);
+  font-size: 20px;
+}
+
+/* ── Pied du menu ────────────────────────────────────────────────── */
+.menu-footer {
+  padding: 12px;
+  border-top: 1px solid #d0dff0;
+}
+
+.menu-logout-btn {
+  --color: var(--ion-color-danger);
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: none;
 }
 </style>

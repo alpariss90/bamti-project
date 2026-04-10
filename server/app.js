@@ -5,6 +5,9 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
+// ── API Mobile : routes d'authentification JWT ──────────────────────────────
+const mobileAuthRoutes = require('./routes/api/auth');
+
 // 🔗 Import des modèles et initialisation Sequelize
 require('./models'); // <--- Cela lance la synchro automatiquement
 
@@ -30,6 +33,23 @@ const sessionUser = require('./middleware/sessionUser');
 const authRole = require('./middleware/authRole');
 
 var app = express();
+
+// ── CORS : autoriser l'app mobile (Ionic / Capacitor) ───────────────────────
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+  );
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization'
+  );
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -61,6 +81,9 @@ app.use((req, res, next) => {
   res.locals.warning = req.flash('warning');
   next();
 });
+
+// ── Routes API Mobile (JWT — sans session, sans authRole) ───────────────────
+app.use('/api/mobile/auth', mobileAuthRoutes);
 
 app.use('/login', loginRoutes);
 app.use('/', authRole('admin', 'caissier', 'visualisation'), indexRouter);
