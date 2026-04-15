@@ -12,6 +12,9 @@ const EnginModel = require('./engin')(sequelize, DataTypes);
 const TypeDepenseModel = require('./TypeDepense')(sequelize, DataTypes);
 const VenteModel = require('./vente')(sequelize, DataTypes);
 const PaiementModel = require('./paiement')(sequelize, DataTypes);
+const ClientTmpModel = require('./client_tmp')(sequelize, DataTypes);
+const VenteTmpModel = require('./vente_tmp')(sequelize, DataTypes);
+const PaiementTmpModel = require('./paiement_tmp')(sequelize, DataTypes);
 const MontantPersonnelModel = require('./montant_personnel')(sequelize, DataTypes);
 const SalaireModel = require('./salaire')(sequelize, DataTypes);
 const PersonnelAvanceModel = require('./personnel_avance')(sequelize, DataTypes);
@@ -25,6 +28,10 @@ ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' }
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
 VenteModel.hasMany(PaiementModel, { foreignKey: 'id_vente', onDelete: 'CASCADE' });
 PaiementModel.belongsTo(VenteModel, { foreignKey: 'id_vente' });
+ClientTmpModel.hasMany(VenteTmpModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
+VenteTmpModel.belongsTo(ClientTmpModel, { foreignKey: 'id_client' });
+VenteTmpModel.hasMany(PaiementTmpModel, { foreignKey: 'id_vente', onDelete: 'CASCADE' });
+PaiementTmpModel.belongsTo(VenteTmpModel, { foreignKey: 'id_vente' });
 PersonnelModel.hasOne(MontantPersonnelModel, { foreignKey: 'id_personnel', onDelete: 'CASCADE' });
 MontantPersonnelModel.belongsTo(PersonnelModel, { foreignKey: 'id_personnel' });
 
@@ -49,23 +56,26 @@ UserModel.hasOne(RevendeurModel, { foreignKey: 'id_user', as: 'revendeur' });
 
 
 // Synchronisation automatique
-/*sequelize.sync({ alter: true }) 
+sequelize.sync({ alter: true }) 
   .then(() => {
     console.log(' Base de données synchronisée (User).');
   })
   .catch((err) => {
     console.error(' Erreur de synchronisation :', err);
-});*/
+}); 
 
 module.exports = {
   sequelize,
   User: UserModel,
-  Personnel: PersonnelModel,
+  Personnel: PersonnelModel, 
   Client: ClientModel,
   Engin:EnginModel,
   TypeDepense:TypeDepenseModel,
   Vente:VenteModel,
   Paiement:PaiementModel,
+  ClientTmp: ClientTmpModel,
+  VenteTmp: VenteTmpModel,
+  PaiementTmp: PaiementTmpModel,
   MontantPersonnel:MontantPersonnelModel,
   PersonnelAvance:PersonnelAvanceModel,
   Salaire:SalaireModel,

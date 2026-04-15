@@ -17,4 +17,7 @@ router.post('/logout', authJwt, mobileAuthController.logout);
 // GET  /api/mobile/auth/me     — Profil courant (protégée)
 router.get('/me', authJwt, mobileAuthController.me);
 
+// GET /api/mobile/auth/offline-users — Utilisateurs revendeurs pour cache local
+router.get('/offline-users', authJwt, mobileAuthController.offlineUsers);
+
 module.exports = router;

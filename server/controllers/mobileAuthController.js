@@ -10,6 +10,41 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET     = process.env.JWT_SECRET     || 'bamti_jwt_secret_key_2024';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
+function formatMobileUser(user, revendeur) {
+  return {
+    id: user.id,
+    nom: user.nom,
+    login: user.login,
+    telephone: user.telephone,
+    profil: user.profil,
+    id_revendeur: revendeur?.id ?? null,
+    gain_par_sachet: revendeur?.gain_par_sachet ?? 0,
+  };
+}
+
+async function getOfflineUsersPayload() {
+  const users = await User.findAll({
+    where: {
+      profil: 'revendeur',
+      isActive: true,
+    },
+    include: [
+      {
+        model: Revendeur,
+        as: 'revendeur',
+        required: false,
+      },
+    ],
+    order: [['nom', 'ASC']],
+  });
+
+  return users.map((user) => ({
+    ...formatMobileUser(user, user.revendeur),
+    password_hash: user.password,
+    isActive: user.isActive,
+  }));
+}
+
 function generateToken(user, revendeur) {
   return jwt.sign(
     {
@@ -33,10 +68,10 @@ exports.login = async (req, res) => {
   }
   try {
     const user = await User.findOne({ where: { login } });
-
     if (!user)         return res.status(401).json({ success: false, message: 'Login ou mot de passe incorrect.' });
     if (!user.isActive) return res.status(403).json({ success: false, message: 'Compte désactivé. Contactez l\'administrateur.' });
-
+  
+    
     // Seuls les revendeurs peuvent utiliser l'app mobile
     if (user.profil !== 'revendeur') {
       return res.status(403).json({ success: false, message: 'Accès réservé aux revendeurs.' });
@@ -54,18 +89,25 @@ exports.login = async (req, res) => {
       success: true,
       message: 'Connexion réussie.',
       token,
-      user: {
-        id:              user.id,
-        nom:             user.nom,
-        login:           user.login,
-        telephone:       user.telephone,
-        profil:          user.profil,
-        id_revendeur:    revendeur?.id            ?? null,
-        gain_par_sachet: revendeur?.gain_par_sachet ?? 0
-      }
+      user: formatMobileUser(user, revendeur),
+      offline_users: await getOfflineUsersPayload(),
     });
   } catch (err) {
     console.error('[Mobile Auth] login :', err);
+    return res.status(500).json({ success: false, message: 'Erreur serveur.' });
+  }
+};
+
+// GET /api/mobile/auth/offline-users
+exports.offlineUsers = async (_req, res) => {
+  try {
+    const users = await getOfflineUsersPayload();
+    return res.status(200).json({
+      success: true,
+      users,
+    });
+  } catch (err) {
+    console.error('[Mobile Auth] /offline-users :', err);
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });
   }
 };
@@ -86,18 +128,7 @@ exports.me = async (req, res) => {
 
     const revendeur = await Revendeur.findOne({ where: { id_user: user.id, deletedAt: null } });
 
-    return res.status(200).json({
-      success: true,
-      user: {
-        id:              user.id,
-        nom:             user.nom,
-        login:           user.login,
-        telephone:       user.telephone,
-        profil:          user.profil,
-        id_revendeur:    revendeur?.id            ?? null,
-        gain_par_sachet: revendeur?.gain_par_sachet ?? 0
-      }
-    });
+    return res.status(200).json({ success: true, user: formatMobileUser(user, revendeur) });
   } catch (err) {
     console.error('[Mobile Auth] /me :', err);
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });

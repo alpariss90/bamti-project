@@ -89,6 +89,7 @@
           <thead class="table-secondary position-sticky top-0" style="z-index: 2;">
             <tr>
               <th>#</th>
+              <th>Date</th>
               <th>Type de matière</th>
               <th>Type de mouvement</th>
               <th>Quantité totale</th>
@@ -99,6 +100,7 @@
             <% mvtMatieres.forEach((grp, index) => { %>
               <tr>
                 <th scope="row"><%= index + 1 %></th>
+                <td><%= grp.date_mvt %></td>
                 <td><%= grp.type_matiere %></td>
                 <td><%= grp.type_mvt %></td>
                 <td><%= new Intl.NumberFormat('fr-FR').format(grp.quantite) %></td>

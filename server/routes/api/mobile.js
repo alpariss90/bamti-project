@@ -10,6 +10,7 @@ const ctrl    = require('../../controllers/mobileDataController');
 // ── Clients ────────────────────────────────────────────────────────────────────
 // Liste initiale (sync au démarrage)
 router.get('/clients',            authJwt, ctrl.getClients);
+router.get('/bootstrap',          authJwt, ctrl.bootstrap);
 // Ajouter un client (créé par le revendeur)
 router.post('/clients',           authJwt, ctrl.createClient);
 // Modifier un client (uniquement si créé par ce revendeur)

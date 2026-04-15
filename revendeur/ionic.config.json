@@ -1,0 +1,7 @@
+{
+  "name": "revendeur",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
