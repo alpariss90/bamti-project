@@ -1,0 +1,85 @@
+<%- include('partials/header') %>
+
+<div class="container-fluid">
+
+  <!-- Bouton de création de sauvegarde -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-secondary text-white d-flex align-items-center">
+          <i class="ri-database-2-line me-2 fs-5"></i>
+          <h5 class="mb-0 text-white">Créer une nouvelle sauvegarde</h5>
+        </div>
+        <div class="card-body">
+          <% if (message) { %>
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+              <i class="bi bi-info-circle-fill me-2"></i> <%= message %>
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          <% } %>
+          <p class="text-muted mb-3">
+            Déclenche un export complet de la base de données MySQL (mysqldump).
+            Le fichier <code>.sql</code> sera disponible dans la liste ci-dessous.
+          </p>
+          <form action="/backup/create" method="POST">
+            <button type="submit" class="btn btn-secondary">
+              <i class="ri-save-3-line me-1"></i> Lancer la sauvegarde
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Liste des sauvegardes -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-secondary text-white d-flex align-items-center">
+          <i class="ri-folder-history-line me-2 fs-5"></i>
+          <h5 class="mb-0 text-white">Sauvegardes disponibles</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle" id="dtable">
+              <thead class="table-secondary">
+                <tr>
+                  <th><i class="ri-file-line me-1"></i> Nom du fichier</th>
+                  <th class="text-center" style="width:160px;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (backups.length === 0) { %>
+                  <tr>
+                    <td colspan="2" class="text-center text-muted py-4">
+                      <i class="ri-inbox-line fs-3 d-block mb-2"></i>
+                      Aucune sauvegarde trouvée.
+                    </td>
+                  </tr>
+                <% } else { %>
+                  <% backups.forEach(backup => { %>
+                    <tr>
+                      <td>
+                        <i class="ri-file-code-line text-secondary me-1"></i>
+                        <%= backup %>
+                      </td>
+                      <td class="text-center">
+                        <a href="/backup/download/<%= encodeURIComponent(backup) %>"
+                           class="btn btn-sm btn-outline-secondary">
+                          <i class="ri-download-2-line me-1"></i> Télécharger
+                        </a>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

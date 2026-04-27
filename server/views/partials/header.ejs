@@ -334,7 +334,7 @@
           </ul>
         </div>
       </li>
-
+ 
       <!-- Mvt Matières avec sous-menu -->
       <li>
         <a href="#submenuMvtMatieres" class="nav-link text-white" data-bs-toggle="collapse">
@@ -367,6 +367,7 @@
           <li><a href="/type_depense/index" class="nav-link text-white">Gestion Dépense</a></li>
           <li><a href="/commandes/index" class="nav-link text-white">Gestion Commandes</a></li>
           <li><a href="/tickets/index" class="nav-link text-white">Gestion Ticket</a></li>
+          <li><a href="/backup/liste" class="nav-link text-white">Liste sauvegarde</a></li>
         </ul>
       </div>
     </li>
@@ -398,19 +399,19 @@
   <% } else if (currentUser && currentUser.profil === 'magasinier') { %>
     <!-- Menu Visualisation : tableau de bord seulement -->
     <li class="nav-item">
-      <a href="/dashboard/index/<%=currentMonth%>/<%=currentYear%>" class="nav-link text-white">
+      <a href="/mvt_matieres/index" class="nav-link text-white">
         <i class="ri-dashboard-line fw-bold text-white"></i> 
         <span class="fw-bold text-white">Gestion Matieres</span>
       </a>
     </li>
      <li class="nav-item">
-      <a href="/dashboard/index/<%=currentMonth%>/<%=currentYear%>" class="nav-link text-white">
+      <a href="/mvt_matieres/filtre" class="nav-link text-white">
         <i class="ri-dashboard-line fw-bold text-white"></i> 
         <span class="fw-bold text-white">Filtrage</span>
       </a>
     </li>
      <li class="nav-item">
-      <a href="/dashboard/index/<%=currentMonth%>/<%=currentYear%>" class="nav-link text-white">
+      <a href="/mvt_matieres/non-valide" class="nav-link text-white">
         <i class="ri-dashboard-line fw-bold text-white"></i> 
         <span class="fw-bold text-white">Matiere non validées</span>
       </a>

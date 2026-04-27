@@ -1,5 +1,5 @@
 import { apiRequest } from '@/services/http';
-import type { BootstrapResponse, SyncPayload } from '@/types/data';
+import type { BootstrapResponse, SyncPayload, RecetteResponse } from '@/types/data';
 
 interface SyncResponse {
   success: boolean;
@@ -33,5 +33,19 @@ export const mobileDataService = {
       method: 'DELETE',
       token,
     });
+  },
+
+  recetteJour(token: string): Promise<RecetteResponse> {
+    return apiRequest<RecetteResponse>('/api/mobile/recette/jour', {
+      method: 'GET',
+      token,
+    });
+  },
+
+  recettePeriode(token: string, dateDebut: string, dateFin: string): Promise<RecetteResponse> {
+    return apiRequest<RecetteResponse>(
+      `/api/mobile/recette/periode?date_debut=${dateDebut}&date_fin=${dateFin}`,
+      { method: 'GET', token }
+    );
   },
 };

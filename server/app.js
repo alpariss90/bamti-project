@@ -30,6 +30,7 @@ const mvtMatiereRoutes = require('./routes/mvt_matiere');
 const commandesRouter = require('./routes/commande');
 const ticketRouter = require('./routes/ticket');
 const revendeurRouter = require('./routes/revendeur');
+const backupRouter = require('./routes/backup');
 
 const sessionUser = require('./middleware/sessionUser');
 const authRole = require('./middleware/authRole');
@@ -89,7 +90,7 @@ app.use('/api/mobile/auth', mobileAuthRoutes);
 app.use('/api/mobile',      mobileDataRoutes);
 
 app.use('/login', loginRoutes);
-app.use('/', authRole('admin', 'caissier', 'visualisation'), indexRouter);
+app.use('/', authRole('admin', 'caissier', 'visualisation', 'magasinier'), indexRouter);
 app.use('/dashboard', authRole('admin', 'caissier', 'visualisation'), dashboardRoutes);
 app.use('/users', authRole('admin'), usersRouter); 
 app.use('/personnes', authRole('admin'), clientsRouter);
@@ -103,10 +104,11 @@ app.use('/ventes', authRole('admin', 'caissier'), venteRoutes);
 app.use('/montant_personnel', authRole('admin'), montantPersonnelRoutes);
 app.use('/personnel_avance', authRole('admin'), personnelAvanceRoutes);
 app.use('/salaire', authRole('admin'), salaireRoutes);
-app.use('/mvt_matieres', authRole('admin'), mvtMatiereRoutes);
+app.use('/mvt_matieres', authRole('admin', 'magasinier'), mvtMatiereRoutes);
 app.use('/tickets', authRole('admin', 'caissier'), ticketRouter);
 app.use('/revendeurs', authRole('admin'), revendeurRouter);
 app.use('/mdp', authRole('admin', 'caissier', 'visualisation'), mdpRoutes);
+app.use('/backup', authRole('admin'), backupRouter);
 
 // catch 404 and forward to error handler
 /*app.use(function(req, res, next) {

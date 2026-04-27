@@ -555,11 +555,11 @@ exports.recetteJour = async (req, res) => {
 
     const revendeur = await Revendeur.findOne({ where: { id_user, deletedAt: null } });
 
-    const ventes = await Vente.findAll({
+    const ventes = await VenteTmp.findAll({
       where: { user: id_user, date_vente: { [Op.between]: [today, tomorrow] } },
       include: [
-        { model: Client, attributes: ['id', 'nom', 'prenom'] },
-        { model: Paiement, attributes: ['montant'] }
+        { model: ClientTmp, as: 'Client', attributes: ['id', 'nom', 'prenom'] },
+        { model: PaiementTmp, as: 'Paiements', attributes: ['montant'] }
       ],
       order: [['createdAt', 'DESC']]
     });
@@ -584,14 +584,14 @@ exports.recettePeriode = async (req, res) => {
 
     const revendeur = await Revendeur.findOne({ where: { id_user, deletedAt: null } });
 
-    const ventes = await Vente.findAll({
+    const ventes = await VenteTmp.findAll({
       where: {
         user: id_user,
         date_vente: { [Op.between]: [new Date(date_debut), new Date(date_fin)] }
       },
       include: [
-        { model: Client, attributes: ['id', 'nom', 'prenom'] },
-        { model: Paiement, attributes: ['montant'] }
+        { model: ClientTmp, as: 'Client', attributes: ['id', 'nom', 'prenom'] },
+        { model: PaiementTmp, as: 'Paiements', attributes: ['montant'] }
       ],
       order: [['date_vente', 'DESC']]
     });

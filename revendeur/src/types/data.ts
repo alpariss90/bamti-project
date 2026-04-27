@@ -76,3 +76,33 @@ export interface SyncPayload {
   ventes: PendingVentePayload[];
   paiements: PendingPaiementPayload[];
 }
+
+export interface RecetteVente {
+  id: number;
+  type_vente: 'livrer' | 'usine';
+  quantite: number;
+  observation: string | null;
+  type_paiement: 'total' | 'echellonner';
+  montant: number;
+  prix_unitaire: number;
+  date_vente: string;
+  id_client: number;
+  Client: { id: number; nom: string; prenom: string } | null;
+  montantTotal: number;
+  montantPayes: number;
+  reste: number;
+}
+
+export interface RecetteTotaux {
+  totalVente: number;
+  totalEncaisse: number;
+  totalReste: number;
+  totalQte: number;
+  gainRevendeur: number;
+}
+
+export interface RecetteResponse {
+  success: boolean;
+  ventes: RecetteVente[];
+  totaux: RecetteTotaux;
+}

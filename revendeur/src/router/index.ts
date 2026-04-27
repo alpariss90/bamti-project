@@ -37,6 +37,18 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('../views/ClientsPage.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/recette/jour',
+    name: 'recette-jour',
+    component: () => import('../views/RecetteJourPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/recette/periode',
+    name: 'recette-periode',
+    component: () => import('../views/RecettePeriodePage.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({

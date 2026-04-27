@@ -22,6 +22,16 @@
                 <ion-label>Liste des clients</ion-label>
               </ion-item>
             </ion-menu-toggle>
+            <ion-menu-toggle :auto-hide="false">
+              <ion-item router-link="/recette/jour" router-direction="root">
+                <ion-label>Recette du jour</ion-label>
+              </ion-item>
+            </ion-menu-toggle>
+            <ion-menu-toggle :auto-hide="false">
+              <ion-item router-link="/recette/periode" router-direction="root">
+                <ion-label>Recette par période</ion-label>
+              </ion-item>
+            </ion-menu-toggle>
             <ion-item button @click="syncData">
               <ion-label>Synchroniser les donnees ({{ pendingCount }})</ion-label>
             </ion-item>
