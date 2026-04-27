@@ -60,8 +60,8 @@ import { computed, ref } from 'vue';
 import { authStore } from '@/stores/auth';
 import { dataStore } from '@/stores/dataStore';
 
-onIonViewWillEnter(() => {
-  dataStore.hydrate();
+onIonViewWillEnter(async () => {
+  await dataStore.hydrate();
 });
 
 const ventes = computed(() => {

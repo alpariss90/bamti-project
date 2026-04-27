@@ -6,86 +6,88 @@ import type {
   PendingPaiementPayload,
   PendingVentePayload,
 } from '@/types/data';
-
-const CLIENTS_KEY = 'bamti.revendeur.data.clients';
-const VENTES_KEY = 'bamti.revendeur.data.ventes';
-const PAIEMENTS_KEY = 'bamti.revendeur.data.paiements';
-const PENDING_CLIENTS_KEY = 'bamti.revendeur.pending.clients';
-const PENDING_VENTES_KEY = 'bamti.revendeur.pending.ventes';
-const PENDING_PAIEMENTS_KEY = 'bamti.revendeur.pending.paiements';
-
-function readJson<T>(key: string, fallback: T): T {
-  const rawValue = localStorage.getItem(key);
-  if (!rawValue) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(rawValue) as T;
-  } catch (_error) {
-    localStorage.removeItem(key);
-    return fallback;
-  }
-}
+import { db } from './db';
 
 export const localDataStorage = {
-  saveClients(clients: LocalClient[]): void {
-    localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
+  async saveClients(clients: LocalClient[]): Promise<void> {
+    await db.transaction('rw', db.clients, async () => {
+      await db.clients.clear();
+      if (clients.length) await db.clients.bulkAdd(clients);
+    });
   },
 
-  saveVentes(ventes: LocalVente[]): void {
-    localStorage.setItem(VENTES_KEY, JSON.stringify(ventes));
+  async saveVentes(ventes: LocalVente[]): Promise<void> {
+    await db.transaction('rw', db.ventes, async () => {
+      await db.ventes.clear();
+      if (ventes.length) await db.ventes.bulkAdd(ventes);
+    });
   },
 
-  savePaiements(paiements: LocalPaiement[]): void {
-    localStorage.setItem(PAIEMENTS_KEY, JSON.stringify(paiements));
+  async savePaiements(paiements: LocalPaiement[]): Promise<void> {
+    await db.transaction('rw', db.paiements, async () => {
+      await db.paiements.clear();
+      if (paiements.length) await db.paiements.bulkAdd(paiements);
+    });
   },
 
-  getClients(): LocalClient[] {
-    return readJson<LocalClient[]>(CLIENTS_KEY, []);
+  async getClients(): Promise<LocalClient[]> {
+    return db.clients.toArray();
   },
 
-  getVentes(): LocalVente[] {
-    return readJson<LocalVente[]>(VENTES_KEY, []);
+  async getVentes(): Promise<LocalVente[]> {
+    return db.ventes.toArray();
   },
 
-  getPaiements(): LocalPaiement[] {
-    return readJson<LocalPaiement[]>(PAIEMENTS_KEY, []);
+  async getPaiements(): Promise<LocalPaiement[]> {
+    return db.paiements.toArray();
   },
 
-  savePendingClients(clients: PendingClientPayload[]): void {
-    localStorage.setItem(PENDING_CLIENTS_KEY, JSON.stringify(clients));
+  async savePendingClients(clients: PendingClientPayload[]): Promise<void> {
+    await db.transaction('rw', db.pending_clients, async () => {
+      await db.pending_clients.clear();
+      if (clients.length) await db.pending_clients.bulkAdd(clients);
+    });
   },
 
-  savePendingVentes(ventes: PendingVentePayload[]): void {
-    localStorage.setItem(PENDING_VENTES_KEY, JSON.stringify(ventes));
+  async savePendingVentes(ventes: PendingVentePayload[]): Promise<void> {
+    await db.transaction('rw', db.pending_ventes, async () => {
+      await db.pending_ventes.clear();
+      if (ventes.length) await db.pending_ventes.bulkAdd(ventes);
+    });
   },
 
-  savePendingPaiements(paiements: PendingPaiementPayload[]): void {
-    localStorage.setItem(PENDING_PAIEMENTS_KEY, JSON.stringify(paiements));
+  async savePendingPaiements(paiements: PendingPaiementPayload[]): Promise<void> {
+    await db.transaction('rw', db.pending_paiements, async () => {
+      await db.pending_paiements.clear();
+      if (paiements.length) await db.pending_paiements.bulkAdd(paiements);
+    });
   },
 
-  getPendingClients(): PendingClientPayload[] {
-    return readJson<PendingClientPayload[]>(PENDING_CLIENTS_KEY, []);
+  async getPendingClients(): Promise<PendingClientPayload[]> {
+    return db.pending_clients.toArray();
   },
 
-  getPendingVentes(): PendingVentePayload[] {
-    return readJson<PendingVentePayload[]>(PENDING_VENTES_KEY, []);
+  async getPendingVentes(): Promise<PendingVentePayload[]> {
+    return db.pending_ventes.toArray();
   },
 
-  getPendingPaiements(): PendingPaiementPayload[] {
-    return readJson<PendingPaiementPayload[]>(PENDING_PAIEMENTS_KEY, []);
+  async getPendingPaiements(): Promise<PendingPaiementPayload[]> {
+    return db.pending_paiements.toArray();
   },
 
-  clearPendingData(): void {
-    localStorage.removeItem(PENDING_CLIENTS_KEY);
-    localStorage.removeItem(PENDING_VENTES_KEY);
-    localStorage.removeItem(PENDING_PAIEMENTS_KEY);
+  async clearPendingData(): Promise<void> {
+    await Promise.all([
+      db.pending_clients.clear(),
+      db.pending_ventes.clear(),
+      db.pending_paiements.clear(),
+    ]);
   },
 
-  clearAllBusinessData(): void {
-    localStorage.removeItem(CLIENTS_KEY);
-    localStorage.removeItem(VENTES_KEY);
-    localStorage.removeItem(PAIEMENTS_KEY);
+  async clearAllBusinessData(): Promise<void> {
+    await Promise.all([
+      db.clients.clear(),
+      db.ventes.clear(),
+      db.paiements.clear(),
+    ]);
   },
 };

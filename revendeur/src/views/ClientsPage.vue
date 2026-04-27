@@ -126,8 +126,8 @@ import { authStore } from '@/stores/auth';
 import type { LocalClient } from '@/types/data';
 import { dataStore } from '@/stores/dataStore';
 
-onIonViewWillEnter(() => {
-  dataStore.hydrate();
+onIonViewWillEnter(async () => {
+  await dataStore.hydrate();
 });
 
 const clients = computed(() => dataStore.state.clients);
@@ -171,12 +171,12 @@ function closeAddClientModal(): void {
   isAddClientOpen.value = false;
 }
 
-function saveClient(): void {
+async function saveClient(): Promise<void> {
   if (!clientForm.value.nom.trim() || !clientForm.value.prenom.trim()) {
     window.alert('Nom et prenom sont obligatoires.');
     return;
   }
-  dataStore.addClientOffline(clientForm.value);
+  await dataStore.addClientOffline(clientForm.value);
   clientForm.value = { nom: '', prenom: '', telephone: '', adresse: '' };
   closeAddClientModal();
 }
@@ -199,7 +199,7 @@ function closeVenteModal(): void {
   selectedClient.value = null;
 }
 
-function saveVente(): void {
+async function saveVente(): Promise<void> {
   if (!selectedClient.value) {
     return;
   }
@@ -222,7 +222,7 @@ function saveVente(): void {
   }
 
   try {
-    dataStore.addVenteOffline({
+    await dataStore.addVenteOffline({
       userId: authStore.state.user.id,
       client: selectedClient.value,
       type_vente: venteForm.value.type_vente,
@@ -235,6 +235,8 @@ function saveVente(): void {
     closeVenteModal();
   } catch (error) {
     window.alert(error instanceof Error ? error.message : 'Erreur lors de la creation de la vente.');
+    console.log(error instanceof Error ? error.message : 'Erreur lors de la creation de la vente.');
+    
   }
 }
 

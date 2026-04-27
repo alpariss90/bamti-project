@@ -1,4 +1,4 @@
-import { reactive } from 'vue';
+import { reactive, toRaw } from 'vue';
 import { mobileDataService } from '@/services/mobileDataService';
 import { localDataStorage } from '@/services/localDataStorage';
 import type {
@@ -38,52 +38,52 @@ function totalPaidForVente(venteId: number): number {
     .reduce((sum, paiement) => sum + Number(paiement.montant), 0);
 }
 
-function loadFromLocal(): void {
-  state.clients = localDataStorage.getClients();
-  state.ventes = localDataStorage.getVentes();
-  state.paiements = localDataStorage.getPaiements();
-  state.pendingClients = localDataStorage.getPendingClients();
-  state.pendingVentes = localDataStorage.getPendingVentes();
-  state.pendingPaiements = localDataStorage.getPendingPaiements();
+async function loadFromLocal(): Promise<void> {
+  state.clients = await localDataStorage.getClients();
+  state.ventes = await localDataStorage.getVentes();
+  state.paiements = await localDataStorage.getPaiements();
+  state.pendingClients = await localDataStorage.getPendingClients();
+  state.pendingVentes = await localDataStorage.getPendingVentes();
+  state.pendingPaiements = await localDataStorage.getPendingPaiements();
 }
 
-function persistBusinessData(): void {
-  localDataStorage.saveClients(state.clients);
-  localDataStorage.saveVentes(state.ventes);
-  localDataStorage.savePaiements(state.paiements);
+async function persistBusinessData(): Promise<void> {
+  await localDataStorage.saveClients(state.clients.map(toRaw));
+  await localDataStorage.saveVentes(state.ventes.map(toRaw));
+  await localDataStorage.savePaiements(state.paiements.map(toRaw));
 }
 
-function persistPendingData(): void {
-  localDataStorage.savePendingClients(state.pendingClients);
-  localDataStorage.savePendingVentes(state.pendingVentes);
-  localDataStorage.savePendingPaiements(state.pendingPaiements);
+async function persistPendingData(): Promise<void> {
+  await localDataStorage.savePendingClients(state.pendingClients.map(toRaw));
+  await localDataStorage.savePendingVentes(state.pendingVentes.map(toRaw));
+  await localDataStorage.savePendingPaiements(state.pendingPaiements.map(toRaw));
 }
 
 export const dataStore = {
   state,
 
-  hydrate(): void {
-    loadFromLocal();
+  async hydrate(): Promise<void> {
+    await loadFromLocal();
   },
 
   async syncInitialData(token: string): Promise<void> {
     const response = await mobileDataService.bootstrap(token);
-    const localClients = localDataStorage.getClients().filter((item) => item.id < 0);
-    const localVentes = localDataStorage.getVentes().filter((item) => item.id < 0);
-    const localPaiements = localDataStorage.getPaiements().filter((item) => item.id < 0);
+    const localClients = (await localDataStorage.getClients()).filter((item) => item.id < 0);
+    const localVentes = (await localDataStorage.getVentes()).filter((item) => item.id < 0);
+    const localPaiements = (await localDataStorage.getPaiements()).filter((item) => item.id < 0);
 
-    localDataStorage.saveClients([...response.data.clients, ...localClients]);
-    localDataStorage.saveVentes([...response.data.ventes, ...localVentes]);
-    localDataStorage.savePaiements([...response.data.paiements, ...localPaiements]);
-    loadFromLocal();
+    await localDataStorage.saveClients([...response.data.clients, ...localClients]);
+    await localDataStorage.saveVentes([...response.data.ventes, ...localVentes]);
+    await localDataStorage.savePaiements([...response.data.paiements, ...localPaiements]);
+    await loadFromLocal();
   },
 
-  addClientOffline(payload: {
+  async addClientOffline(payload: {
     nom: string;
     prenom: string;
     telephone?: string;
     adresse?: string;
-  }): LocalClient {
+  }): Promise<LocalClient> {
     const client: LocalClient = {
       id: nextLocalId(),
       nom: payload.nom.trim(),
@@ -103,12 +103,12 @@ export const dataStore = {
         adresse: client.adresse,
       },
     ];
-    persistBusinessData();
-    persistPendingData();
+    await persistBusinessData();
+    await persistPendingData();
     return client;
   },
 
-  addVenteOffline(payload: {
+  async addVenteOffline(payload: {
     userId: number;
     client: LocalClient;
     type_vente: 'livrer' | 'usine';
@@ -118,7 +118,7 @@ export const dataStore = {
     date_vente: string;
     montant_verse?: number;
     observation?: string;
-  }): void {
+  }): Promise<void> {
     const now = new Date().toISOString();
     const venteId = nextLocalId();
     const total = Number(payload.quantite) * Number(payload.prix_unitaire);
@@ -185,16 +185,16 @@ export const dataStore = {
       },
     ];
 
-    persistBusinessData();
-    persistPendingData();
+    await persistBusinessData();
+    await persistPendingData();
   },
 
-  addPaiementOffline(payload: {
+  async addPaiementOffline(payload: {
     venteId: number;
     montant: number;
     date: string;
     observation?: string;
-  }): void {
+  }): Promise<void> {
     const vente = state.ventes.find((item) => item.id === payload.venteId);
     if (!vente) {
       throw new Error('Vente introuvable.');
@@ -235,8 +235,8 @@ export const dataStore = {
       },
     ];
 
-    persistBusinessData();
-    persistPendingData();
+    await persistBusinessData();
+    await persistPendingData();
   },
 
   async syncPendingData(token: string): Promise<{ synced: number; errors: string[] }> {
@@ -262,8 +262,6 @@ export const dataStore = {
     const ventesToSync = [...state.pendingVentes];
     const paiementsToSync = [...state.pendingPaiements];
 
-    // Reconstitue une vente manquante si un paiement pointe vers une vente locale negative
-    // qui n'est plus dans la file des ventes en attente.
     for (const paiement of paiementsToSync) {
       const hasMappedVente = ventesToSync.some((vente) => vente.id_local === paiement.id_vente_local);
       if (hasMappedVente || paiement.id_vente || paiement.id_vente_local > 0) {
@@ -314,7 +312,7 @@ export const dataStore = {
 
     const errors = response.resultats.erreurs || [];
     if (!errors.length) {
-      localDataStorage.clearPendingData();
+      await localDataStorage.clearPendingData();
       state.pendingClients = [];
       state.pendingVentes = [];
       state.pendingPaiements = [];
@@ -322,7 +320,7 @@ export const dataStore = {
       state.pendingClients = clientsToSync;
       state.pendingVentes = ventesToSync;
       state.pendingPaiements = paiementsToSync;
-      persistPendingData();
+      await persistPendingData();
     }
 
     return {
@@ -351,10 +349,10 @@ export const dataStore = {
     return Math.max(0, Number(vente.montant) - totalPaidForVente(venteId));
   },
 
-  clearLocalDevData(): void {
-    localDataStorage.clearAllBusinessData();
-    localDataStorage.clearPendingData();
-    loadFromLocal();
+  async clearLocalDevData(): Promise<void> {
+    await localDataStorage.clearAllBusinessData();
+    await localDataStorage.clearPendingData();
+    await loadFromLocal();
   },
 
   async deleteClient(clientId: number, token?: string): Promise<void> {
@@ -372,7 +370,7 @@ export const dataStore = {
 
     state.clients = state.clients.filter((client) => client.id !== clientId);
     state.pendingClients = state.pendingClients.filter((client) => client.id_local !== clientId);
-    persistBusinessData();
-    persistPendingData();
+    await persistBusinessData();
+    await persistPendingData();
   },
 };

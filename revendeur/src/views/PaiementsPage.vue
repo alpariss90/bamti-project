@@ -83,8 +83,8 @@ import { dataStore } from '@/stores/dataStore';
 
 const route = useRoute();
 
-onIonViewWillEnter(() => {
-  dataStore.hydrate();
+onIonViewWillEnter(async () => {
+  await dataStore.hydrate();
 });
 
 const venteId = computed(() => Number(route.params.id));
@@ -113,14 +113,14 @@ function closePaiementModal(): void {
   isPaiementOpen.value = false;
 }
 
-function savePaiement(): void {
+async function savePaiement(): Promise<void> {
   if (!canAddPaiement.value) {
     window.alert('Cette vente est deja soldee.');
     return;
   }
 
   try {
-    dataStore.addPaiementOffline({
+    await dataStore.addPaiementOffline({
       venteId: venteId.value,
       montant: Number(paiementForm.value.montant),
       date: paiementForm.value.date,

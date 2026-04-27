@@ -95,7 +95,7 @@ async function submit(): Promise<void> {
     if (authStore.state.token && isOnline.value) {
       await dataStore.syncInitialData(authStore.state.token);
     } else {
-      dataStore.hydrate();
+      await dataStore.hydrate();
     }
     infoMessage.value = result.message;
     await router.replace('/home');

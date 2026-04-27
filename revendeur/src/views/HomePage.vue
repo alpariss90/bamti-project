@@ -68,7 +68,7 @@ onIonViewWillEnter(async () => {
     return;
   }
 
-  dataStore.hydrate();
+  await dataStore.hydrate();
 
   if (isOnline.value) {
     try {

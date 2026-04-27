@@ -62,8 +62,8 @@ import { dataStore } from '@/stores/dataStore';
 const router = useRouter();
 const pendingCount = computed(() => dataStore.getPendingCount());
 
-onMounted(() => {
-  dataStore.hydrate();
+onMounted(async () => {
+  await dataStore.hydrate();
 });
 
 async function logout(): Promise<void> {
