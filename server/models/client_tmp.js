@@ -21,6 +21,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true
     },
+    is_sync: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     deletedAt: {
       type: DataTypes.DATE,
       allowNull: true,

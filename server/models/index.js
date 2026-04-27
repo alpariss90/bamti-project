@@ -23,15 +23,16 @@ const MvtMatiereModel = require('./mvt_matiere')(sequelize, DataTypes);
 const CommandeModel = require('./commande')(sequelize, DataTypes);
 const TicketModel = require('./ticket')(sequelize, DataTypes);
 const RevendeurModel = require('./revendeur')(sequelize, DataTypes);
+const ClientClientTmpModel = require('./client_client_tmp')(sequelize, DataTypes);
 //relations entre les tables
 ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
 VenteModel.hasMany(PaiementModel, { foreignKey: 'id_vente', onDelete: 'CASCADE' });
 PaiementModel.belongsTo(VenteModel, { foreignKey: 'id_vente' });
-ClientTmpModel.hasMany(VenteTmpModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
-VenteTmpModel.belongsTo(ClientTmpModel, { foreignKey: 'id_client' });
-VenteTmpModel.hasMany(PaiementTmpModel, { foreignKey: 'id_vente', onDelete: 'CASCADE' });
-PaiementTmpModel.belongsTo(VenteTmpModel, { foreignKey: 'id_vente' });
+ClientTmpModel.hasMany(VenteTmpModel, { foreignKey: 'id_client', as: 'Ventes', onDelete: 'CASCADE' });
+VenteTmpModel.belongsTo(ClientTmpModel, { foreignKey: 'id_client', as: 'Client' });
+VenteTmpModel.hasMany(PaiementTmpModel, { foreignKey: 'id_vente', as: 'Paiements', onDelete: 'CASCADE' });
+PaiementTmpModel.belongsTo(VenteTmpModel, { foreignKey: 'id_vente', as: 'vente' });
 PersonnelModel.hasOne(MontantPersonnelModel, { foreignKey: 'id_personnel', onDelete: 'CASCADE' });
 MontantPersonnelModel.belongsTo(PersonnelModel, { foreignKey: 'id_personnel' });
 
@@ -83,5 +84,6 @@ module.exports = {
   MvtMatiere:MvtMatiereModel,
   Commande:CommandeModel,
   Ticket: TicketModel,
-  Revendeur: RevendeurModel
+  Revendeur: RevendeurModel,
+  ClientClientTmp: ClientClientTmpModel
 };

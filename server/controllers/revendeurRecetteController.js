@@ -1,9 +1,10 @@
 /**
  * Controller admin — Recette des revendeurs
  * Recette du jour & recette par période
+ * Les données sont lues depuis les tables *_tmp (données mobiles synchronisées).
  */
 const db = require('../models');
-const { Vente, Paiement, Client, User, Revendeur } = db;
+const { VenteTmp, PaiementTmp, ClientTmp, Revendeur, User } = db;
 const { Op } = require('sequelize');
 
 function _buildStats(ventes, gainParSachet) {
@@ -41,14 +42,14 @@ exports.recetteJour = async (req, res) => {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
-      const ventes = await Vente.findAll({
+      const ventes = await VenteTmp.findAll({
         where: {
           user: rev?.id_user,
           date_vente: { [Op.between]: [today, tomorrow] }
         },
         include: [
-          { model: Client, attributes: ['id', 'nom', 'prenom'] },
-          { model: Paiement, attributes: ['montant', 'date'] }
+          { model: ClientTmp, as: 'Client', attributes: ['id', 'nom', 'prenom'] },
+          { model: PaiementTmp, as: 'Paiements', attributes: ['montant', 'date'] }
         ],
         order: [['createdAt', 'DESC']]
       });
@@ -85,14 +86,14 @@ exports.recettePeriode = async (req, res) => {
       const rev = revendeurs.find(r => r.id == id_revendeur);
       revendeurChoisi = rev;
 
-      const ventes = await Vente.findAll({
+      const ventes = await VenteTmp.findAll({
         where: {
           user: rev?.id_user,
           date_vente: { [Op.between]: [new Date(date_debut), new Date(date_fin)] }
         },
         include: [
-          { model: Client, attributes: ['id', 'nom', 'prenom'] },
-          { model: Paiement, attributes: ['montant', 'date'] }
+          { model: ClientTmp, as: 'Client', attributes: ['id', 'nom', 'prenom'] },
+          { model: PaiementTmp, as: 'Paiements', attributes: ['montant', 'date'] }
         ],
         order: [['date_vente', 'DESC']]
       });

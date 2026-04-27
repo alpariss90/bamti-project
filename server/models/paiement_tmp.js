@@ -20,6 +20,11 @@ module.exports = (sequelize, DataTypes) => {
     observation: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    is_sync: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
     }
   }, {
     tableName: 'paiements_tmp',

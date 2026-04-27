@@ -40,6 +40,11 @@ module.exports = (sequelize, DataTypes) => {
     user: {
       type: DataTypes.INTEGER,
       allowNull: false
+    },
+    is_sync: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
     }
   }, {
     tableName: 'ventes_tmp',
