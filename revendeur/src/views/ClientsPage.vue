@@ -19,18 +19,44 @@
         Ajouter un client
       </ion-button>
 
-      <ion-list v-if="filteredClients.length">
-        <ion-item v-for="client in filteredClients" :key="client.id">
-          <ion-label>
-            <h2>{{ client.nom }} {{ client.prenom }}</h2>
-            <p>Telephone: {{ client.telephone ?? '-' }}</p>
-            <p>Adresse: {{ client.adresse ?? '-' }}</p>
-          </ion-label>
-          <ion-button slot="end" size="small" @click="openVenteModal(client)">Vente</ion-button>
-          <ion-button slot="end" size="small" color="danger" @click="deleteClient(client)">Supprimer</ion-button>
-        </ion-item>
-      </ion-list>
-      <ion-note v-else color="medium">Aucun client ne correspond a la recherche.</ion-note>
+      <div v-if="visibleClients.length" class="cards-grid">
+        <ion-card v-for="client in visibleClients" :key="client.id" class="client-card">
+          <ion-card-content>
+            <div class="card-header-row">
+              <div class="avatar">{{ initiales(client) }}</div>
+              <div class="client-info">
+                <h2 class="client-name">{{ client.nom }} {{ client.prenom }}</h2>
+                <p class="client-detail">
+                  <ion-icon :icon="callOutline" class="detail-icon" />
+                  {{ client.telephone ?? '-' }}
+                </p>
+                <p class="client-detail">
+                  <ion-icon :icon="locationOutline" class="detail-icon" />
+                  {{ client.adresse ?? '-' }}
+                </p>
+              </div>
+            </div>
+            <div class="card-actions">
+              <ion-button size="small" expand="block" class="btn-vente" @click="openVenteModal(client)">
+                <ion-icon :icon="cartOutline" slot="start" />
+                Vente
+              </ion-button>
+              <ion-button size="small" expand="block" fill="outline" color="danger" class="btn-suppr" @click="deleteClient(client)">
+                <ion-icon :icon="trashOutline" slot="start" />
+                Supprimer
+              </ion-button>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+      <div v-else class="empty-state">
+        <ion-icon :icon="peopleOutline" class="empty-icon" />
+        <p>Aucun client ne correspond a la recherche.</p>
+      </div>
+
+      <ion-infinite-scroll :disabled="displayedCount >= filteredClients.length" @ionInfinite="loadMore">
+        <ion-infinite-scroll-content loading-spinner="bubbles" loading-text="Chargement..." />
+      </ion-infinite-scroll>
 
       <ion-modal :is-open="isAddClientOpen" @didDismiss="closeAddClientModal">
         <ion-header>
@@ -104,15 +130,17 @@
 import {
   IonButton,
   IonButtons,
+  IonCard,
+  IonCardContent,
   IonContent,
   IonHeader,
+  IonIcon,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent,
   IonInput,
   IonItem,
-  IonLabel,
-  IonList,
   IonMenuButton,
   IonModal,
-  IonNote,
   IonPage,
   IonSearchbar,
   IonSelect,
@@ -120,21 +148,31 @@ import {
   IonTitle,
   IonToolbar,
   onIonViewWillEnter,
+  useIonRouter,
 } from '@ionic/vue';
-import { computed, ref } from 'vue';
+import { callOutline, cartOutline, locationOutline, peopleOutline, trashOutline } from 'ionicons/icons';
+import { computed, ref, watch } from 'vue';
 import { authStore } from '@/stores/auth';
 import type { LocalClient } from '@/types/data';
 import { dataStore } from '@/stores/dataStore';
+
+function initiales(client: LocalClient): string {
+  return `${client.nom.charAt(0)}${client.prenom.charAt(0)}`.toUpperCase();
+}
 
 onIonViewWillEnter(async () => {
   await dataStore.hydrate();
 });
 
+const ionRouter = useIonRouter();
 const clients = computed(() => dataStore.state.clients);
 const searchTerm = ref('');
 const isAddClientOpen = ref(false);
 const isVenteOpen = ref(false);
 const selectedClient = ref<LocalClient | null>(null);
+
+const PAGE_SIZE = 20;
+const displayedCount = ref(PAGE_SIZE);
 
 const clientForm = ref({
   nom: '',
@@ -154,14 +192,20 @@ const venteForm = ref({
 
 const filteredClients = computed(() => {
   const query = searchTerm.value.trim().toLowerCase();
-  if (!query) {
-    return clients.value;
-  }
-
+  if (!query) return clients.value;
   return clients.value.filter((client) =>
     `${client.nom} ${client.prenom} ${client.telephone ?? ''}`.toLowerCase().includes(query)
   );
 });
+
+const visibleClients = computed(() => filteredClients.value.slice(0, displayedCount.value));
+
+watch(searchTerm, () => { displayedCount.value = PAGE_SIZE; });
+
+function loadMore(event: CustomEvent): void {
+  displayedCount.value += PAGE_SIZE;
+  (event.target as HTMLIonInfiniteScrollElement).complete();
+}
 
 function openAddClientModal(): void {
   isAddClientOpen.value = true;
@@ -233,6 +277,7 @@ async function saveVente(): Promise<void> {
       montant_verse: venteForm.value.montant_verse,
     });
     closeVenteModal();
+    ionRouter.navigate('/ventes', 'forward', 'push');
   } catch (error) {
     window.alert(error instanceof Error ? error.message : 'Erreur lors de la creation de la vente.');
     console.log(error instanceof Error ? error.message : 'Erreur lors de la creation de la vente.');
@@ -261,5 +306,103 @@ async function deleteClient(client: LocalClient): Promise<void> {
   --background: #1e88e5;
   --border-radius: 10px;
   margin: 8px 0 14px;
+}
+
+/* Grille de cards */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  padding: 4px 0 16px;
+}
+
+.client-card {
+  margin: 0;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Ligne avatar + infos */
+.card-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #1e88e5;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.client-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-name {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-detail {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--ion-color-medium);
+  margin: 2px 0;
+}
+
+.detail-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Boutons d'action */
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-vente {
+  flex: 1;
+  --background: #1e88e5;
+  --border-radius: 8px;
+}
+
+.btn-suppr {
+  flex: 1;
+  --border-radius: 8px;
+}
+
+/* Etat vide */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  color: var(--ion-color-medium);
+}
+
+.empty-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+  opacity: 0.4;
 }
 </style>
