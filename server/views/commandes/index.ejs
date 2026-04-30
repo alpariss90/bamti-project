@@ -17,7 +17,7 @@
 
         <div class="col-md-3">
           <label for="id_client" class="form-label">Client</label>
-          <select class="form-control" id="id_client" name="id_client" required>
+          <select class="form-control select2-client" id="id_client" name="id_client" required>
             <option value="">-- Sélectionner un client --</option>
             <% if (clients) { %>
               <% clients.forEach(client => { %>

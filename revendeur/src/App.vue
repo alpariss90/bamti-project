@@ -46,9 +46,9 @@
               <ion-icon v-else :icon="syncOutline" slot="start" />
               <ion-label>{{ syncing ? 'Synchronisation...' : `Synchroniser (${pendingCount})` }}</ion-label>
             </ion-item>
-            <ion-item button color="danger" @click="cleanLocalData">
+          <!--   <ion-item button color="danger" @click="cleanLocalData">
               <ion-label>Clean local (DEV)</ion-label>
-            </ion-item> 
+            </ion-item> -->
             <ion-menu-toggle :auto-hide="false">
               <ion-item router-link="/changer-mot-de-passe" router-direction="root">
                 <ion-icon :icon="lockClosedOutline" slot="start" />

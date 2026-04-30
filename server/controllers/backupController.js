@@ -18,7 +18,7 @@ exports.create = async (req, res) => {
     const fileName = `sauv_${pad(now.getDate())}_${pad(now.getMonth() + 1)}_${now.getFullYear()}_${pad(now.getHours())}_${pad(now.getMinutes())}.sql`;
     const filePath = path.join(backupDir, fileName);
 
-    const { DB_HOST = 'localhost', DB_USER, DB_PASSWORD, DB_NAME } = process.env;
+    const { DB_HOST = 'localhost', DB_PORT = '3306', DB_USER, DB_PASSWORD, DB_NAME } = process.env;
 
     if (!DB_USER || !DB_NAME) {
       return redirectWithMessage(req, res, 'Variables DB_USER / DB_NAME manquantes dans .env.');
@@ -26,10 +26,8 @@ exports.create = async (req, res) => {
 
     const passwordArg = DB_PASSWORD ? `-p${DB_PASSWORD}` : '';
 
-    // Sur Windows exec utilise cmd.exe, sur Linux/Mac il utilise /bin/sh
-    // Les deux supportent la redirection > mais les guillemets diffèrent
     const quotedPath = isWindows ? `"${filePath}"` : `'${filePath}'`;
-    const cmd = `mysqldump -h ${DB_HOST} -u ${DB_USER} ${passwordArg} ${DB_NAME} > ${quotedPath}`;
+    const cmd = `mysqldump -h ${DB_HOST} -P ${DB_PORT} -u ${DB_USER} ${passwordArg} ${DB_NAME} > ${quotedPath}`;
 
     await execPromise(cmd, { shell: isWindows ? 'cmd.exe' : '/bin/sh' });
     redirectWithMessage(req, res, `Sauvegarde créée avec succès : ${fileName}`);

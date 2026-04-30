@@ -9,22 +9,22 @@
     </div>
   <% } %>
 
-  <div class="card shadow-sm mt-3">
-    <div class="card-header bg-secondary text-white">
-      <h4 class="mb-0 text-center">Gestion des ventes</h4>
+  <div class="card shadow mt-3" style="border:none;border-radius:14px;overflow:hidden;">
+    <div class="card-header py-3 text-white" style="background:linear-gradient(135deg,#1e3a5f 0%,#0ea5c9 100%);">
+      <h4 class="mb-0 text-center"><i class="bi bi-cart-plus me-2"></i>Gestion des ventes</h4>
     </div>
 
-    <div class="card-body">
+    <div class="card-body" style="background:#f8fafc;">
       <!-- Formulaire création / modification -->
-      <form id="venteForm" action="/ventes/createOrUpdate" method="POST" class="row g-2 align-items-end needs-validation" novalidate>
+      <form id="venteForm" action="/ventes/createOrUpdate" method="POST" class="row g-3 align-items-end needs-validation" novalidate>
         <input type="hidden" name="id" id="venteId" value="">
 
         <div id="formStatus" class="col-12"></div>
 
         <!-- Sélection du client -->
         <div class="col-md-3">
-          <label for="id_client" class="form-label">Client</label>
-          <select class="form-select select2-client" id="id_client" name="id_client"  required>
+          <label for="id_client" class="form-label fw-semibold"><i class="bi bi-person-fill me-1 text-primary"></i>Client</label>
+          <select class="form-select select2-client" id="id_client" name="id_client" required>
             <option value="">-- Choisir un client --</option>
             <% clients.forEach(client => { %>
               <option value="<%= client.id %>"><%= client.nom %> <%= client.prenom || '' %></option>
@@ -34,7 +34,7 @@
         </div>
 
         <div class="col-md-2">
-          <label for="type_vente" class="form-label">Type de vente</label>
+          <label for="type_vente" class="form-label fw-semibold"><i class="bi bi-tag-fill me-1 text-primary"></i>Type de vente</label>
           <select class="form-select" id="type_vente" name="type_vente" required>
             <option value="">-- Choisir --</option>
             <option value="livrer">Livrée</option>
@@ -43,40 +43,50 @@
           <div class="invalid-feedback">Veuillez choisir le type de vente.</div>
         </div>
 
-        <div class="col-md-2">
-          <label for="quantite" class="form-label">Quantité</label>
+        <div class="col-md-1">
+          <label for="quantite" class="form-label fw-semibold"><i class="bi bi-stack me-1 text-primary"></i>Qté</label>
           <input type="number" min="1" class="form-control" id="quantite" name="quantite" required>
-          <div class="invalid-feedback">Quantité requise.</div>
+          <div class="invalid-feedback">Requis.</div>
         </div>
 
         <div class="col-md-2">
-          <label for="prix_unitaire" class="form-label">Prix unitaire</label>
-          <input type="number" step="0.01" min="0" value="350" class="form-control" id="prix_unitaire" name="prix_unitaire" required>
-          <div class="invalid-feedback">Prix unitaire obligatoire.</div>
+          <label for="prix_unitaire" class="form-label fw-semibold"><i class="bi bi-cash-coin me-1 text-primary"></i>Prix unitaire</label>
+          <div class="input-group">
+            <input type="number" step="0.01" min="0" value="350" class="form-control" id="prix_unitaire" name="prix_unitaire" required>
+            <span class="input-group-text text-muted small">FCFA</span>
+          </div>
+          <div class="invalid-feedback">Obligatoire.</div>
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="w-100 rounded-3 text-center py-2 px-3" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;">
+            <div class="text-muted small mb-1"><i class="bi bi-calculator me-1"></i>Montant total</div>
+            <div id="montantPreview" class="fw-bold fs-5 text-success">0 FCFA</div>
+          </div>
         </div>
 
         <div class="col-md-2">
-          <label for="type_paiement" class="form-label">Type de paiement</label>
+          <label for="type_paiement" class="form-label fw-semibold"><i class="bi bi-credit-card-fill me-1 text-primary"></i>Paiement</label>
           <select class="form-select" id="type_paiement" name="type_paiement" required>
             <option value="">-- Choisir --</option>
             <option value="total">Total</option>
             <option value="echellonner">Échelonner</option>
           </select>
-          <div class="invalid-feedback">Type de paiement requis.</div>
+          <div class="invalid-feedback">Requis.</div>
         </div>
 
-      <div class="col-md-2">
-          <label for="date_vente" class="form-label">Date de vente</label>
+        <div class="col-md-2">
+          <label for="date_vente" class="form-label fw-semibold"><i class="bi bi-calendar-date-fill me-1 text-primary"></i>Date vente</label>
           <input type="date" class="form-control" id="date_vente" name="date_vente" required>
-          <div class="invalid-feedback">Date obligatoire.</div>
+          <div class="invalid-feedback">Obligatoire.</div>
         </div>
 
-        <div class="col-md-12 d-flex justify-content-end gap-2 mt-2">
-          <button type="submit" id="submitBtn" class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+        <div class="col-md-12 d-flex justify-content-end gap-2 mt-1">
+          <button type="submit" id="submitBtn" class="btn btn-success px-4">
+            <i class="bi bi-plus-circle me-1"></i><span id="submitText">Ajouter</span>
           </button>
-          <a href="/ventes/filtre" class="btn btn-secondary">
-            <i class="bi bi-funnel"></i> Filtrer
+          <a href="/ventes/filtre" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-funnel me-1"></i>Filtrer
           </a>
         </div>
       </form>
@@ -285,6 +295,17 @@
 
   const modalVersement = new bootstrap.Modal(document.getElementById('versementModal'));
 
+  // Montant temps réel
+  function majMontant() {
+    const qte = parseFloat(document.getElementById('quantite').value) || 0;
+    const pu  = parseFloat(document.getElementById('prix_unitaire').value) || 0;
+    document.getElementById('montantPreview').textContent =
+      new Intl.NumberFormat('fr-FR').format(qte * pu) + ' FCFA';
+  }
+  document.getElementById('quantite').addEventListener('input', majMontant);
+  document.getElementById('prix_unitaire').addEventListener('input', majMontant);
+  majMontant();
+
   function openVersementModal(idVente) {
  const modalElement = document.getElementById('versementModal');
         if (modalElement) {
@@ -303,7 +324,9 @@
 <script>
  function imprimerToutesLesVentes() {
     const contenu = document.getElementById("venteTable").outerHTML;
-    const date = new Date().toLocaleDateString('fr-FR');
+    const nowPrint = new Date();
+    const date = nowPrint.toLocaleDateString('fr-FR');
+    const heure = nowPrint.toLocaleTimeString('fr-FR');
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
@@ -417,7 +440,7 @@
             
           </div>
           <div class="info">
-            <strong>Date :</strong> ${date}
+            <strong>Date :</strong> ${date} à ${heure}
           </div>
           <h3>Facture - Liste complète des ventes</h3>
           ${contenu}
@@ -446,7 +469,9 @@
   if (!row) return alert("Vente introuvable.");
 
   const data = Array.from(row.children).map(td => td.innerText);
-  const dateImpression = new Date().toLocaleDateString('fr-FR');
+  const nowImpression = new Date();
+  const dateImpression = nowImpression.toLocaleDateString('fr-FR');
+  const heureImpression = nowImpression.toLocaleTimeString('fr-FR');
 
   const printWindow = window.open('', '_blank');
   printWindow.document.write(`
@@ -509,13 +534,13 @@
       </head>
       <body>
         <div class="container facture-container">
-        
-		  
+
+
 		  <div class="entete">
             <h2>Entreprise BAMTI</h2>
             <p>NIF:64750/P </p>
             <p>Adresse : SONUCI KOUBIA | Tél : 99582158/90231123</p>
-            <small>Date d'impression : ${dateImpression}</small>
+            <small>Date d'impression : ${dateImpression} à ${heureImpression}</small>
           </div>
 
           <h5 class="text-center text-primary mb-3">Détails de la vente</h5>
