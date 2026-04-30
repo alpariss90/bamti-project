@@ -93,7 +93,7 @@ async function submit(): Promise<void> {
   try {
     const result = await authStore.login(form.login, form.password, isOnline.value);
     if (authStore.state.token && isOnline.value) {
-      await dataStore.syncInitialData(authStore.state.token);
+      await dataStore.restoreFromServer(authStore.state.token);
     } else {
       await dataStore.hydrate();
     }

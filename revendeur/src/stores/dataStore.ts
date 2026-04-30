@@ -66,6 +66,27 @@ export const dataStore = {
     await loadFromLocal();
   },
 
+  async restoreFromServer(token: string): Promise<{ clients: number; ventes: number; paiements: number }> {
+    const response = await mobileDataService.restore(token);
+    const { clients: serverClients, ventes: serverVentes, paiements: serverPaiements } = response.data;
+
+    const localClientIds = new Set(state.clients.map((c) => c.id));
+    const localVenteIds  = new Set(state.ventes.map((v) => v.id));
+    const localPaiIds    = new Set(state.paiements.map((p) => p.id));
+
+    const newClients   = serverClients.filter((c) => !localClientIds.has(c.id));
+    const newVentes    = serverVentes.filter((v) => !localVenteIds.has(v.id));
+    const newPaiements = serverPaiements.filter((p) => !localPaiIds.has(p.id));
+
+    state.clients   = [...newClients,   ...state.clients];
+    state.ventes    = [...newVentes,    ...state.ventes];
+    state.paiements = [...newPaiements, ...state.paiements];
+
+    await persistBusinessData();
+
+    return { clients: newClients.length, ventes: newVentes.length, paiements: newPaiements.length };
+  },
+
   async syncInitialData(token: string): Promise<void> {
     const response = await mobileDataService.bootstrap(token);
     const localClients = (await localDataStorage.getClients()).filter((item) => item.id < 0);

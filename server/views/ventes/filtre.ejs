@@ -19,7 +19,7 @@
       <form id="filtreForm" action="/ventes/filtre" method="GET" class="row g-2 align-items-end needs-validation" novalidate>
   <div class="col-md-2">
     <label for="id_client" class="form-label">Client</label>
-    <select class="form-select" id="id_client" name="id_client" required>
+    <select class="form-select select2-client" id="id_client" name="id_client" required>
       <option value="">-- Choisir un client --</option>
       <option value="tous" <%= id_client === 'tous' ? 'selected' : '' %>>Tous les clients</option>
       <% clients.forEach(client => { %>
@@ -85,7 +85,9 @@
   <div id="venteListContainer" class="mt-4">
     <h5 class="mb-3 fw-bold">Ventes filtrées</h5>
 
-    <% if (ventes && ventes.length > 0) { %>
+    <% if (!date_debut) { %>
+      <div class="alert alert-info"><i class="bi bi-funnel me-2"></i>Renseignez les filtres ci-dessus et cliquez sur <strong>Filtrer</strong>.</div>
+    <% } else if (ventes && ventes.length > 0) { %>
       <div class="d-flex justify-content-end mb-2">
         <button class="btn btn-secondary" onclick="imprimerToutesLesVentes()">
           <i class="bi bi-printer"></i> Imprimer les ventes
@@ -130,8 +132,8 @@
         </table>
       </div>
 
-    <% } else { %>
-      <div class="alert alert-info">Aucune vente trouvée pour ce filtre.</div>
+    <% } else if (date_debut) { %>
+      <div class="alert alert-warning"><i class="bi bi-search me-2"></i>Aucune vente trouvée pour ce filtre.</div>
     <% } %>
   </div>
 

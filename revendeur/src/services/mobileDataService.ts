@@ -48,4 +48,11 @@ export const mobileDataService = {
       { method: 'GET', token }
     );
   },
+
+  restore(token: string): Promise<BootstrapResponse> {
+    return apiRequest<BootstrapResponse>('/api/mobile/restore', {
+      method: 'GET',
+      token,
+    });
+  },
 };

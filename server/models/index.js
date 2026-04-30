@@ -24,6 +24,7 @@ const CommandeModel = require('./commande')(sequelize, DataTypes);
 const TicketModel = require('./ticket')(sequelize, DataTypes);
 const RevendeurModel = require('./revendeur')(sequelize, DataTypes);
 const ClientClientTmpModel = require('./client_client_tmp')(sequelize, DataTypes);
+const ReservationModel = require('./reservation')(sequelize, DataTypes);
 //relations entre les tables
 ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
@@ -63,7 +64,7 @@ UserModel.hasOne(RevendeurModel, { foreignKey: 'id_user', as: 'revendeur' });
   })
   .catch((err) => {
     console.error(' Erreur de synchronisation :', err);
-}); */
+});*/ 
 
 module.exports = {
   sequelize,
@@ -85,5 +86,6 @@ module.exports = {
   Commande:CommandeModel,
   Ticket: TicketModel,
   Revendeur: RevendeurModel,
-  ClientClientTmp: ClientClientTmpModel
+  ClientClientTmp: ClientClientTmpModel,
+  Reservation: ReservationModel,
 };

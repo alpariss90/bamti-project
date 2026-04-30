@@ -37,9 +37,10 @@ router.post('/paiements',         authJwt, ctrl.createPaiement);
 router.post('/sync',              authJwt, ctrl.sync);
 
 // ── Rapports ──────────────────────────────────────────────────────────────────
-// Recette du jour
 router.get('/recette/jour',       authJwt, ctrl.recetteJour);
-// Recette par période
 router.get('/recette/periode',    authJwt, ctrl.recettePeriode);
+
+// ── Restauration données (changement de device) ────────────────────────────────
+router.get('/restore',            authJwt, ctrl.restore);
 
 module.exports = router;

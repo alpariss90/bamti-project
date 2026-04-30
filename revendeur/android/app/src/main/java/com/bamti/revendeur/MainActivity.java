@@ -1,4 +1,4 @@
-package io.ionic.starter;
+package com.bamti.revendeur;
 
 import com.getcapacitor.BridgeActivity;
 

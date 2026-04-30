@@ -288,9 +288,7 @@ exports.annuler = async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `;
         
-        const observation = vente.observation ? 
-            `${vente.observation} - Annulée: ` : 
-            `Annulée: `;
+        const observation = req.body.observation?.trim() || 'Annulée sans observation';
 
         const values = [
           id,
@@ -326,6 +324,29 @@ exports.annuler = async (req, res) => {
     console.error(err);
     await t.rollback();
     return redirectWithMessage(req, res, 'Erreur lors de la annulation de la vente.', 'danger');
+  }
+};
+
+// Liste des ventes annulées
+exports.annulees = async (req, res) => {
+  try {
+    const [rows] = await sequelize.query(`
+      SELECT va.id, va.type_vente, va.quantite, va.observation,
+             va.type_paiement, va.montant, va.prix_unitaire,
+             va.date_vente, va.createdAt, va.user,
+             c.nom AS client_nom, c.prenom AS client_prenom
+      FROM ventes_annuler va
+      LEFT JOIN clients c ON c.id = va.id_client
+      ORDER BY va.createdAt DESC
+    `);
+    res.render('ventes/annulees', {
+      ventes: rows,
+      pageTitle: 'Ventes annulées',
+      message: req.flash('message')[0] || null,
+    });
+  } catch (err) {
+    console.error('[Vente] annulees :', err);
+    redirectWithMessage(req, res, 'Erreur lors du chargement des ventes annulées.', 'danger');
   }
 };
 
@@ -400,9 +421,22 @@ exports.ajouterVersement = async (req, res) => {
 
 exports.ventesFiltrees = async (req, res) => {
   try {
+    // Si aucun filtre soumis, afficher le formulaire vide
+    if (!req.query.date_debut) {
+      const clients = await Client.findAll();
+      const users   = await User.findAll();
+      return res.render('ventes/filtre', {
+        clients, users,
+        ventes: [],
+        montantTotalVentes: 0, montantPaye: 0, resteTotal: 0,
+        id_client: '', type_vente: '', id_user: '',
+        date_debut: '', date_fin: '',
+        pageTitle: 'Filtrer les ventes',
+        message: req.flash('message')[0] || null
+      });
+    }
 
-
-        date_debut=req.query.date_debut || new Date().toLocaleDateString('fr-FR'); 
+        date_debut=req.query.date_debut || new Date().toLocaleDateString('fr-FR');
 
    date_fin=req.query.date_fin || new Date().toLocaleDateString('fr-FR');
 

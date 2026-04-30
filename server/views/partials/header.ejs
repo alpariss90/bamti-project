@@ -301,6 +301,7 @@
           <ul class="nav nav-sm flex-column ms-3">
             <li><a href="/ventes/index" class="nav-link text-white">Gestion Ventes</a></li>
             <li><a href="/ventes/filtre" class="nav-link text-white">Filtrage</a></li>
+            <li><a href="/ventes/annulees" class="nav-link text-white">Ventes annulées</a></li>
           </ul>
         </div>
       </li>
@@ -371,6 +372,21 @@
         </ul>
       </div>
     </li>
+
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarReservationsAdmin" data-bs-toggle="collapse">
+        <i class="ri-calendar-todo-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Réservations</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarReservationsAdmin">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/reservations/index" class="nav-link text-white">Faire une réservation</a></li>
+          <li><a href="/reservations/jour" class="nav-link text-white">Réservations du jour</a></li>
+          <li><a href="/reservations/non-livrees" class="nav-link text-white">Non livrées</a></li>
+          <li><a href="/reservations/livrees" class="nav-link text-white">Livrées</a></li>
+        </ul>
+      </div>
+    </li>
   <% } else if (currentUser && currentUser.profil === 'caissier') { %>
     <!-- Menu Caissier : uniquement ventes -->
     <li class="nav-item">
@@ -382,12 +398,34 @@
 
      <li class="nav-item">
       <a href="/tickets/index/" class="nav-link text-white">
-        <i class="ri-shopping-cart-line fw-bold text-white"></i> 
+        <i class="ri-shopping-cart-line fw-bold text-white"></i>
         <span class="fw-bold text-white">Ticket</span>
       </a>
     </li>
-    
-    
+
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarReservations" data-bs-toggle="collapse">
+        <i class="ri-calendar-todo-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Réservations</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarReservations">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/reservations/index" class="nav-link text-white">Faire une réservation</a></li>
+          <li><a href="/reservations/jour" class="nav-link text-white">Réservations du jour</a></li>
+          <li><a href="/reservations/non-livrees" class="nav-link text-white">Non livrées</a></li>
+          <li><a href="/reservations/livrees" class="nav-link text-white">Livrées</a></li>
+        </ul>
+      </div>
+    </li>
+
+    <li class="nav-item">
+      <a href="/commandes/index" class="nav-link text-white">
+        <i class="ri-shopping-bag-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Commandes</span>
+      </a>
+    </li>
+
+
   <% } else if (currentUser && currentUser.profil === 'visualisation') { %>
     <!-- Menu Visualisation : tableau de bord seulement -->
     <li class="nav-item">

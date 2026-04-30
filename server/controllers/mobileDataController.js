@@ -626,3 +626,63 @@ function _buildRecetteData(ventes, gainParSachet) {
     totaux: { totalVente, totalEncaisse, totalReste, totalQte, gainRevendeur }
   };
 }
+
+// ─── GET /api/mobile/restore ──────────────────────────────────────────────────
+// Récupère clients (table principale) + ventes_tmp + paiements_tmp du revendeur
+// Utilisé quand le revendeur change de device et veut récupérer ses données
+exports.restore = async (req, res) => {
+  try {
+    const id_user = req.apiUser.id;
+
+    const clients = await Client.findAll({
+      where: { deletedAt: null },
+      attributes: ['id', 'nom', 'prenom', 'telephone', 'adresse'],
+      order: [['nom', 'ASC'], ['prenom', 'ASC']],
+    });
+
+    const ventes = await VenteTmp.findAll({
+      where: { user: id_user },
+      include: [{
+        model: PaiementTmp,
+        as: 'Paiements',
+        attributes: ['id', 'montant', 'date', 'id_vente', 'observation', 'createdAt', 'updatedAt'],
+      }],
+      order: [['date_vente', 'DESC'], ['id', 'DESC']],
+    });
+
+    const paiements = ventes.flatMap((v) => v.Paiements || []).map((p) => ({
+      id: p.id,
+      montant: p.montant,
+      date: p.date,
+      id_vente: p.id_vente,
+      observation: p.observation,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        clients: clients.map((c) => c.toJSON()),
+        ventes: ventes.map((v) => ({
+          id: v.id,
+          type_vente: v.type_vente,
+          quantite: v.quantite,
+          observation: v.observation,
+          type_paiement: v.type_paiement,
+          montant: v.montant,
+          prix_unitaire: v.prix_unitaire,
+          date_vente: v.date_vente,
+          id_client: v.id_client,
+          user: v.user,
+          createdAt: v.createdAt,
+          updatedAt: v.updatedAt,
+        })),
+        paiements,
+      },
+    });
+  } catch (err) {
+    console.error('[Mobile] restore :', err);
+    return res.status(500).json({ success: false, message: 'Erreur serveur.' });
+  }
+};

@@ -117,6 +117,36 @@ exports.logout = (_req, res) => {
   return res.status(200).json({ success: true, message: 'Déconnexion réussie.' });
 };
 
+// POST /api/mobile/auth/change-password
+exports.changePassword = async (req, res) => {
+  const { current_password, new_password } = req.body;
+
+  if (!current_password || !new_password) {
+    return res.status(400).json({ success: false, message: 'Champs requis manquants.' });
+  }
+
+  if (new_password.length < 4) {
+    return res.status(400).json({ success: false, message: 'Le nouveau mot de passe doit contenir au moins 4 caractères.' });
+  }
+
+  try {
+    const user = await User.findByPk(req.apiUser.id);
+    if (!user) return res.status(404).json({ success: false, message: 'Utilisateur introuvable.' });
+
+    const match = await bcrypt.compare(current_password, user.password);
+    if (!match) return res.status(401).json({ success: false, message: 'Mot de passe actuel incorrect.' });
+
+    const newHash = await bcrypt.hash(new_password, 10);
+    await user.update({ password: newHash });
+
+    const offlineUsers = await getOfflineUsersPayload();
+    return res.status(200).json({ success: true, message: 'Mot de passe mis à jour.', offline_users: offlineUsers });
+  } catch (err) {
+    console.error('[Mobile Auth] change-password :', err);
+    return res.status(500).json({ success: false, message: 'Erreur serveur.' });
+  }
+};
+
 // GET /api/mobile/auth/me
 exports.me = async (req, res) => {
   try {

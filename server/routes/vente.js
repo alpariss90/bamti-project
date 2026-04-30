@@ -31,7 +31,8 @@ router.get('/redevable/print', venteController.redevableprint);
 router.get('/index/caissier', venteController.caissier);
 
 
-router.get('/annuler/:id', venteController.annuler);
+router.post('/annuler/:id', venteController.annuler);
+router.get('/annulees', venteController.annulees);
 
 
 module.exports = router;

@@ -39,9 +39,9 @@ exports.list = async (req, res) => {
 // Créer une avance
 exports.create = async (req, res) => {
   try {
-    let { id_personnel, mois, annee, observation, montant, type } = req.body;
+    let { id_personnel, mois, annee, observation, montant, type, jour } = req.body;
 
-    if (!id_personnel || !mois || !annee || !observation || !montant || !type) {
+    if (!id_personnel || !mois || !annee || !observation || !montant || !type || !jour) {
       return redirectWithMessage(req, res, 'Tous les champs sont obligatoires.', 'danger');
     }
 
@@ -59,7 +59,7 @@ exports.create = async (req, res) => {
     const montantFinal = type === 'credit' ? -Math.abs(montant) : Math.abs(montant);
 
     // Créer l'avance
-    await PersonnelAvance.create({ id_personnel, mois, annee, observation, montant: montantFinal, type });
+    await PersonnelAvance.create({ id_personnel, mois, annee, observation, montant: montantFinal, type, jour });
 
     // Récupérer le salaire de base du personnel
     const montant_salaire = personnel.salaire || 0; // si pas défini, mettre 0

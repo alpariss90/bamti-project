@@ -1,0 +1,8 @@
+<% if (typeof message !== 'undefined' && message && message.text) { %>
+  <div class="alert alert-<%= message.type || 'info' %> alert-dismissible fade show" role="alert">
+    <% if (message.type === 'success') { %><i class="bi bi-check-circle-fill me-2"></i><% } %>
+    <% if (message.type === 'danger') { %><i class="bi bi-exclamation-triangle-fill me-2"></i><% } %>
+    <%= message.text %>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>

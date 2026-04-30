@@ -27,4 +27,12 @@ export const authService = {
       token,
     });
   },
+
+  changePassword(token: string, current_password: string, new_password: string): Promise<OfflineUsersResponse & { message: string }> {
+    return apiRequest<OfflineUsersResponse & { message: string }>('/api/mobile/auth/change-password', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ current_password, new_password }),
+    });
+  },
 };

@@ -31,6 +31,7 @@ const commandesRouter = require('./routes/commande');
 const ticketRouter = require('./routes/ticket');
 const revendeurRouter = require('./routes/revendeur');
 const backupRouter = require('./routes/backup');
+const reservationRouter = require('./routes/reservation');
 
 const sessionUser = require('./middleware/sessionUser');
 const authRole = require('./middleware/authRole');
@@ -95,7 +96,7 @@ app.use('/dashboard', authRole('admin', 'caissier', 'visualisation'), dashboardR
 app.use('/users', authRole('admin'), usersRouter); 
 app.use('/personnes', authRole('admin'), clientsRouter);
 app.use('/person', authRole('admin'), personnelsRouter);
-app.use('/commandes',authRole('admin'), commandesRouter);
+app.use('/commandes', authRole('admin', 'caissier'), commandesRouter);
 
 app.use('/type_depense', authRole('admin'), typeDepenseRoutes);
 app.use('/depenses', authRole('admin'), depenseRoutes);
@@ -109,6 +110,7 @@ app.use('/tickets', authRole('admin', 'caissier'), ticketRouter);
 app.use('/revendeurs', authRole('admin'), revendeurRouter);
 app.use('/mdp', authRole('admin', 'caissier', 'visualisation'), mdpRoutes);
 app.use('/backup', authRole('admin'), backupRouter);
+app.use('/reservations', authRole('admin', 'caissier'), reservationRouter);
 
 // catch 404 and forward to error handler
 /*app.use(function(req, res, next) {

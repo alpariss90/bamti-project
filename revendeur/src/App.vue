@@ -4,6 +4,9 @@
       <ion-menu content-id="main-content">
         <ion-content>
           <ion-list>
+            <div class="menu-logo">
+              <img src="/img/logo.ico" alt="Logo BAMTI" class="menu-logo-img" />
+            </div>
             <ion-list-header>BAMTI Revendeur</ion-list-header>
             <ion-note>{{ authStore.state.user?.nom }}</ion-note>
 
@@ -32,12 +35,26 @@
                 <ion-label>Recette par période</ion-label>
               </ion-item>
             </ion-menu-toggle>
-            <ion-item button @click="syncData">
-              <ion-label>Synchroniser les donnees ({{ pendingCount }})</ion-label>
+          <!--  <ion-menu-toggle :auto-hide="false">
+              <ion-item router-link="/mise-a-jour" router-direction="root">
+                <ion-icon :icon="cloudDownloadOutline" slot="start" />
+                <ion-label>Mise à jour données</ion-label>
+              </ion-item>
+            </ion-menu-toggle> -->
+            <ion-item button :disabled="syncing" @click="syncData">
+              <ion-spinner v-if="syncing" name="dots" slot="start" style="width:18px;height:18px" />
+              <ion-icon v-else :icon="syncOutline" slot="start" />
+              <ion-label>{{ syncing ? 'Synchronisation...' : `Synchroniser (${pendingCount})` }}</ion-label>
             </ion-item>
             <ion-item button color="danger" @click="cleanLocalData">
               <ion-label>Clean local (DEV)</ion-label>
-            </ion-item>
+            </ion-item> 
+            <ion-menu-toggle :auto-hide="false">
+              <ion-item router-link="/changer-mot-de-passe" router-direction="root">
+                <ion-icon :icon="lockClosedOutline" slot="start" />
+                <ion-label>Changer mon mot de passe</ion-label>
+              </ion-item>
+            </ion-menu-toggle>
             <ion-item button @click="logout">
               <ion-label>Deconnexion</ion-label>
             </ion-item>
@@ -54,6 +71,7 @@
 import {
   IonApp,
   IonContent,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
@@ -62,15 +80,18 @@ import {
   IonMenuToggle,
   IonNote,
   IonRouterOutlet,
+  IonSpinner,
   IonSplitPane,
 } from '@ionic/vue';
+import { cloudDownloadOutline, lockClosedOutline, syncOutline } from 'ionicons/icons';
 import { useRouter } from 'vue-router';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { authStore } from '@/stores/auth';
 import { dataStore } from '@/stores/dataStore';
 
 const router = useRouter();
 const pendingCount = computed(() => dataStore.getPendingCount());
+const syncing = ref(false);
 
 onMounted(async () => {
   await dataStore.hydrate();
@@ -87,6 +108,7 @@ async function syncData(): Promise<void> {
     return;
   }
 
+  syncing.value = true;
   try {
     const result = await dataStore.syncPendingData(authStore.state.token);
     let message = '';
@@ -101,6 +123,8 @@ async function syncData(): Promise<void> {
     window.alert(message);
   } catch (error) {
     window.alert(error instanceof Error ? error.message : 'Erreur de synchronisation.');
+  } finally {
+    syncing.value = false;
   }
 }
 
@@ -113,3 +137,19 @@ function cleanLocalData(): void {
   window.alert('Donnees locales nettoyees.');
 }
 </script>
+
+<style scoped>
+.menu-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 16px 8px;
+}
+
+.menu-logo-img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 16px;
+}
+</style>

@@ -144,9 +144,14 @@
     <tbody>
       <% ventes.forEach((vente, index) => { %>
         <tr id="vente-<%= vente.id %>" >
-        <th scope="row"> <a class="btn btn-danger" href="/ventes/annuler/<%= vente.id %>" class="dropdown-item" onclick="return window.confirm('etes vous sure de vouloir annler cette vente????? (cette action est irreversible)')">
-                          <i class="bi bi-trash"></i> Annuler la vente
-                        </a></th>
+        <th scope="row">
+          <button class="btn btn-danger btn-sm"
+            data-id="<%= vente.id %>"
+            data-client="<%= vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '' %>"
+            onclick="ouvrirModalAnnulation(this)">
+            <i class="bi bi-x-circle me-1"></i>Annuler
+          </button>
+        </th>
           <th scope="row"><%= index + 1 %></th>
           <td><%= vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-' %></td>
           <td><%= vente.type_vente %></td>
@@ -591,6 +596,62 @@ function resetFilter() {
   document.getElementById('endDate').value = '';
   const rows = document.querySelectorAll('#venteTable tbody tr');
   rows.forEach(row => row.style.display = '');
+}
+</script>
+
+<!-- Modal Annulation vente -->
+<div class="modal fade" id="modalAnnulation" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="formAnnulation" method="POST">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>Annuler la vente</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-3">Client : <strong id="annulationClient"></strong></p>
+          <div class="alert alert-warning py-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Cette action est <strong>irréversible</strong>. La vente sera archivée dans les annulations.
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Motif / Observation <span class="text-danger">*</span></label>
+            <textarea name="observation" class="form-control" rows="3"
+              placeholder="Ex : Erreur de saisie, client annule, doublon..." required></textarea>
+            <div class="invalid-feedback">Le motif est obligatoire.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-x-circle me-1"></i>Confirmer l'annulation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function ouvrirModalAnnulation(btn) {
+  const id = btn.dataset.id;
+  const clientNom = btn.dataset.client;
+  document.getElementById('annulationClient').textContent = clientNom || '—';
+  document.getElementById('formAnnulation').action = '/ventes/annuler/' + id;
+  const textarea = document.querySelector('#formAnnulation textarea[name=observation]');
+  textarea.value = '';
+  textarea.classList.remove('was-validated');
+  document.getElementById('formAnnulation').classList.remove('was-validated');
+
+  // Validation avant soumission
+  document.getElementById('formAnnulation').onsubmit = function(e) {
+    if (!this.checkValidity()) {
+      e.preventDefault();
+      this.classList.add('was-validated');
+    }
+  };
+
+  new bootstrap.Modal(document.getElementById('modalAnnulation')).show();
 }
 </script>
 

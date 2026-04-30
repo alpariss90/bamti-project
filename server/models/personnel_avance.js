@@ -10,6 +10,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+    jour: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 1,
+        max: 31
+      }
+    },
     mois: {
       type: DataTypes.INTEGER,
       allowNull: false,

@@ -49,6 +49,18 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('../views/RecettePeriodePage.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/mise-a-jour',
+    name: 'mise-a-jour',
+    component: () => import('../views/MiseAJourPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/changer-mot-de-passe',
+    name: 'changer-mot-de-passe',
+    component: () => import('../views/ChangerMotDePassePage.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({

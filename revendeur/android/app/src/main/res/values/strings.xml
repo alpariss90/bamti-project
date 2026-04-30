@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">revendeur</string>
-    <string name="title_activity_main">revendeur</string>
-    <string name="package_name">io.ionic.starter</string>
-    <string name="custom_url_scheme">io.ionic.starter</string>
+    <string name="app_name">BAM.TI REVENDEUR</string>
+    <string name="title_activity_main">BAM.TI REVENDEUR</string>
+    <string name="package_name">com.bamti.revendeur</string>
+    <string name="custom_url_scheme">com.bamti.revendeur</string>
 </resources>

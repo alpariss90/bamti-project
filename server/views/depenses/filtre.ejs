@@ -20,7 +20,7 @@
         
         <div class="col-md-3">
           <label for="id_type_depense" class="form-label">Type de dépense</label>
-          <select class="form-select" id="id_type_depense" name="id_type_depense" required>
+          <select class="form-select select2-client" id="id_type_depense" name="id_type_depense" required>
             <option value="">-- Choisir un type --</option>
             <option value="tous" <%= id_type_depense === 'tous' ? 'selected' : '' %>>Tous les types</option>
             <% types.forEach(type => { %>
@@ -87,24 +87,26 @@
           <thead class="table-secondary position-sticky top-0" style="z-index: 2;">
             <tr>
               <th>#</th>
+              <th>Date dépense</th>
               <th>Type de dépense</th>
               <th>Engin</th>
-              <th>Montant total (F)</th>
+              <th>Montant (F)</th>
             </tr>
           </thead>
           <tbody>
             <% depenses.forEach((dep, index) => { %>
               <tr>
-                <th scope="row"><%= index + 1 %></th>
-                <td><%= dep.typeDepense %></td>
-                <td><%= dep.engin %></td>
-                <td><%= new Intl.NumberFormat('fr-FR').format(dep.montantTotal.toFixed(2)) %> FCFA</td>
+                <td><%= index + 1 %></td>
+                <td><%= new Date(dep.date_depense).toLocaleDateString('fr-FR') %></td>
+                <td><%= dep.typeDepense?.libelle || '-' %></td>
+                <td><%= dep.engin?.libelle || '-' %></td>
+                <td class="fw-semibold"><%= new Intl.NumberFormat('fr-FR').format(dep.montant_depense) %> FCFA</td>
               </tr>
             <% }) %>
           </tbody>
           <tfoot class="table-secondary fw-bold">
             <tr>
-              <td colspan="3" class="text-center">Montant total global</td>
+              <td colspan="4" class="text-end">Montant total global</td>
               <td><%= new Intl.NumberFormat('fr-FR').format(montantTotalGlobal.toFixed(2)) %> FCFA</td>
             </tr>
           </tfoot>

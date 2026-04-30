@@ -20,4 +20,7 @@ router.get('/me', authJwt, mobileAuthController.me);
 // GET /api/mobile/auth/offline-users — Utilisateurs revendeurs pour cache local
 router.get('/offline-users', authJwt, mobileAuthController.offlineUsers);
 
+// POST /api/mobile/auth/change-password — Changement de mot de passe (protégée)
+router.post('/change-password', authJwt, mobileAuthController.changePassword);
+
 module.exports = router;
