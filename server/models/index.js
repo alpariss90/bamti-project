@@ -58,13 +58,13 @@ UserModel.hasOne(RevendeurModel, { foreignKey: 'id_user', as: 'revendeur' });
 
 
 // Synchronisation automatique
-sequelize.sync({ alter: true }) 
+/*sequelize.sync({ alter: true }) 
   .then(() => {
     console.log(' Base de données synchronisée (User).');
   })
   .catch((err) => {
     console.error(' Erreur de synchronisation :', err);
-});
+});*/
 
 module.exports = {
   sequelize,

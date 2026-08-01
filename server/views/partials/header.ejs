@@ -366,7 +366,15 @@
           <li><a href="/person/index" class="nav-link text-white">Gestion Personnel</a></li>
           <li><a href="/engin/index" class="nav-link text-white">Gestion Engin</a></li>
           <li><a href="/type_depense/index" class="nav-link text-white">Gestion Dépense</a></li>
-          <li><a href="/commandes/index" class="nav-link text-white">Gestion Commandes</a></li>
+          <li>
+            <a href="#submenuCommandes" class="nav-link text-white" data-bs-toggle="collapse">Commandes</a>
+            <div class="collapse" id="submenuCommandes">
+              <ul class="nav nav-sm flex-column ms-3">
+                <li><a href="/commandes/index" class="nav-link text-white">Gestion Commandes</a></li>
+                <li><a href="/commandes/jour" class="nav-link text-white">Commandes du jour</a></li>
+              </ul>
+            </div>
+          </li>
           <li><a href="/tickets/index" class="nav-link text-white">Gestion Ticket</a></li>
           <li><a href="/backup/liste" class="nav-link text-white">Liste sauvegarde</a></li>
         </ul>
@@ -419,10 +427,16 @@
     </li>
 
     <li class="nav-item">
-      <a href="/commandes/index" class="nav-link text-white">
+      <a class="nav-link menu-link" href="#sidebarCommandesCaissier" data-bs-toggle="collapse">
         <i class="ri-shopping-bag-line fw-bold text-white"></i>
         <span class="fw-bold text-white">Commandes</span>
       </a>
+      <div class="collapse menu-dropdown" id="sidebarCommandesCaissier">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/commandes/index" class="nav-link text-white">Gestion Commandes</a></li>
+          <li><a href="/commandes/jour" class="nav-link text-white">Commandes du jour</a></li>
+        </ul>
+      </div>
     </li>
 
 

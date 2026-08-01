@@ -1,0 +1,147 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid">
+
+  <%- include('../partials/alerts') %>
+
+  <% const fmt = (n) => new Intl.NumberFormat('fr-FR').format(n); %>
+  <% const fmtDate = (d) => new Date(d).toLocaleDateString('fr-FR'); %>
+
+  <!-- ── Commandes du jour ────────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+      <span><i class="ri-calendar-check-line me-2"></i><strong>Commandes du jour — <%= fmtDate(aujourdhui) %></strong></span>
+      <button class="btn btn-sm btn-light" onclick="imprimerTableau('tableJour', 'Commandes du jour')">
+        <i class="bi bi-printer me-1"></i>Imprimer
+      </button>
+    </div>
+    <div class="card-body">
+      <% if (duJour.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune commande prévue pour aujourd'hui.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="tableJour" class="table table-hover table-bordered align-middle">
+            <thead class="table-secondary">
+              <tr>
+                <th>#</th>
+                <th>Client</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Total (F)</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% duJour.forEach((c, i) => { %>
+                <tr>
+                  <td><%= i+1 %></td>
+                  <td class="fw-semibold"><%= c.Client ? c.Client.nom + ' ' + c.Client.prenom : '-' %></td>
+                  <td><%= c.quantite %></td>
+                  <td><%= fmt(c.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= fmt(c.quantite * c.prix_unitaire) %></td>
+                  <td>
+                    <% if (c.statut === 'en attente') { %>
+                      <span class="badge bg-warning text-dark">En attente</span>
+                    <% } else { %>
+                      <span class="badge bg-danger">Annulée</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+              <tr>
+                <td colspan="2" class="text-end">Total</td>
+                <td><%= duJour.reduce((s, c) => s + c.quantite, 0) %></td>
+                <td>—</td>
+                <td><%= fmt(duJour.reduce((s, c) => s + (c.quantite * c.prix_unitaire), 0)) %> F</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- ── Commandes en retard ───────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-exclamation-triangle me-2"></i><strong>Commandes en retard (non livrées)</strong></span>
+      <button class="btn btn-sm btn-light" onclick="imprimerTableau('tableRetard', 'Commandes en retard')">
+        <i class="bi bi-printer me-1"></i>Imprimer
+      </button>
+    </div>
+    <div class="card-body">
+      <% if (enRetard.length === 0) { %>
+        <div class="alert alert-success mb-0"><i class="bi bi-check-circle me-1"></i>Aucune commande en retard.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="tableRetard" class="table table-hover table-bordered align-middle">
+            <thead class="table-danger">
+              <tr>
+                <th>#</th>
+                <th>Client</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Total (F)</th>
+                <th>Date commande</th>
+                <th>Retard</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% enRetard.forEach((c, i) => {
+                   const diff = Math.floor((new Date(aujourdhui) - new Date(c.date_commande)) / 86400000);
+              %>
+                <tr class="table-danger bg-opacity-10">
+                  <td><%= i+1 %></td>
+                  <td class="fw-semibold"><%= c.Client ? c.Client.nom + ' ' + c.Client.prenom : '-' %></td>
+                  <td><%= c.quantite %></td>
+                  <td><%= fmt(c.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= fmt(c.quantite * c.prix_unitaire) %></td>
+                  <td><%= fmtDate(c.date_commande) %></td>
+                  <td><span class="badge bg-danger"><%= diff %> jour(s)</span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script>
+function imprimerTableau(tableId, titre) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const dateImp = new Date().toLocaleDateString('fr-FR');
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>${titre} - BAMTI</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:40px;color:#333}
+      .entete{text-align:center;border-bottom:2px solid #6c757d;padding-bottom:12px;margin-bottom:24px}
+      .entete h2{color:#6c757d;font-weight:700}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{border:1px solid #dee2e6;padding:8px;text-align:left}
+      th{background:#f8f9fa;font-weight:600}
+      tr:nth-child(even){background:#f9f9f9}
+      footer{text-align:center;margin-top:30px;font-size:12px;color:#888;border-top:1px solid #ccc;padding-top:8px}
+      @media print{button{display:none}}
+    </style></head><body>
+    <div class="entete">
+      <h2>Entreprise BAMTI</h2>
+      <p>NIF: 64750/P | SONUCI KOUBIA | Tél : 99582158 / 90231123</p>
+      <small>Date d'impression : ${dateImp}</small>
+    </div>
+    <h5 style="text-align:center;margin-bottom:16px">${titre}</h5>
+    ${table.outerHTML}
+    <footer>Merci pour votre confiance — © Entreprise BAMTI</footer>
+    </body></html>`);
+  w.document.close();
+  w.print();
+}
+</script>
+
+<%- include('../partials/footer') %>
