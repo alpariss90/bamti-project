@@ -1,0 +1,177 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des Profils</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire création / modification -->
+      <form id="profilForm" action="/profil/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="profilId" value="">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-10">
+          <label for="libelle" class="form-label">Libellé</label>
+          <input type="text" class="form-control" id="libelle" name="libelle" value="" required>
+        </div>
+
+        <div class="col-md-2 d-flex justify-content-end gap-2">
+          <button type="submit" id="submitBtn" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+  <!-- Liste des profils -->
+  <div id="profilListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste des profils</h5>
+
+    <% if (profils && profils.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <div class="d-flex justify-content-end mb-0">
+</div>
+
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Libellé</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% profils.forEach((profil, index) => { %>
+              <tr>
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= profil.libelle %></td>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                      Actions
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <a class="dropdown-item edit-link" href="/profil/index/<%= profil.id %>" data-id="<%= profil.id %>">Modifier</a>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun profil enregistré.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- JS -->
+<script>
+  const profilsData = <%- JSON.stringify(profils) %>;
+
+  const profilForm = document.getElementById('profilForm');
+  const profilIdInput = document.getElementById('profilId');
+  const libelleInput = document.getElementById('libelle');
+  const submitText = document.getElementById('submitText');
+  const formStatus = document.getElementById('formStatus');
+  const profilListContainer = document.getElementById('profilListContainer');
+  const cancelBtn = document.getElementById('cancelBtn');
+
+  function fillForm(profil) {
+    profilIdInput.value = profil.id;
+    libelleInput.value = profil.libelle;
+    submitText.textContent = 'Modifier';
+
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${profil.libelle}</strong>
+      </div>
+    `;
+  }
+
+  // Gérer le clic sur "Modifier"
+  document.querySelectorAll('.edit-link').forEach(link => {
+    link.addEventListener('click', function(event) {
+      event.preventDefault();
+
+      const profilId = this.getAttribute('data-id');
+      const profil = profilsData.find(p => p.id == profilId);
+
+      if (profil) {
+        fillForm(profil);
+        profilListContainer.style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Modifier l'URL sans recharger la page
+        history.pushState(null, '', `/profil/index/${profilId}`);
+      } else {
+        alert('Profil non trouvé');
+      }
+    });
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    profilForm.reset();
+    profilIdInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    profilListContainer.style.display = '';
+
+    // Remettre l'URL à /profil/index sans id
+    history.pushState(null, '', '/profil/index');
+  });
+
+  // Fonction pour vérifier l'URL à l'ouverture et pré-remplir le formulaire si id présent
+  function checkURLForId() {
+    const path = window.location.pathname;
+    const regex = /^\/profil\/index\/(\d+)$/; // /profil/index/id
+    const match = path.match(regex);
+
+    if (match) {
+      const profilId = match[1];
+      const profil = profilsData.find(p => p.id == profilId);
+      if (profil) {
+        fillForm(profil);
+        profilListContainer.style.display = 'none';
+      }
+    }
+  }
+
+  // Exécuter au chargement
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+
+    checkURLForId();
+  });
+</script>
+
+<%- include('../partials/footer') %>

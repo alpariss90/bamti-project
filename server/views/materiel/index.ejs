@@ -1,0 +1,172 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion du matériel</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire création / modification -->
+      <form id="materielForm" action="/materiel/createOrUpdate" method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="id" id="materielId" value="">
+
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-6">
+          <label for="libelle" class="form-label">Libellé</label>
+          <input type="text" class="form-control" id="libelle" name="libelle" value="" required>
+        </div>
+
+        <div class="col-md-4">
+          <label for="stock_critique" class="form-label">Stock critique <span class="text-muted small">(optionnel)</span></label>
+          <input type="number" min="0" class="form-control" id="stock_critique" name="stock_critique" value="">
+        </div>
+
+        <div class="col-md-2 d-flex justify-content-end gap-2">
+          <button type="submit" id="submitBtn" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
+          </button>
+          <button type="button" id="cancelBtn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Liste du matériel -->
+  <div id="materielListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste du matériel</h5>
+
+    <% if (materiels && materiels.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Libellé</th>
+              <th>Stock actuel</th>
+              <th>Stock critique</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% materiels.forEach((materiel, index) => { %>
+              <tr class="<%= (materiel.stock_critique !== null && materiel.stock <= materiel.stock_critique) ? 'table-danger' : '' %>">
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= materiel.libelle %></td>
+                <td><%= materiel.stock %></td>
+                <td><%= materiel.stock_critique !== null ? materiel.stock_critique : '-' %></td>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                      Actions
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <a class="dropdown-item edit-link" href="/materiel/index/<%= materiel.id %>" data-id="<%= materiel.id %>">Modifier</a>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun matériel enregistré.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- JS -->
+<script>
+  const materielsData = <%- JSON.stringify(materiels) %>;
+
+  const materielForm = document.getElementById('materielForm');
+  const materielIdInput = document.getElementById('materielId');
+  const libelleInput = document.getElementById('libelle');
+  const stockCritiqueInput = document.getElementById('stock_critique');
+  const submitText = document.getElementById('submitText');
+  const formStatus = document.getElementById('formStatus');
+  const materielListContainer = document.getElementById('materielListContainer');
+  const cancelBtn = document.getElementById('cancelBtn');
+
+  function fillForm(materiel) {
+    materielIdInput.value = materiel.id;
+    libelleInput.value = materiel.libelle;
+    stockCritiqueInput.value = materiel.stock_critique !== null ? materiel.stock_critique : '';
+    submitText.textContent = 'Modifier';
+
+    formStatus.innerHTML = `
+      <div class="alert alert-warning py-1 px-3 mb-3">
+        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${materiel.libelle}</strong>
+      </div>
+    `;
+  }
+
+  document.querySelectorAll('.edit-link').forEach(link => {
+    link.addEventListener('click', function(event) {
+      event.preventDefault();
+
+      const materielId = this.getAttribute('data-id');
+      const materiel = materielsData.find(m => m.id == materielId);
+
+      if (materiel) {
+        fillForm(materiel);
+        materielListContainer.style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        history.pushState(null, '', `/materiel/index/${materielId}`);
+      } else {
+        alert('Matériel non trouvé');
+      }
+    });
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    materielForm.reset();
+    materielIdInput.value = '';
+    submitText.textContent = 'Ajouter';
+    formStatus.innerHTML = '';
+    materielListContainer.style.display = '';
+    history.pushState(null, '', '/materiel/index');
+  });
+
+  function checkURLForId() {
+    const path = window.location.pathname;
+    const regex = /^\/materiel\/index\/(\d+)$/;
+    const match = path.match(regex);
+
+    if (match) {
+      const materielId = match[1];
+      const materiel = materielsData.find(m => m.id == materielId);
+      if (materiel) {
+        fillForm(materiel);
+        materielListContainer.style.display = 'none';
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+
+    checkURLForId();
+  });
+</script>
+
+<%- include('../partials/footer') %>

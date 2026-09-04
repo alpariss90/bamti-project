@@ -17,4 +17,10 @@ router.post('/activate/:id', personnelController.activate);
 // POST /personnels/deactivate/:id
 router.post('/deactivate/:id', personnelController.deactivate);
 
+// POST /personnels/finService/:id
+router.post('/finService/:id', personnelController.finService);
+
+// POST /personnels/repriseService/:id
+router.post('/repriseService/:id', personnelController.repriseService);
+
 module.exports = router;

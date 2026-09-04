@@ -1,0 +1,129 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center"><i class="bi bi-calendar-week me-2"></i>Liste des planifications de congé</h4>
+    </div>
+
+    <div class="card-body">
+      <% if (planifications && planifications.length > 0) { %>
+        <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+          <table class="table table-hover align-middle table-bordered" id="dtable">
+            <thead class="table-secondary">
+              <tr>
+                <th>#</th>
+                <th>Agent</th>
+                <th>Date départ probable</th>
+                <th>Nombre de jours</th>
+                <th>Date retour probable</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% planifications.forEach((planification, index) => { %>
+                <%
+                  const joursRestants = Math.floor((new Date(planification.date_depart) - new Date(today)) / 86400000);
+                  const validable = joursRestants <= 7;
+                  const urgent = joursRestants <= 1;
+                %>
+                <tr class="<%= urgent ? 'table-danger' : '' %>">
+                  <th scope="row"><%= index + 1 %></th>
+                  <td><%= planification.personnel ? planification.personnel.nom + ' ' + planification.personnel.prenom : '-' %></td>
+                  <td><%= new Date(planification.date_depart).toLocaleDateString('fr-FR') %></td>
+                  <td><%= planification.nombre_jours %></td>
+                  <td><%= new Date(planification.date_retour).toLocaleDateString('fr-FR') %></td>
+                  <td class="text-end">
+                    <% if (validable) { %>
+                      <form action="/planification/valider/<%= planification.id %>" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-success">
+                          <i class="bi bi-check-circle"></i> Valider
+                        </button>
+                      </form>
+                    <% } else { %>
+                      <span class="text-muted small me-1" title="Validable à partir d'une semaine avant le départ">
+                        <i class="bi bi-hourglass-split"></i> Dans <%= joursRestants %> jours
+                      </span>
+                    <% } %>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-1"
+                      onclick="showSnackbar('<%= planification.id %>')">
+                      <i class="bi bi-x-circle"></i> Supprimer
+                    </button>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+			   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+        </div>
+      <% } else { %>
+        <div class="alert alert-info">Aucune planification enregistrée.</div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Snackbar de confirmation de suppression -->
+<div id="snackbar" class="snackbar shadow">
+  <span>Confirmer la suppression de cette planification ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Retour</button>
+  </form>
+</div>
+
+<!-- Styles Snackbar -->
+<style>
+  .snackbar {
+    visibility: hidden;
+    min-width: 320px;
+    background-color: #323232;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    transition: all 0.3s ease-in-out;
+  }
+
+  .snackbar.show {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+  });
+
+  const snackbar = document.getElementById('snackbar');
+  const snackbarForm = document.getElementById('snackbarForm');
+
+  function showSnackbar(id) {
+    snackbarForm.action = `/planification/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+  function hideSnackbar() {
+    snackbar.classList.remove('show');
+  }
+</script>
+
+<%- include('../partials/footer') %>

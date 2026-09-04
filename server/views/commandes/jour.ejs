@@ -1,0 +1,311 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid">
+
+  <%- include('../partials/alerts') %>
+
+  <% const fmt = (n) => new Intl.NumberFormat('fr-FR').format(n); %>
+  <% const fmtDate = (d) => new Date(d).toLocaleDateString('fr-FR'); %>
+
+  <!-- ── Commandes du jour ────────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+      <span><i class="ri-calendar-check-line me-2"></i><strong>Commandes du jour — <%= fmtDate(aujourdhui) %></strong></span>
+      <div class="d-flex gap-2">
+        <button id="btnImprimerSelectionJour" class="btn btn-sm btn-light" disabled onclick="demanderInfosPuisImprimer(imprimerSelectionJour)">
+          <i class="bi bi-printer me-1"></i>Imprimer sélection
+        </button>
+        <button class="btn btn-sm btn-light" onclick="demanderInfosPuisImprimer((c, im) => imprimerTableau('tableJour', 'Commandes du jour', c, im))">
+          <i class="bi bi-printer me-1"></i>Imprimer
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <% if (duJour.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune commande prévue pour aujourd'hui.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="tableJour" class="table table-hover table-bordered align-middle">
+            <thead class="table-secondary">
+              <tr>
+                <th><input type="checkbox" id="checkAllJour" onclick="toggleAllJour(this)"></th>
+                <th>#</th>
+                <th>Client</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Total (F)</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% duJour.forEach((c, i) => { %>
+                <tr>
+                  <td><input type="checkbox" class="commande-checkbox-jour" onchange="updateSelectionButtonJour()"></td>
+                  <td><%= i+1 %></td>
+                  <td class="fw-semibold"><%= c.Client ? c.Client.nom + ' ' + c.Client.prenom : '-' %></td>
+                  <td><%= c.quantite %></td>
+                  <td><%= fmt(c.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= fmt(c.quantite * c.prix_unitaire) %></td>
+                  <td>
+                    <% if (c.statut === 'en attente') { %>
+                      <span class="badge bg-warning text-dark">En attente</span>
+                    <% } else { %>
+                      <span class="badge bg-danger">Annulée</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+              <tr>
+                <td></td>
+                <td colspan="2" class="text-end">Total</td>
+                <td><%= duJour.reduce((s, c) => s + c.quantite, 0) %></td>
+                <td>—</td>
+                <td><%= fmt(duJour.reduce((s, c) => s + (c.quantite * c.prix_unitaire), 0)) %> F</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- ── Commandes en retard ───────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-exclamation-triangle me-2"></i><strong>Commandes en retard (non livrées)</strong></span>
+      <div class="d-flex gap-2">
+        <button id="btnImprimerSelectionRetard" class="btn btn-sm btn-light" disabled onclick="demanderInfosPuisImprimer(imprimerSelectionRetard)">
+          <i class="bi bi-printer me-1"></i>Imprimer sélection
+        </button>
+        <button class="btn btn-sm btn-light" onclick="demanderInfosPuisImprimer((c, im) => imprimerTableau('tableRetard', 'Commandes en retard', c, im))">
+          <i class="bi bi-printer me-1"></i>Imprimer
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <% if (enRetard.length === 0) { %>
+        <div class="alert alert-success mb-0"><i class="bi bi-check-circle me-1"></i>Aucune commande en retard.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="tableRetard" class="table table-hover table-bordered align-middle">
+            <thead class="table-danger">
+              <tr>
+                <th><input type="checkbox" id="checkAllRetard" onclick="toggleAllRetard(this)"></th>
+                <th>#</th>
+                <th>Client</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Total (F)</th>
+                <th>Date commande</th>
+                <th>Retard</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% enRetard.forEach((c, i) => {
+                   const diff = Math.floor((new Date(aujourdhui) - new Date(c.date_commande)) / 86400000);
+              %>
+                <tr class="table-danger bg-opacity-10">
+                  <td><input type="checkbox" class="commande-checkbox-retard" onchange="updateSelectionButtonRetard()"></td>
+                  <td><%= i+1 %></td>
+                  <td class="fw-semibold"><%= c.Client ? c.Client.nom + ' ' + c.Client.prenom : '-' %></td>
+                  <td><%= c.quantite %></td>
+                  <td><%= fmt(c.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= fmt(c.quantite * c.prix_unitaire) %></td>
+                  <td><%= fmtDate(c.date_commande) %></td>
+                  <td><span class="badge bg-danger"><%= diff %> jour(s)</span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Modal : infos chauffeur / véhicule avant impression -->
+<div class="modal fade" id="modalInfosImpression" tabindex="-1" aria-labelledby="modalInfosImpressionLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="formInfosImpression">
+        <div class="modal-header bg-secondary text-white">
+          <h5 class="modal-title" id="modalInfosImpressionLabel"><i class="bi bi-printer me-2"></i>Informations pour l'impression</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="inputChauffeur" class="form-label">Nom du chauffeur</label>
+            <input type="text" class="form-control" id="inputChauffeur" required>
+          </div>
+          <div class="mb-3">
+            <label for="inputImmatriculation" class="form-label">Immatriculation du véhicule</label>
+            <input type="text" class="form-control" id="inputImmatriculation" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-printer me-1"></i>Imprimer</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+let actionImpressionEnAttente = null;
+let modalInfosImpression;
+
+document.addEventListener('DOMContentLoaded', () => {
+  modalInfosImpression = new bootstrap.Modal(document.getElementById('modalInfosImpression'));
+
+  document.getElementById('formInfosImpression').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const chauffeur = document.getElementById('inputChauffeur').value.trim();
+    const immatriculation = document.getElementById('inputImmatriculation').value.trim();
+    if (!chauffeur || !immatriculation) return;
+
+    modalInfosImpression.hide();
+    if (actionImpressionEnAttente) {
+      actionImpressionEnAttente(chauffeur, immatriculation);
+      actionImpressionEnAttente = null;
+    }
+  });
+});
+
+// Ouvre le modal de saisie chauffeur/immatriculation, puis lance l'action d'impression fournie
+function demanderInfosPuisImprimer(action) {
+  actionImpressionEnAttente = action;
+  document.getElementById('formInfosImpression').reset();
+  modalInfosImpression.show();
+}
+
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function buildPrintWindow(titre, tableHTML, chauffeur, immatriculation) {
+  const dateImp = new Date().toLocaleDateString('fr-FR');
+  const w = window.open('', '_blank');
+  const infosConducteur = (chauffeur || immatriculation) ? `
+    <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:20px;font-size:14px;border:1px solid #dee2e6;border-radius:6px;padding:10px 16px;">
+      <div><strong>Chauffeur :</strong> ${escapeHtml(chauffeur) || '-'}</div>
+      <div><strong>Immatriculation :</strong> ${escapeHtml(immatriculation) || '-'}</div>
+    </div>` : '';
+  w.document.write(`
+    <html><head><title>${titre} - BAMTI</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:40px;color:#333}
+      .entete{text-align:center;border-bottom:2px solid #6c757d;padding-bottom:12px;margin-bottom:24px}
+      .entete h2{color:#6c757d;font-weight:700}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{border:1px solid #dee2e6;padding:8px;text-align:left}
+      th{background:#f8f9fa;font-weight:600}
+      tr:nth-child(even){background:#f9f9f9}
+      footer{text-align:center;margin-top:30px;font-size:12px;color:#888;border-top:1px solid #ccc;padding-top:8px}
+      @media print{button{display:none}}
+    </style></head><body>
+    <div class="entete">
+      <h2>Entreprise BAMTI</h2>
+      <p>NIF: 64750/P | SONUCI KOUBIA | Tél : 99582158 / 90231123</p>
+      <small>Date d'impression : ${dateImp}</small>
+    </div>
+    <h5 style="text-align:center;margin-bottom:16px">${titre}</h5>
+    ${infosConducteur}
+    ${tableHTML}
+    <footer>Merci pour votre confiance — © Entreprise BAMTI</footer>
+    </body></html>`);
+  w.document.close();
+  w.print();
+}
+
+// Clone une table pour impression : peut retirer une colonne (ex: les cases à cocher)
+// et/ou ne garder que les lignes dont la case correspondante est cochée.
+function cloneTableForPrint(tableId, { onlyChecked = false, checkboxClass = null, excludeColIndex = null } = {}) {
+  const original = document.getElementById(tableId);
+  if (!original) return null;
+  const clone = original.cloneNode(true);
+
+  if (onlyChecked && checkboxClass) {
+    const originalRows = Array.from(original.querySelectorAll('tbody tr'));
+    const cloneRows = Array.from(clone.querySelectorAll('tbody tr'));
+    cloneRows.forEach((row, i) => {
+      const checkbox = originalRows[i].querySelector('.' + checkboxClass);
+      if (!checkbox || !checkbox.checked) row.remove();
+    });
+  }
+
+  if (excludeColIndex !== null) {
+    clone.querySelectorAll('tr').forEach(row => {
+      if (row.children[excludeColIndex]) row.children[excludeColIndex].remove();
+    });
+  }
+
+  return clone;
+}
+
+function imprimerTableau(tableId, titre, chauffeur, immatriculation) {
+  const excludeColIndex = (tableId === 'tableJour' || tableId === 'tableRetard') ? 0 : null;
+  const clone = cloneTableForPrint(tableId, { excludeColIndex });
+  if (!clone) return;
+  buildPrintWindow(titre, clone.outerHTML, chauffeur, immatriculation);
+}
+
+function toggleAllJour(master) {
+  document.querySelectorAll('.commande-checkbox-jour').forEach(cb => { cb.checked = master.checked; });
+  updateSelectionButtonJour();
+}
+
+function updateSelectionButtonJour() {
+  const checkboxes = Array.from(document.querySelectorAll('.commande-checkbox-jour'));
+  const checkedCount = checkboxes.filter(cb => cb.checked).length;
+
+  const btn = document.getElementById('btnImprimerSelectionJour');
+  if (btn) btn.disabled = checkedCount === 0;
+
+  const master = document.getElementById('checkAllJour');
+  if (master) master.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+}
+
+function imprimerSelectionJour(chauffeur, immatriculation) {
+  const clone = cloneTableForPrint('tableJour', {
+    onlyChecked: true,
+    checkboxClass: 'commande-checkbox-jour',
+    excludeColIndex: 0,
+  });
+  if (!clone || clone.querySelectorAll('tbody tr').length === 0) return;
+  buildPrintWindow('Commandes sélectionnées', clone.outerHTML, chauffeur, immatriculation);
+}
+
+function toggleAllRetard(master) {
+  document.querySelectorAll('.commande-checkbox-retard').forEach(cb => { cb.checked = master.checked; });
+  updateSelectionButtonRetard();
+}
+
+function updateSelectionButtonRetard() {
+  const checkboxes = Array.from(document.querySelectorAll('.commande-checkbox-retard'));
+  const checkedCount = checkboxes.filter(cb => cb.checked).length;
+
+  const btn = document.getElementById('btnImprimerSelectionRetard');
+  if (btn) btn.disabled = checkedCount === 0;
+
+  const master = document.getElementById('checkAllRetard');
+  if (master) master.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+}
+
+function imprimerSelectionRetard(chauffeur, immatriculation) {
+  const clone = cloneTableForPrint('tableRetard', {
+    onlyChecked: true,
+    checkboxClass: 'commande-checkbox-retard',
+    excludeColIndex: 0,
+  });
+  if (!clone || clone.querySelectorAll('tbody tr').length === 0) return;
+  buildPrintWindow('Commandes en retard sélectionnées', clone.outerHTML, chauffeur, immatriculation);
+}
+</script>
+
+<%- include('../partials/footer') %>

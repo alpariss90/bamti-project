@@ -39,3 +39,6 @@ coverage/
 # Optionnel : ignorer les fichiers de verrouillage (décommente si nécessaire)
 # package-lock.json
 # yarn.lock
+ android
+ revendeur/android/
+ server/backups/*

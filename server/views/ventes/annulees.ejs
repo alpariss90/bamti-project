@@ -1,0 +1,81 @@
+<%- include('../partials/header') %>
+
+<% const fmt = (n) => new Intl.NumberFormat('fr-FR').format(parseFloat(n) || 0); %>
+<% const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '-'; %>
+
+<div class="container-fluid">
+
+  <% if (message) { %>
+    <div class="alert alert-<%= message.type %> alert-dismissible fade show mt-2" role="alert">
+      <%= message.text %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-x-circle me-2"></i><strong>Ventes annulées</strong>
+        <% if (ventes.length > 0) { %>
+          <span class="badge bg-light text-dark ms-2"><%= ventes.length %></span>
+        <% } %>
+      </span>
+      <a href="/ventes/index" class="btn btn-sm btn-light">
+        <i class="bi bi-arrow-left me-1"></i>Retour
+      </a>
+    </div>
+
+    <div class="card-body">
+      <% if (ventes.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune vente annulée.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="dtable" class="table table-hover table-bordered align-middle">
+            <thead class="table-danger">
+              <tr>
+                <th>#</th>
+                <th>Client</th>
+                <th>Type vente</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Montant (F)</th>
+                <th>Type paiement</th>
+                <th>Date vente</th>
+                <th>Date annulation</th>
+                <th>Observation / Motif</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% ventes.forEach((v, i) => { %>
+                <tr>
+                  <td><%= i + 1 %></td>
+                  <td class="fw-semibold"><%= v.client_nom ? v.client_nom + ' ' + (v.client_prenom || '') : '-' %></td>
+                  <td><span class="badge bg-secondary"><%= v.type_vente || '-' %></span></td>
+                  <td><%= v.quantite %></td>
+                  <td><%= fmt(v.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= fmt(v.montant) %></td>
+                  <td>
+                    <span class="badge <%= v.type_paiement === 'echellonner' ? 'bg-warning text-dark' : 'bg-success' %>">
+                      <%= v.type_paiement %>
+                    </span>
+                  </td>
+                  <td><%= fmtDate(v.date_vente) %></td>
+                  <td><%= fmtDate(v.createdAt) %></td>
+                  <td class="text-muted fst-italic"><%= v.observation || '—' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+              <tr>
+                <td colspan="5" class="text-end">Total annulé</td>
+                <td><%= fmt(ventes.reduce((s, v) => s + parseFloat(v.montant || 0), 0)) %> F</td>
+                <td colspan="4"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

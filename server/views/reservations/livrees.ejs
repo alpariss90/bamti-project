@@ -1,0 +1,103 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid">
+
+  <%- include('../partials/alerts') %>
+
+  <% const fmt = (n) => new Intl.NumberFormat('fr-FR').format(n); %>
+  <% const fmtDate = (d) => new Date(d).toLocaleDateString('fr-FR'); %>
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-check-circle me-2"></i><strong>Réservations livrées</strong>
+        <span class="badge bg-light text-dark ms-2"><%= reservations.length %></span>
+      </span>
+      <button class="btn btn-sm btn-light" onclick="imprimerTableau()">
+        <i class="bi bi-printer me-1"></i>Imprimer
+      </button>
+    </div>
+    <div class="card-body">
+      <% if (reservations.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune réservation livrée pour le moment.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="tableLivrees" class="table table-hover table-bordered align-middle">
+            <thead class="table-success">
+              <tr>
+                <th>#</th>
+                <th>Nom & Prénom</th>
+                <th>Téléphone</th>
+                <th>Adresse</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Total (F)</th>
+                <th>Date livraison</th>
+                <th>Livreur</th>
+                <th>Observation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% reservations.forEach((r, i) => { %>
+                <tr>
+                  <td><%= i + 1 %></td>
+                  <td class="fw-semibold"><%= r.nom_prenom %></td>
+                  <td><%= r.telephone || '-' %></td>
+                  <td><%= r.adresse || '-' %></td>
+                  <td><%= r.qte %></td>
+                  <td><%= fmt(r.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= fmt(r.qte * r.prix_unitaire) %></td>
+                  <td><%= fmtDate(r.date_livraison) %></td>
+                  <td><span class="badge bg-success"><i class="bi bi-person-check me-1"></i><%= r.nom_livreur || '-' %></span></td>
+                  <td class="text-muted fst-italic"><%= r.observation || '-' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+              <tr>
+                <td colspan="4" class="text-end">Total</td>
+                <td><%= reservations.reduce((s,r)=>s+r.qte, 0) %></td>
+                <td>—</td>
+                <td><%= fmt(reservations.reduce((s,r)=>s+(r.qte*r.prix_unitaire),0)) %> F</td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script>
+function imprimerTableau() {
+  const table = document.getElementById('tableLivrees');
+  if (!table) return;
+  const dateImp = new Date().toLocaleDateString('fr-FR');
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Réservations livrées - BAMTI</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:40px;color:#333}
+      .entete{text-align:center;border-bottom:2px solid #28a745;padding-bottom:12px;margin-bottom:24px}
+      .entete h2{color:#28a745;font-weight:700}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{border:1px solid #dee2e6;padding:8px;text-align:left}
+      th{background:#f8f9fa;font-weight:600}
+      tr:nth-child(even){background:#f9f9f9}
+      footer{text-align:center;margin-top:30px;font-size:12px;color:#888;border-top:1px solid #ccc;padding-top:8px}
+    </style></head><body>
+    <div class="entete">
+      <h2>Entreprise BAMTI</h2>
+      <p>NIF: 64750/P | SONUCI KOUBIA | Tél : 99582158 / 90231123</p>
+      <small>Date d'impression : ${dateImp}</small>
+    </div>
+    <h5 style="text-align:center;margin-bottom:16px">Réservations livrées</h5>
+    ${table.outerHTML}
+    <footer>Merci pour votre confiance — © Entreprise BAMTI</footer>
+    </body></html>`);
+  w.document.close();
+  w.print();
+}
+</script>
+
+<%- include('../partials/footer') %>

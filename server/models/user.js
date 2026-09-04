@@ -24,7 +24,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     profil: {
-      type: DataTypes.ENUM('admin', 'visualisation', 'caissier', 'magasinier'),
+      type: DataTypes.ENUM('admin', 'visualisation', 'caissier', 'magasinier', 'revendeur'),
       allowNull: false,
       defaultValue: 'admin'
     },

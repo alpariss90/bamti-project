@@ -1,0 +1,306 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid">
+
+  <%- include('../partials/alerts') %>
+
+  <!-- ── Formulaire ─────────────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-secondary text-white d-flex align-items-center gap-2">
+      <i class="ri-calendar-todo-line fs-5"></i>
+      <h5 class="mb-0">Nouvelle réservation</h5>
+    </div>
+    <div class="card-body">
+      <form id="reservForm" class="row g-3 needs-validation" novalidate>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Nom & Prénom <span class="text-danger">*</span></label>
+          <input type="text" id="f_nom_prenom" class="form-control" placeholder="Ex: Mamadou Diallo" required>
+          <div class="invalid-feedback">Champ obligatoire.</div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Téléphone</label>
+          <input type="tel" id="f_telephone" class="form-control" placeholder="Ex: 620000000">
+        </div>
+
+        <div class="col-md-5">
+          <label class="form-label fw-semibold">Adresse</label>
+          <input type="text" id="f_adresse" class="form-control" placeholder="Ex: Quartier Sandervalia">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Prix unitaire (F) <span class="text-danger">*</span></label>
+          <input type="number" id="f_prix_unitaire" class="form-control" value="350" min="1" required>
+          <div class="invalid-feedback">Champ obligatoire.</div>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Quantité <span class="text-danger">*</span></label>
+          <input type="number" id="f_qte" class="form-control" min="1" placeholder="Ex: 10" required>
+          <div class="invalid-feedback">Champ obligatoire.</div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Date de livraison <span class="text-danger">*</span></label>
+          <input type="date" id="f_date_livraison" class="form-control" required>
+          <div class="invalid-feedback">Champ obligatoire.</div>
+        </div>
+
+        <div class="col-md-3 d-flex align-items-end">
+          <div class="p-2 bg-light rounded w-100 text-center">
+            <small class="text-muted">Montant total</small>
+            <div id="montantPreview" class="fw-bold fs-5 text-success">0 F</div>
+          </div>
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+          <button type="button" class="btn btn-secondary w-100" onclick="ouvrirConfirmation()">
+            <i class="bi bi-check2-circle me-1"></i> Ajouter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Liste ──────────────────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white d-flex align-items-center gap-2">
+      <i class="ri-list-check-2 fs-5"></i>
+      <h5 class="mb-0">Liste des réservations</h5>
+    </div>
+    <div class="card-body">
+      <% if (reservations.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune réservation enregistrée.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="dtable" class="table table-hover table-bordered align-middle">
+            <thead class="table-secondary">
+              <tr>
+                <th>#</th>
+                <th>Nom & Prénom</th>
+                <th>Téléphone</th>
+                <th>Adresse</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Total (F)</th>
+                <th>Date livraison</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% reservations.forEach((r, i) => { %>
+                <tr id="resv-<%= r.id %>">
+                  <td><%= i + 1 %></td>
+                  <td class="fw-semibold"><%= r.nom_prenom %></td>
+                  <td><%= r.telephone || '-' %></td>
+                  <td><%= r.adresse || '-' %></td>
+                  <td><%= r.qte %></td>
+                  <td><%= new Intl.NumberFormat('fr-FR').format(r.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= new Intl.NumberFormat('fr-FR').format(r.qte * r.prix_unitaire) %></td>
+                  <td><%= new Date(r.date_livraison).toLocaleDateString('fr-FR') %></td>
+                  <td>
+                    <% if (r.is_livre) { %>
+                      <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Livré</span>
+                    <% } else { %>
+                      <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Non livré</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <div class="d-flex gap-1 flex-wrap">
+                      <% if (!r.is_livre) { %>
+                        <button class="btn btn-sm btn-outline-success"
+                          onclick="ouvrirLivraison(<%= r.id %>, '<%= r.nom_prenom.replace(/'/g, "\\'") %>')">
+                          <i class="bi bi-truck"></i> Livrer
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary"
+                          onclick="imprimerReservation(<%= r.id %>)">
+                          <i class="bi bi-printer"></i>
+                        </button>
+                      <% } %>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Confirmation ──────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalConfirm" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Récapitulatif de la réservation</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <table class="table table-bordered table-sm">
+          <tbody>
+            <tr><th>Nom & Prénom</th><td id="rc_nom"></td></tr>
+            <tr><th>Téléphone</th><td id="rc_tel"></td></tr>
+            <tr><th>Adresse</th><td id="rc_adr"></td></tr>
+            <tr><th>Prix unitaire</th><td id="rc_pu"></td></tr>
+            <tr><th>Quantité</th><td id="rc_qte"></td></tr>
+            <tr><th>Montant total</th><td id="rc_total" class="fw-bold text-success"></td></tr>
+            <tr><th>Date de livraison</th><td id="rc_date"></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-pencil me-1"></i>Modifier
+        </button>
+        <button type="button" class="btn btn-success" onclick="soumettre()">
+          <i class="bi bi-check2-circle me-1"></i>Confirmer et enregistrer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Livraison ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalLivraison" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="formLivraison" method="POST">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Marquer comme livré</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-3">Réservation de : <strong id="livraisonNom"></strong></p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nom du livreur <span class="text-danger">*</span></label>
+            <input type="text" name="nom_livreur" class="form-control" required placeholder="Ex: Ibrahima Sow">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Observation (optionnel)</label>
+            <textarea name="observation" class="form-control" rows="2" placeholder="Remarques..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Valider</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Formulaire caché pour soumission finale -->
+<form id="formFinal" action="/reservations/create" method="POST" style="display:none">
+  <input type="hidden" name="nom_prenom" id="hid_nom">
+  <input type="hidden" name="telephone" id="hid_tel">
+  <input type="hidden" name="adresse" id="hid_adr">
+  <input type="hidden" name="prix_unitaire" id="hid_pu">
+  <input type="hidden" name="qte" id="hid_qte">
+  <input type="hidden" name="date_livraison" id="hid_date">
+</form>
+
+<script>
+// Mise à jour montant en temps réel
+function majMontant() {
+  const pu  = parseFloat(document.getElementById('f_prix_unitaire').value) || 0;
+  const qte = parseInt(document.getElementById('f_qte').value) || 0;
+  document.getElementById('montantPreview').textContent =
+    new Intl.NumberFormat('fr-FR').format(pu * qte) + ' F';
+}
+document.getElementById('f_prix_unitaire').addEventListener('input', majMontant);
+document.getElementById('f_qte').addEventListener('input', majMontant);
+
+function ouvrirConfirmation() {
+  const form = document.getElementById('reservForm');
+  form.classList.add('was-validated');
+  if (!form.checkValidity()) return;
+
+  const pu  = parseFloat(document.getElementById('f_prix_unitaire').value);
+  const qte = parseInt(document.getElementById('f_qte').value);
+  const nom = document.getElementById('f_nom_prenom').value;
+  const tel = document.getElementById('f_telephone').value;
+  const adr = document.getElementById('f_adresse').value;
+  const dat = document.getElementById('f_date_livraison').value;
+
+  document.getElementById('rc_nom').textContent   = nom;
+  document.getElementById('rc_tel').textContent   = tel || '-';
+  document.getElementById('rc_adr').textContent   = adr || '-';
+  document.getElementById('rc_pu').textContent    = new Intl.NumberFormat('fr-FR').format(pu) + ' F';
+  document.getElementById('rc_qte').textContent   = qte;
+  document.getElementById('rc_total').textContent = new Intl.NumberFormat('fr-FR').format(pu * qte) + ' F';
+  document.getElementById('rc_date').textContent  = new Date(dat).toLocaleDateString('fr-FR');
+
+  new bootstrap.Modal(document.getElementById('modalConfirm')).show();
+}
+
+function soumettre() {
+  document.getElementById('hid_nom').value  = document.getElementById('f_nom_prenom').value;
+  document.getElementById('hid_tel').value  = document.getElementById('f_telephone').value;
+  document.getElementById('hid_adr').value  = document.getElementById('f_adresse').value;
+  document.getElementById('hid_pu').value   = document.getElementById('f_prix_unitaire').value;
+  document.getElementById('hid_qte').value  = document.getElementById('f_qte').value;
+  document.getElementById('hid_date').value = document.getElementById('f_date_livraison').value;
+  document.getElementById('formFinal').submit();
+}
+
+function ouvrirLivraison(id, nom) {
+  document.getElementById('livraisonNom').textContent = nom;
+  document.getElementById('formLivraison').action = '/reservations/livrer/' + id;
+  // reset champs
+  document.querySelector('#formLivraison [name=nom_livreur]').value = '';
+  document.querySelector('#formLivraison [name=observation]').value = '';
+  new bootstrap.Modal(document.getElementById('modalLivraison')).show();
+}
+
+function imprimerReservation(id) {
+  const row = document.querySelector('#resv-' + id);
+  if (!row) return;
+  const d = Array.from(row.children).map(td => td.innerText.trim());
+  const dateImp = new Date().toLocaleDateString('fr-FR');
+
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Réservation BAMTI</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:40px;color:#333}
+      .entete{text-align:center;border-bottom:2px solid #6c757d;padding-bottom:12px;margin-bottom:24px}
+      .entete h2{color:#6c757d;font-weight:700}
+      table{width:100%;border-collapse:collapse;margin-top:12px}
+      th,td{border:1px solid #dee2e6;padding:10px;text-align:left}
+      th{background:#f8f9fa;font-weight:600}
+      .signature{display:flex;justify-content:space-between;margin-top:60px}
+      .signature div{width:45%;text-align:center;font-size:14px}
+      footer{text-align:center;margin-top:40px;font-size:12px;color:#888;border-top:1px solid #ccc;padding-top:8px}
+      @media print{button{display:none}}
+    </style></head><body>
+    <div class="entete">
+      <h2>Entreprise BAMTI</h2>
+      <p>NIF: 64750/P | SONUCI KOUBIA | Tél : 99582158 / 90231123</p>
+      <small>Date d'impression : ${dateImp}</small>
+    </div>
+    <h5 style="text-align:center;color:#6c757d">Bon de réservation</h5>
+    <table>
+      <tr><th>Nom & Prénom</th><td>${d[1]}</td></tr>
+      <tr><th>Téléphone</th><td>${d[2]}</td></tr>
+      <tr><th>Adresse</th><td>${d[3]}</td></tr>
+      <tr><th>Quantité</th><td>${d[4]}</td></tr>
+      <tr><th>Prix unitaire</th><td>${d[5]} F</td></tr>
+      <tr><th>Montant total</th><td><strong>${d[6]} F</strong></td></tr>
+      <tr><th>Date de livraison</th><td>${d[7]}</td></tr>
+    </table>
+    <div class="signature">
+      <div><p>________________________</p><p><strong>Signature Client</strong></p></div>
+      <div><p>________________________</p><p><strong>Signature Caissière</strong><br><%= currentUser.nom %></p></div>
+    </div>
+    <footer>Merci pour votre confiance — © Entreprise BAMTI</footer>
+    </body></html>`);
+  w.document.close();
+  w.print();
+}
+</script>
+
+<%- include('../partials/footer') %>

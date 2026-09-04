@@ -261,32 +261,9 @@ exports.depensesFiltrees = async (req, res) => {
       order: [["date_depense", "DESC"]],
     });
 
-    // Regrouper par Type de Dépense (et Engin si tu veux)
-    const depensesRegroupees = {};
-
-    depenses.forEach((dep) => {
-      const key = `${dep.typeDepense?.libelle || "Inconnu"}-${
-        dep.engin?.libelle || "Aucun"
-      }`;
-      if (!depensesRegroupees[key]) {
-        depensesRegroupees[key] = {
-          typeDepense: dep.typeDepense?.libelle || "Inconnu",
-          engin: dep.engin?.libelle || "Aucun",
-          montantTotal: 0,
-          depenses: [],
-        };
-      }
-
-      depensesRegroupees[key].montantTotal += dep.montant_depense;
-      depensesRegroupees[key].depenses.push(dep);
-    });
-
-    // Convertir en tableau
-    const depensesAggregees = Object.values(depensesRegroupees);
-
-    // Totaux globaux
-    const montantTotalGlobal = depensesAggregees.reduce(
-      (s, d) => s + d.montantTotal,
+    // Total global sur les dépenses brutes
+    const montantTotalGlobal = depenses.reduce(
+      (s, d) => s + d.montant_depense,
       0
     );
 
@@ -298,7 +275,7 @@ exports.depensesFiltrees = async (req, res) => {
     res.render("depenses/filtre", {
       types,
       engins,
-      depenses: depensesAggregees,
+      depenses: depenses,
       montantTotalGlobal,
       id_type_depense: id_type_depense || "",
       id_engin: id_engin || "",

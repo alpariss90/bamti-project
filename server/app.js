@@ -5,6 +5,10 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
+// ── API Mobile : routes JWT ───────────────────────────────────────────────────
+const mobileAuthRoutes = require('./routes/api/auth');
+const mobileDataRoutes = require('./routes/api/mobile');
+
 // 🔗 Import des modèles et initialisation Sequelize
 require('./models'); // <--- Cela lance la synchro automatiquement
 
@@ -13,6 +17,12 @@ var usersRouter = require('./routes/users');
 var clientsRouter = require('./routes/clients');
 const personnelsRouter = require('./routes/personnels');
 const enginRoutes = require('./routes/engin');
+const profilRoutes = require('./routes/profil');
+const congeRoutes = require('./routes/conge');
+const planificationRoutes = require('./routes/planification');
+const materielRoutes = require('./routes/materiel');
+const factureRoutes = require('./routes/facture');
+const stockSachetRoutes = require('./routes/stockSachet');
 const typeDepenseRoutes = require('./routes/type_depense');
 const venteRoutes = require('./routes/vente');
 const montantPersonnelRoutes = require('./routes/montant_personnel');
@@ -25,11 +35,31 @@ const loginRoutes = require('./routes/login');
 const mvtMatiereRoutes = require('./routes/mvt_matiere');
 const commandesRouter = require('./routes/commande');
 const ticketRouter = require('./routes/ticket');
+const revendeurRouter = require('./routes/revendeur');
+const backupRouter = require('./routes/backup');
+const reservationRouter = require('./routes/reservation');
 
 const sessionUser = require('./middleware/sessionUser');
 const authRole = require('./middleware/authRole');
 
 var app = express();
+
+// ── CORS : autoriser l'app mobile (Ionic / Capacitor) ───────────────────────
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+  );
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization'
+  );
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -62,24 +92,37 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Routes API Mobile (JWT — sans session, sans authRole) ───────────────────
+app.use('/api/mobile/auth', mobileAuthRoutes);
+app.use('/api/mobile',      mobileDataRoutes);
+
 app.use('/login', loginRoutes);
-app.use('/', authRole('admin', 'caissier', 'visualisation'), indexRouter);
+app.use('/', authRole('admin', 'caissier', 'visualisation', 'magasinier'), indexRouter);
 app.use('/dashboard', authRole('admin', 'caissier', 'visualisation'), dashboardRoutes);
 app.use('/users', authRole('admin'), usersRouter); 
 app.use('/personnes', authRole('admin'), clientsRouter);
 app.use('/person', authRole('admin'), personnelsRouter);
-app.use('/commandes',authRole('admin'), commandesRouter);
+app.use('/commandes', authRole('admin', 'caissier'), commandesRouter);
 
 app.use('/type_depense', authRole('admin'), typeDepenseRoutes);
 app.use('/depenses', authRole('admin'), depenseRoutes);
 app.use('/engin', authRole('admin'), enginRoutes);
+app.use('/profil', authRole('admin'), profilRoutes);
+app.use('/conge', authRole('admin'), congeRoutes);
+app.use('/planification', authRole('admin'), planificationRoutes);
 app.use('/ventes', authRole('admin', 'caissier'), venteRoutes);
 app.use('/montant_personnel', authRole('admin'), montantPersonnelRoutes);
 app.use('/personnel_avance', authRole('admin'), personnelAvanceRoutes);
 app.use('/salaire', authRole('admin'), salaireRoutes);
-app.use('/mvt_matieres', authRole('admin'), mvtMatiereRoutes);
+app.use('/mvt_matieres', authRole('admin', 'magasinier'), mvtMatiereRoutes);
+app.use('/materiel', authRole('admin', 'magasinier'), materielRoutes);
+app.use('/facture', authRole('admin', 'caissier'), factureRoutes);
+app.use('/stock-sachet', authRole('admin'), stockSachetRoutes);
 app.use('/tickets', authRole('admin', 'caissier'), ticketRouter);
+app.use('/revendeurs', authRole('admin'), revendeurRouter);
 app.use('/mdp', authRole('admin', 'caissier', 'visualisation'), mdpRoutes);
+app.use('/backup', authRole('admin'), backupRouter);
+app.use('/reservations', authRole('admin', 'caissier'), reservationRouter);
 
 // catch 404 and forward to error handler
 /*app.use(function(req, res, next) {

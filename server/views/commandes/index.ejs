@@ -2,6 +2,7 @@
 
 <div class="container-fluid no-margin-top">
 
+  <% if (currentUser && currentUser.profil === 'admin') { %>
   <div class="card shadow-sm mt-4">
     <div class="card-header bg-secondary text-white">
       <h4 class="mb-0 text-center">Gestion des Commandes</h4>
@@ -16,11 +17,11 @@
 
         <div class="col-md-3">
           <label for="id_client" class="form-label">Client</label>
-          <select class="form-control" id="id_client" name="id_client" required>
+          <select class="form-select select2-client" id="id_client" name="id_client" required>
             <option value="">-- Sélectionner un client --</option>
             <% if (clients) { %>
               <% clients.forEach(client => { %>
-                <option value="<%= client.id %>"><%= client.nom %> <%= client.prenom %></option>
+                <option value="<%= client.id %>"><%= client.nom %> <%= client.prenom || '' %></option>
               <% }) %>
             <% } %>
           </select>
@@ -62,6 +63,7 @@
       </form>
     </div>
   </div>
+  <% } %>
 
   <% if (message) { %>
     <div class="container-fluid p-0">
@@ -109,24 +111,20 @@
                 </td>
                 <td><%= commande.date_commande.toLocaleDateString() %></td>
                 <td class="text-end">
-                   <% if (commande.statut === 'en attente') { %>
-                  <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                      Actions
+                  <% if (commande.statut === 'en attente') { %>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-warning"
+                      onclick='showSnackbarvalider(<%= commande.id %>, "<%= commande.Client ? commande.Client.nom : "" %>")'>
+                      <i class="bi bi-check2-circle"></i> Valider
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                      <li>
-                        <a class="dropdown-item text-warning" href="#" onclick='showSnackbarvalider(<%= commande.id %>, "<%= commande.Client ? commande.Client.nom : "" %>")'>
-                          <i class="bi bi-pencil"></i> Valider
-                        </a>
-                      </li>
-                      <li>
-                        <a class="dropdown-item text-danger" href="#" onclick='showSnackbar(<%= commande.id %>, "<%= commande.Client ? commande.Client.nom : "" %>")'>
-                          <i class="bi bi-trash"></i> Supprimer
-                        </a>
-                      </li>
-                    </ul>
-                  </div>  <% } %>
+                    <% if (currentUser && currentUser.profil === 'admin') { %>
+                    <button class="btn btn-sm btn-outline-danger"
+                      onclick='showSnackbar(<%= commande.id %>, "<%= commande.Client ? commande.Client.nom : "" %>")'>
+                      <i class="bi bi-trash"></i> Supprimer
+                    </button>
+                    <% } %>
+                  </div>
+                  <% } %>
                 </td>
               </tr>
             <% }) %>
@@ -186,40 +184,40 @@
 
 <!-- Scripts -->
 <script>
-  const commandeForm = document.getElementById('commandeForm');
-  const commandeIdInput = document.getElementById('commandeId');
-  const clientInput = document.getElementById('id_client');
-  const quantiteInput = document.getElementById('quantite');
-  const statutInput = document.getElementById('statut');
-  const submitText = document.getElementById('submitText');
-  const cancelBtn = document.getElementById('cancelBtn');
-  const formStatus = document.getElementById('formStatus');
   const commandeListContainer = document.getElementById('commandeListContainer');
 
-  function editCommande(commande) {
-    commandeIdInput.value = commande.id;
-    clientInput.value = commande.id_client;
-    quantiteInput.value = commande.quantite;
-    statutInput.value = commande.statut;
-    submitText.textContent = 'Modifier';
+  // Formulaire admin uniquement
+  const cancelBtn = document.getElementById('cancelBtn');
+  if (cancelBtn) {
+    const commandeForm = document.getElementById('commandeForm');
+    const commandeIdInput = document.getElementById('commandeId');
+    const clientInput = document.getElementById('id_client');
+    const quantiteInput = document.getElementById('quantite');
+    const submitText = document.getElementById('submitText');
+    const formStatus = document.getElementById('formStatus');
 
-    formStatus.innerHTML = `
-      <div class="alert alert-warning py-1 px-3 mb-3">
-        <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${commande.Client ? commande.Client.nom : ""}</strong>
-      </div>
-    `;
+    function editCommande(commande) {
+      commandeIdInput.value = commande.id;
+      clientInput.value = commande.id_client;
+      quantiteInput.value = commande.quantite;
+      submitText.textContent = 'Modifier';
+      formStatus.innerHTML = `
+        <div class="alert alert-warning py-1 px-3 mb-3">
+          <i class="bi bi-pencil-square"></i> Mode <strong>modification</strong> activé pour : <strong>${commande.Client ? commande.Client.nom : ""}</strong>
+        </div>
+      `;
+      commandeListContainer.style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-    commandeListContainer.style.display = 'none';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    cancelBtn.addEventListener('click', () => {
+      commandeForm.reset();
+      commandeIdInput.value = '';
+      submitText.textContent = 'Ajouter';
+      formStatus.innerHTML = '';
+      commandeListContainer.style.display = '';
+    });
   }
-
-  cancelBtn.addEventListener('click', () => {
-    commandeForm.reset();
-    commandeIdInput.value = '';
-    submitText.textContent = 'Ajouter';
-    formStatus.innerHTML = '';
-    commandeListContainer.style.display = '';
-  });
 
   // Auto-hide flash messages
   document.addEventListener('DOMContentLoaded', () => {

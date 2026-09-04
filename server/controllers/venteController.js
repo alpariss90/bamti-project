@@ -1,6 +1,7 @@
 const db = require('../models');
 const { Vente, User, Paiement, Client, sequelize } = db;
 const { Op } = require('sequelize');
+const { enregistrerSortieSachet, enregistrerEntreeSachet } = require('./stockSachetController');
 
 // Fonction utilitaire pour rediriger avec message
 function redirectWithMessage(req, res, msg, type = 'success', path = '/ventes/index') {
@@ -14,18 +15,52 @@ function redirectWithMessageCaissier(req, res, msg, type = 'success', path = '/v
   return res.redirect(path);
 }
 
+// Construit la liste des numéros de page à afficher, avec '...' pour les trous
+function buildPageWindow(current, total, delta = 2) {
+  const withDots = [];
+  let last = 0;
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      if (last && i - last > 1) withDots.push('...');
+      withDots.push(i);
+      last = i;
+    }
+  }
+  return withDots;
+}
 
-
+const VENTES_PAGE_SIZE = 15;
 
 // Liste des ventes
 exports.list = async (req, res) => {
   try {
-    const ventes = await Vente.findAll({
+    const currentPage = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const q = (req.query.q || '').trim();
+    const date = (req.query.date || '').trim();
+
+    const where = {};
+    if (date) where.date_vente = date;
+
+    const clientInclude = { model: Client, attributes: ['id', 'nom', 'prenom'] };
+    if (q) {
+      clientInclude.where = {
+        [Op.or]: [
+          { nom: { [Op.like]: `%${q}%` } },
+          { prenom: { [Op.like]: `%${q}%` } },
+        ],
+      };
+    }
+
+    const { rows: ventes, count: totalCount } = await Vente.findAndCountAll({
+      where,
       include: [
-        { model: Client, attributes: ['id', 'nom', 'prenom'] },
+        clientInclude,
         { model: Paiement, attributes: ['id', 'montant', 'date'] }
       ],
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      limit: VENTES_PAGE_SIZE,
+      offset: (currentPage - 1) * VENTES_PAGE_SIZE,
+      distinct: true,
     });
 
     const ventesData = ventes.map(v => {
@@ -37,11 +72,24 @@ exports.list = async (req, res) => {
 
     const clients = await Client.findAll({ attributes: ['id', 'nom', 'prenom'], order: [['nom', 'ASC']]});
 
-    res.render('ventes/index', { ventes: ventesData, clients, message: req.flash('message')[0] || null, pageTitle: 'Gestion des ventes' });
+    const totalPages = Math.max(Math.ceil(totalCount / VENTES_PAGE_SIZE), 1);
+
+    res.render('ventes/index', {
+      ventes: ventesData,
+      clients,
+      message: req.flash('message')[0] || null,
+      pageTitle: 'Gestion des ventes',
+      currentPage,
+      totalPages,
+      totalCount,
+      pageNumbers: buildPageWindow(currentPage, totalPages),
+      searchQuery: q,
+      searchDate: date,
+    });
   } catch (err) {
     console.error(err);
     redirectWithMessage(req, res, 'Erreur serveur lors du chargement des ventes.', 'danger');
-  } 
+  }
 };
 
 // Liste caissier
@@ -168,7 +216,13 @@ exports.createOrUpdate = async (req, res) => {
         await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente }, { transaction: t });
       }
 
-
+      await enregistrerSortieSachet({
+        quantite: vente.quantite,
+        date: date_vente,
+        motif: `Vente #${vente.id}`,
+        id_vente: vente.id,
+        createdBy: req.session?.user?.login || null
+      }, t);
 
       await t.commit();
       return redirectWithMessage(req, res, 'Vente ajoutée avec succès.', 'success');
@@ -223,7 +277,13 @@ exports.createOrUpdateCaissier = async (req, res) => {
         await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente }, { transaction: t });
       }
 
-
+      await enregistrerSortieSachet({
+        quantite: vente.quantite,
+        date: date_vente,
+        motif: `Vente #${vente.id}`,
+        id_vente: vente.id,
+        createdBy: req.session?.user?.login || null
+      }, t);
 
       await t.commit();
       return redirectWithMessageCaissier(req, res, 'Vente ajoutée avec succès.', 'success');
@@ -288,9 +348,7 @@ exports.annuler = async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `;
         
-        const observation = vente.observation ? 
-            `${vente.observation} - Annulée: ` : 
-            `Annulée: `;
+        const observation = req.body.observation?.trim() || 'Annulée sans observation';
 
         const values = [
           id,
@@ -315,6 +373,13 @@ exports.annuler = async (req, res) => {
 
 
 
+    await enregistrerEntreeSachet({
+      quantite: vente.quantite,
+      date: new Date().toISOString().slice(0, 10),
+      observation: `Restitution suite à annulation de la vente #${vente.id}`,
+      createdBy: req.session?.user?.login || null
+    }, t);
+
     await Paiement.destroy({ where: { id_vente: id }, transaction: t });
     await vente.destroy({ transaction: t });
 
@@ -326,6 +391,29 @@ exports.annuler = async (req, res) => {
     console.error(err);
     await t.rollback();
     return redirectWithMessage(req, res, 'Erreur lors de la annulation de la vente.', 'danger');
+  }
+};
+
+// Liste des ventes annulées
+exports.annulees = async (req, res) => {
+  try {
+    const [rows] = await sequelize.query(`
+      SELECT va.id, va.type_vente, va.quantite, va.observation,
+             va.type_paiement, va.montant, va.prix_unitaire,
+             va.date_vente, va.createdAt, va.user,
+             c.nom AS client_nom, c.prenom AS client_prenom
+      FROM ventes_annuler va
+      LEFT JOIN clients c ON c.id = va.id_client
+      ORDER BY va.createdAt DESC
+    `);
+    res.render('ventes/annulees', {
+      ventes: rows,
+      pageTitle: 'Ventes annulées',
+      message: req.flash('message')[0] || null,
+    });
+  } catch (err) {
+    console.error('[Vente] annulees :', err);
+    redirectWithMessage(req, res, 'Erreur lors du chargement des ventes annulées.', 'danger');
   }
 };
 
@@ -400,9 +488,22 @@ exports.ajouterVersement = async (req, res) => {
 
 exports.ventesFiltrees = async (req, res) => {
   try {
+    // Si aucun filtre soumis, afficher le formulaire vide
+    if (!req.query.date_debut) {
+      const clients = await Client.findAll();
+      const users   = await User.findAll();
+      return res.render('ventes/filtre', {
+        clients, users,
+        ventes: [],
+        montantTotalVentes: 0, montantPaye: 0, resteTotal: 0,
+        id_client: '', type_vente: '', id_user: '',
+        date_debut: '', date_fin: '',
+        pageTitle: 'Filtrer les ventes',
+        message: req.flash('message')[0] || null
+      });
+    }
 
-
-        date_debut=req.query.date_debut || new Date().toLocaleDateString('fr-FR'); 
+        date_debut=req.query.date_debut || new Date().toLocaleDateString('fr-FR');
 
    date_fin=req.query.date_fin || new Date().toLocaleDateString('fr-FR');
 

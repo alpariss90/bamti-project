@@ -1,5 +1,5 @@
 hash 1234 $2b$10$tpbacV4alRlWA21xiyYvoubQMc5n2Bo5r78awlJ/YTyI1rkKLb9z2
-
+ionic capacitor run android -l --external
 
 insert into salaires (id_personnel , mois, annee, montant_salaire, montant_credit, montant_gratification,createdAt, updatedAt)  
 SELECT

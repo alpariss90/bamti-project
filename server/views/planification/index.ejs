@@ -1,0 +1,80 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+      <h4 class="mb-0"><i class="bi bi-calendar-plus me-2"></i>Planifier un congé</h4>
+      <input type="text" id="filterAgentInput" class="form-control form-control-sm w-auto" placeholder="Rechercher un agent...">
+    </div>
+
+    <div class="card-body" style="background:#f8fafc;">
+      <% if (personnels && personnels.length > 0) { %>
+        <p class="text-muted small mb-3">
+          Choisissez une date de départ probable et un nombre de jours pour l'agent concerné, puis cliquez sur "Planifier".
+          Un même agent peut être planifié plusieurs fois, tant que les périodes ne se chevauchent pas.
+        </p>
+
+        <div id="agentsListe">
+          <% personnels.forEach(personnel => { %>
+            <form action="/planification/create" method="POST"
+              class="row g-2 align-items-center py-2 border-bottom mx-0 agent-row"
+              data-nom="<%= (personnel.nom + ' ' + personnel.prenom).toLowerCase() %>">
+              <input type="hidden" name="id_personnel" value="<%= personnel.id %>">
+
+              <div class="col-md-4 fw-semibold">
+                <i class="bi bi-person-fill text-primary me-1"></i><%= personnel.nom %> <%= personnel.prenom %>
+              </div>
+
+              <div class="col-6 col-md-3">
+                <input type="date" class="form-control form-control-sm" name="date_depart" required>
+              </div>
+
+              <div class="col-6 col-md-2">
+                <input type="number" min="1" class="form-control form-control-sm" name="nombre_jours" placeholder="Jours" required>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <button type="submit" class="btn btn-sm btn-primary w-100">
+                  <i class="bi bi-calendar-check"></i> Planifier
+                </button>
+              </div>
+            </form>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="alert alert-info">Aucun agent actif disponible.</div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+
+    const filterInput = document.getElementById('filterAgentInput');
+    const rows = Array.from(document.querySelectorAll('.agent-row'));
+
+    filterInput.addEventListener('input', () => {
+      const val = filterInput.value.toLowerCase();
+      rows.forEach(row => {
+        row.style.display = row.dataset.nom.includes(val) ? '' : 'none';
+      });
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>

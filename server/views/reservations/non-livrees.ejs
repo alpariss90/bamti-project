@@ -1,0 +1,203 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid">
+
+  <%- include('../partials/alerts') %>
+
+  <% const fmt = (n) => new Intl.NumberFormat('fr-FR').format(n); %>
+  <% const fmtDate = (d) => new Date(d).toLocaleDateString('fr-FR'); %>
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-clock me-2"></i><strong>Réservations non livrées</strong>
+        <span class="badge bg-dark ms-2"><%= reservations.length %></span>
+      </span>
+      <button class="btn btn-sm btn-dark" onclick="imprimerTableau()">
+        <i class="bi bi-printer me-1"></i>Imprimer
+      </button>
+    </div>
+    <div class="card-body">
+      <% if (reservations.length === 0) { %>
+        <div class="alert alert-success mb-0"><i class="bi bi-check-circle me-1"></i>Aucune réservation en attente de livraison.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table id="tableNonLivrees" class="table table-hover table-bordered align-middle">
+            <thead class="table-warning">
+              <tr>
+                <th>#</th>
+                <th>Nom & Prénom</th>
+                <th>Téléphone</th>
+                <th>Adresse</th>
+                <th>Qté</th>
+                <th>PU (F)</th>
+                <th>Total (F)</th>
+                <th>Date livraison</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% reservations.forEach((r, i) => { %>
+                <tr id="resv-<%= r.id %>">
+                  <td><%= i + 1 %></td>
+                  <td class="fw-semibold"><%= r.nom_prenom %></td>
+                  <td><%= r.telephone || '-' %></td>
+                  <td><%= r.adresse || '-' %></td>
+                  <td><%= r.qte %></td>
+                  <td><%= fmt(r.prix_unitaire) %></td>
+                  <td class="fw-semibold"><%= fmt(r.qte * r.prix_unitaire) %></td>
+                  <td>
+                    <% const today = new Date().toISOString().split('T')[0]; %>
+                    <% const dl = new Date(r.date_livraison).toISOString().split('T')[0]; %>
+                    <% if (dl < today) { %>
+                      <span class="text-danger fw-semibold"><%= fmtDate(r.date_livraison) %></span>
+                      <span class="badge bg-danger ms-1">En retard</span>
+                    <% } else { %>
+                      <%= fmtDate(r.date_livraison) %>
+                    <% } %>
+                  </td>
+                  <td>
+                    <div class="d-flex gap-1">
+                      <button class="btn btn-sm btn-outline-success"
+                        onclick="ouvrirLivraison(<%= r.id %>, '<%= r.nom_prenom.replace(/'/g, "\\'") %>')">
+                        <i class="bi bi-truck me-1"></i>Livrer
+                      </button>
+                      <button class="btn btn-sm btn-outline-secondary"
+                        onclick="imprimerBon(<%= r.id %>)">
+                        <i class="bi bi-printer"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+              <tr>
+                <td colspan="4" class="text-end">Total</td>
+                <td><%= reservations.reduce((s,r)=>s+r.qte, 0) %></td>
+                <td>—</td>
+                <td><%= fmt(reservations.reduce((s,r)=>s+(r.qte*r.prix_unitaire),0)) %> F</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Livraison ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalLivraison" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="formLivraison" method="POST">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Marquer comme livré</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-3">Réservation de : <strong id="livraisonNom"></strong></p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nom du livreur <span class="text-danger">*</span></label>
+            <input type="text" name="nom_livreur" class="form-control" required placeholder="Ex: Ibrahima Sow">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Observation (optionnel)</label>
+            <textarea name="observation" class="form-control" rows="2" placeholder="Remarques..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Valider</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function ouvrirLivraison(id, nom) {
+  document.getElementById('livraisonNom').textContent = nom;
+  document.getElementById('formLivraison').action = '/reservations/livrer/' + id;
+  document.querySelector('#formLivraison [name=nom_livreur]').value = '';
+  document.querySelector('#formLivraison [name=observation]').value = '';
+  new bootstrap.Modal(document.getElementById('modalLivraison')).show();
+}
+
+function imprimerBon(id) {
+  const row = document.querySelector('#resv-' + id);
+  if (!row) return;
+  const d = Array.from(row.children).map(td => td.innerText.trim());
+  const dateImp = new Date().toLocaleDateString('fr-FR');
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Bon de réservation BAMTI</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:40px;color:#333}
+      .entete{text-align:center;border-bottom:2px solid #6c757d;padding-bottom:12px;margin-bottom:24px}
+      .entete h2{color:#6c757d;font-weight:700}
+      table{width:100%;border-collapse:collapse;margin-top:12px}
+      th,td{border:1px solid #dee2e6;padding:10px;text-align:left}
+      th{background:#f8f9fa;font-weight:600}
+      .signature{display:flex;justify-content:space-between;margin-top:60px}
+      .signature div{width:45%;text-align:center;font-size:14px}
+      footer{text-align:center;margin-top:40px;font-size:12px;color:#888;border-top:1px solid #ccc;padding-top:8px}
+    </style></head><body>
+    <div class="entete">
+      <h2>Entreprise BAMTI</h2>
+      <p>NIF: 64750/P | SONUCI KOUBIA | Tél : 99582158 / 90231123</p>
+      <small>Date d'impression : ${dateImp}</small>
+    </div>
+    <h5 style="text-align:center;color:#6c757d">Bon de réservation</h5>
+    <table>
+      <tr><th>Nom & Prénom</th><td>${d[1]}</td></tr>
+      <tr><th>Téléphone</th><td>${d[2]}</td></tr>
+      <tr><th>Adresse</th><td>${d[3]}</td></tr>
+      <tr><th>Quantité</th><td>${d[4]}</td></tr>
+      <tr><th>Prix unitaire</th><td>${d[5]} F</td></tr>
+      <tr><th>Montant total</th><td><strong>${d[6]} F</strong></td></tr>
+      <tr><th>Date de livraison</th><td>${d[7]}</td></tr>
+    </table>
+    <div class="signature">
+      <div><p>________________________</p><p><strong>Signature Client</strong></p></div>
+      <div><p>________________________</p><p><strong>Signature Caissière</strong></p></div>
+    </div>
+    <footer>Merci pour votre confiance — © Entreprise BAMTI</footer>
+    </body></html>`);
+  w.document.close();
+  w.print();
+}
+
+function imprimerTableau() {
+  const table = document.getElementById('tableNonLivrees');
+  if (!table) return;
+  const dateImp = new Date().toLocaleDateString('fr-FR');
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Réservations non livrées - BAMTI</title>
+    <style>
+      body{font-family:'Segoe UI',Arial,sans-serif;margin:40px;color:#333}
+      .entete{text-align:center;border-bottom:2px solid #6c757d;padding-bottom:12px;margin-bottom:24px}
+      .entete h2{color:#6c757d;font-weight:700}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{border:1px solid #dee2e6;padding:8px;text-align:left}
+      th{background:#f8f9fa;font-weight:600}
+      tr:nth-child(even){background:#f9f9f9}
+      td:last-child{display:none}th:last-child{display:none}
+      footer{text-align:center;margin-top:30px;font-size:12px;color:#888;border-top:1px solid #ccc;padding-top:8px}
+    </style></head><body>
+    <div class="entete">
+      <h2>Entreprise BAMTI</h2>
+      <p>NIF: 64750/P | SONUCI KOUBIA | Tél : 99582158 / 90231123</p>
+      <small>Date d'impression : ${dateImp}</small>
+    </div>
+    <h5 style="text-align:center;margin-bottom:16px">Réservations non livrées</h5>
+    ${table.outerHTML}
+    <footer>Merci pour votre confiance — © Entreprise BAMTI</footer>
+    </body></html>`);
+  w.document.close();
+  w.print();
+}
+</script>
+
+<%- include('../partials/footer') %>

@@ -1,6 +1,7 @@
 const db = require('../models');
 const {Commande, sequelize, Vente, Paiement} = db;
 const Client = db.Client;
+const { enregistrerSortieSachet } = require('./stockSachetController');
 
 //  Fonction utilitaire pour rediriger avec message flash
 function redirectWithMessage(req, res, msg, type = 'success', path = '/commandes/index') {
@@ -98,6 +99,46 @@ exports.delete = async (req, res) => {
 };
  
 
+//  Commandes du jour + en retard
+exports.jour = async (req, res) => {
+  try {
+    const { Op } = require('sequelize');
+    const aujourdhui = new Date();
+    aujourdhui.setHours(0, 0, 0, 0);
+    const demain = new Date(aujourdhui);
+    demain.setDate(demain.getDate() + 1);
+
+    const duJour = await Commande.findAll({
+      where: {
+        date_commande: { [Op.gte]: aujourdhui, [Op.lt]: demain },
+        statut: { [Op.ne]: 'livrée' }
+      },
+      include: [{ model: Client, attributes: ['id', 'nom', 'prenom'] }],
+      order: [['date_commande', 'ASC']]
+    });
+
+    const enRetard = await Commande.findAll({
+      where: {
+        date_commande: { [Op.lt]: aujourdhui },
+        statut: 'en attente'
+      },
+      include: [{ model: Client, attributes: ['id', 'nom', 'prenom'] }],
+      order: [['date_commande', 'ASC']]
+    });
+
+    res.render('commandes/jour', {
+      duJour,
+      enRetard,
+      aujourdhui,
+      message: req.flash('message')[0] || null,
+      pageTitle: 'Commandes du jour'
+    });
+  } catch (err) {
+    console.error('Erreur chargement commandes du jour :', err);
+    return redirectWithMessage(req, res, 'Erreur serveur.', 'danger');
+  }
+};
+
 //  validation physique
 exports.valider = async (req, res) => {
   const { id } = req.params;
@@ -129,8 +170,16 @@ user=req.session?.user?.id;
 
          await Paiement.create({ id_vente: vente.id, montant: 0, date: date_vente }, { transaction: t });
 
+         await enregistrerSortieSachet({
+           quantite,
+           date: date_vente,
+           motif: `Commande #${commande.id} validée (vente #${vente.id})`,
+           id_vente: vente.id,
+           createdBy: req.session?.user?.login || null
+         }, t);
+
 await t.commit();
-     
+
     return redirectWithMessagevente(req, res, `Commande #${id} validé et vente enregistré avec succès.`, 'success');
 
   } catch (err) {

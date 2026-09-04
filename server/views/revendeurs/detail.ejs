@@ -1,0 +1,81 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-md-7">
+
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <a href="/revendeurs/index" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-left"></i> Retour
+        </a>
+        <h4 class="mb-0 fw-bold">
+          <i class="bi bi-person-badge me-2 text-primary"></i>
+          Détail : <%= revendeur.prenom %> <%= revendeur.nom %>
+        </h4>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header bg-secondary text-white">
+          <i class="bi bi-person-lines-fill me-2"></i>Informations du revendeur
+        </div>
+        <div class="card-body">
+          <dl class="row mb-0">
+            <dt class="col-sm-4">Nom complet</dt>
+            <dd class="col-sm-8 fw-semibold"><%= revendeur.prenom %> <%= revendeur.nom %></dd>
+
+            <dt class="col-sm-4">Téléphone</dt>
+            <dd class="col-sm-8"><%= revendeur.telephone || '-' %></dd>
+
+            <dt class="col-sm-4">Adresse</dt>
+            <dd class="col-sm-8"><%= revendeur.adresse || '-' %></dd>
+
+            <dt class="col-sm-4">Gain / sachet</dt>
+            <dd class="col-sm-8">
+              <span class="badge bg-success fs-6">
+                <%= Number(revendeur.gain_par_sachet).toLocaleString('fr-FR') %> FCFA
+              </span>
+            </dd>
+
+            <% if (revendeur.user) { %>
+            <dt class="col-sm-4">Login (app mobile)</dt>
+            <dd class="col-sm-8"><code><%= revendeur.user.login %></code></dd>
+
+            <dt class="col-sm-4">Statut compte</dt>
+            <dd class="col-sm-8">
+              <% if (revendeur.user.isActive) { %>
+                <span class="badge bg-success">Actif</span>
+              <% } else { %>
+                <span class="badge bg-danger">Inactif</span>
+              <% } %>
+            </dd>
+            <% } %>
+
+            <dt class="col-sm-4">Créé le</dt>
+            <dd class="col-sm-8"><%= new Date(revendeur.createdAt).toLocaleDateString('fr-FR') %></dd>
+          </dl>
+        </div>
+        <div class="card-footer d-flex gap-2">
+          <button class="btn btn-warning btn-sm"
+            onclick='editFromDetail(<%- JSON.stringify(revendeur) %>)'>
+            <i class="bi bi-pencil me-1"></i>Modifier
+          </button>
+          <form action="/revendeurs/delete/<%= revendeur.id %>" method="POST"
+            onsubmit="return confirm('Supprimer ce revendeur ?')">
+            <button type="submit" class="btn btn-danger btn-sm">
+              <i class="bi bi-trash me-1"></i>Supprimer
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function editFromDetail(r) {
+    window.location.href = '/revendeurs/index';
+  }
+</script>
+
+<%- include('../partials/footer') %>

@@ -65,6 +65,7 @@
     <div class="table-wrapper shadow-sm rounded" style="border: 1px solid #dee2e6;">
       <div class="d-flex justify-content-end mb-0">
  <!--  <input type="text" id="searchInput" class="form-control form-control-sm w-auto" placeholder="Rechercher ..."> -->
+ <span id="exportButtonsClients"></span>
 </div>
 <table id="dtable" class="table table-hover align-middle table-bordered">
         <thead class="table-secondary position-sticky top-0">
@@ -288,3 +289,29 @@
 
 
 <%- include('../partials/footer') %>
+
+<!-- DataTables Buttons (export Copier / Excel / PDF) — chargé après le footer
+     pour que jQuery et DataTables (déjà inclus par le footer, qui a aussi déjà
+     initialisé #dtable) soient prêts. -->
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.2.2/css/buttons.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script>
+  if (document.getElementById('dtable')) {
+    // retrieve: true récupère l'instance DataTable déjà créée par le footer,
+    // sans la réinitialiser.
+    const dtClients = $('#dtable').DataTable({ retrieve: true });
+    new $.fn.dataTable.Buttons(dtClients, {
+      buttons: [
+        { extend: 'copyHtml5', text: '<i class="bi bi-clipboard"></i> Copier', className: 'btn btn-sm btn-outline-secondary' },
+        { extend: 'excelHtml5', text: '<i class="bi bi-file-earmark-excel"></i> Excel', className: 'btn btn-sm btn-outline-success' },
+        { extend: 'pdfHtml5', text: '<i class="bi bi-file-earmark-pdf"></i> PDF', className: 'btn btn-sm btn-outline-danger' },
+      ],
+    });
+    dtClients.buttons().container().appendTo('#exportButtonsClients');
+  }
+</script>

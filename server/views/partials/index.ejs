@@ -23,11 +23,43 @@
 </head>
 
 <body>
-    <% 
+    <%
         const now = new Date();
         const currentMonth = now.getMonth() + 1;
         const currentYear = now.getFullYear();
     %>
+
+    <% if (typeof stockAlerts !== 'undefined' && stockAlerts && stockAlerts.length > 0) { %>
+    <div class="modal fade" id="stockAlertModal" tabindex="-1" aria-labelledby="stockAlertModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-warning text-dark">
+            <h5 class="modal-title" id="stockAlertModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stock matériel critique</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p>Les matériels suivants sont en stock bas. Pensez à effectuer une entrée :</p>
+            <ul class="mb-0">
+              <% stockAlerts.forEach(a => { %>
+                <li><strong><%= a.libelle %></strong> — stock actuel : <%= a.stock %> (seuil critique : <%= a.stock_critique %>)</li>
+              <% }) %>
+            </ul>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const stockAlertModalEl = document.getElementById('stockAlertModal');
+        if (stockAlertModalEl && window.bootstrap) {
+          new bootstrap.Modal(stockAlertModalEl).show();
+        }
+      });
+    </script>
+    <% } %>
 
     <!-- Begin page -->
     <div id="layout-wrapper">
@@ -186,91 +218,262 @@
                 <div class="container-fluid">
                     <div id="two-column-menu"></div>
                     <ul class="navbar-nav" id="navbar-nav">
-                        <li class="menu-title"><span class="fw-bold text-white">Menu</span></li>
+  <li class="menu-title"><span class="fw-bold text-white">Menu</span></li>
 
-                        <% if (currentUser && currentUser.profil === 'admin') { %>
-                            <!-- Tout le menu pour l'admin -->
-                            <li class="nav-item">
-                                <a class="nav-link menu-link" href="#sidebarLanding" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarLanding">
-                                    <i class="ri-file-line fw-bold text-white"></i>
-                                    <span class="fw-bold text-white">Gestion Personnels</span>
-                                </a>
-                                <div class="collapse menu-dropdown" id="sidebarLanding">
-                                    <ul class="nav nav-sm flex-column">
-                                        <li class="nav-item"><a href="/montant_personnel/index" class="nav-link text-white">Montant Mise A jour</a></li>
-                                        <li class="nav-item"><a href="/personnel_avance/index" class="nav-link text-white">Personnel Avance</a></li>
-                                        <li class="nav-item"><a href="/salaire/index" class="nav-link text-white">Salaire</a></li>
-                                        <li class="nav-item"><a href="/ventes/index" class="nav-link text-white">Ventes</a></li>
-                                        <li class="nav-item"><a href="/ventes/redevable" class="nav-link text-white">Redevables</a></li>
-                                        <li class="nav-item"><a href="/depenses/index" class="nav-link text-white">depenses</a></li>
-                                        <li class="nav-item"><a href="/mvt_matieres/index" class="nav-link text-white">Mvt Matieres</a></li>
-                                    </ul>
-                                </div>
-                            </li>
+  <% if (currentUser && currentUser.profil === 'admin') { %>
+    <!-- Revendeurs -->
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="/revendeurs/index">
+        <i class="ri-user-star-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Revendeurs</span>
+      </a>
+    </li>
 
-                            <li class="nav-item">
-                                <a class="nav-link menu-link" href="#menu2" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="menu2">
-                                    <i class="ri-user-line fw-bold text-white"></i>
-                                    <span class="fw-bold text-white">Gestion Nomenclatures</span>
-                                </a>
-                                <div class="collapse menu-dropdown" id="menu2">
-                                    <ul class="nav nav-sm flex-column">
-                                        <li class="nav-item"><a href="/personnes/index" class="nav-link text-white">Gestion Client</a></li>
-                                        <li class="nav-item"><a href="/users/index" class="nav-link text-white">Gestion Utilisateur</a></li>
-                                        <li class="nav-item"><a href="/person/index" class="nav-link text-white">Gestion Personnel</a></li>
-                                        <li class="nav-item"><a href="/engin/index" class="nav-link text-white">Gestion Engin</a></li>
-                                        <li class="nav-item"><a href="/type_depense/index" class="nav-link text-white">Gestion Dépense</a></li>
-                                        <li class="nav-item"><a href="/commandes/index" class="nav-link text-white">Gestion Commandes</a></li>
-                                        <li class="nav-item"><a href="/tickets/index" class="nav-link text-white">Gestion Ticket</a></li>
-                                    </ul>
-                                </div>
-                            </li>
-                        <% } 
-                        
-                        if (currentUser && currentUser.profil === 'caissier') { %>
-                            <!-- Menu Caissier : uniquement ventes -->
-                            <li class="nav-item">
-                                <a href="/ventes/index/caissier" class="nav-link text-white">
-                                    <i class="ri-shopping-cart-line fw-bold text-white"></i>
-                                    <span class="fw-bold text-white">Ventes</span>
-                                </a>
-                            </li>
+    <!-- Recette Revendeurs -->
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarRevendeurRecette" data-bs-toggle="collapse">
+        <i class="ri-bar-chart-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Recettes Revendeurs</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarRevendeurRecette">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/revendeurs/recette/jour" class="nav-link text-white">Recette du jour</a></li>
+          <li><a href="/revendeurs/recette/periode" class="nav-link text-white">Recette par période</a></li>
+          <li><a href="/revendeurs/sync" class="nav-link text-white">Synchroniser données</a></li>
+        </ul>
+      </div>
+    </li>
 
-                              <li class="nav-item">
-                                <a href="/tickets/index" class="nav-link text-white">
-                                    <i class="ri-shopping-cart-line fw-bold text-white"></i>
-                                    <span class="fw-bold text-white">Ticket</span>
-                                </a>
-                            </li>
+    <!-- Facture Proforma -->
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="/facture/proforma">
+        <i class="ri-file-text-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Facture Proforma</span>
+      </a>
+    </li>
 
-                            
-                        <% }
-                        if (currentUser && currentUser.profil === 'visualisation') { %>
-                            <!-- Menu Visualisation : tableau de bord seulement -->
-                            <li class="nav-item">
-                                <a href="/dashboard/index/<%=currentMonth%>/<%=currentYear%>" class="nav-link text-white">
-                                    <i class="ri-dashboard-line fw-bold text-white"></i>
-                                    <span class="fw-bold text-white">Tableau de bord</span>
-                                </a>
-                            </li>
-                        <% } else if (currentUser && currentUser.profil === 'magasinier') { %>
-    <!-- Menu Visualisation : tableau de bord seulement -->
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarLanding" data-bs-toggle="collapse">
+        <i class="ri-file-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Gestion Personnels</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarLanding">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/montant_personnel/index" class="nav-link text-white">Montant Mise A jour</a></li>
+          <li><a href="/personnel_avance/index" class="nav-link text-white">Personnel Avance</a></li>
+          <li><a href="/salaire/index" class="nav-link text-white">Salaire</a></li>
+          <li><a href="/conge/index" class="nav-link text-white">Gestion Congés</a></li>
+          <li><a href="/planification/index" class="nav-link text-white">Planifier Congé</a></li>
+          <li><a href="/planification/liste" class="nav-link text-white">Liste Planifications</a></li>
+          <li>
+            <a href="#submenuVentes" class="nav-link text-white" data-bs-toggle="collapse">Ventes</a>
+            <div class="collapse" id="submenuVentes">
+              <ul class="nav nav-sm flex-column ms-3">
+                <li><a href="/ventes/index" class="nav-link text-white">Gestion Ventes</a></li>
+                <li><a href="/ventes/filtre" class="nav-link text-white">Filtrage</a></li>
+                <li><a href="/ventes/annulees" class="nav-link text-white">Ventes annulées</a></li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <a href="#submenuRedevable" class="nav-link text-white" data-bs-toggle="collapse">Redevable</a>
+            <div class="collapse" id="submenuRedevable">
+              <ul class="nav nav-sm flex-column ms-3">
+                <li><a href="/ventes/redevable" class="nav-link text-white">Liste des redevables</a></li>
+                <li><a href="/ventes/redevable/print" class="nav-link text-white">Imprimer redevables</a></li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <a href="#submenuDepenses" class="nav-link text-white" data-bs-toggle="collapse">Dépenses</a>
+            <div class="collapse" id="submenuDepenses">
+              <ul class="nav nav-sm flex-column ms-3">
+                <li><a href="/depenses/index" class="nav-link text-white">Gestion Depenses</a></li>
+                <li><a href="/depenses/filtre" class="nav-link text-white">Filtrage</a></li>
+                <li><a href="/depenses/non-valide" class="nav-link text-white">Dépense non validées</a></li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <a href="#submenuMvtMatieres" class="nav-link text-white" data-bs-toggle="collapse">Mvt Matières</a>
+            <div class="collapse" id="submenuMvtMatieres">
+              <ul class="nav nav-sm flex-column ms-3">
+                <li><a href="/mvt_matieres/index" class="nav-link text-white">Gestion Matieres</a></li>
+                <li><a href="/mvt_matieres/filtre" class="nav-link text-white">Filtrage</a></li>
+                <li><a href="/mvt_matieres/non-valide" class="nav-link text-white">Matiere non validées</a></li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarStockSachet" data-bs-toggle="collapse">
+        <i class="ri-drop-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Stock Sachets</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarStockSachet">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/stock-sachet/index" class="nav-link text-white">Enregistrer Production</a></li>
+          <li><a href="/stock-sachet/statistiques" class="nav-link text-white">Statistiques</a></li>
+        </ul>
+      </div>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#menu2" data-bs-toggle="collapse">
+        <i class="ri-user-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Gestion Nomenclatures</span>
+      </a>
+      <div class="collapse menu-dropdown" id="menu2">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/personnes/index" class="nav-link text-white">Gestion Client</a></li>
+          <li><a href="/users/index" class="nav-link text-white">Gestion Utilisateur</a></li>
+          <li><a href="/person/index" class="nav-link text-white">Gestion Personnel</a></li>
+          <li><a href="/engin/index" class="nav-link text-white">Gestion Engin</a></li>
+          <li><a href="/profil/index" class="nav-link text-white">Gestion Profil</a></li>
+          <li><a href="/type_depense/index" class="nav-link text-white">Gestion Dépense</a></li>
+          <li>
+            <a href="#submenuCommandes" class="nav-link text-white" data-bs-toggle="collapse">Commandes</a>
+            <div class="collapse" id="submenuCommandes">
+              <ul class="nav nav-sm flex-column ms-3">
+                <li><a href="/commandes/index" class="nav-link text-white">Gestion Commandes</a></li>
+                <li><a href="/commandes/jour" class="nav-link text-white">Commandes du jour</a></li>
+              </ul>
+            </div>
+          </li>
+          <li><a href="/tickets/index" class="nav-link text-white">Gestion Ticket</a></li>
+          <li><a href="/backup/liste" class="nav-link text-white">Liste sauvegarde</a></li>
+        </ul>
+      </div>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarReservationsAdmin" data-bs-toggle="collapse">
+        <i class="ri-calendar-todo-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Réservations</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarReservationsAdmin">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/reservations/index" class="nav-link text-white">Faire une réservation</a></li>
+          <li><a href="/reservations/jour" class="nav-link text-white">Réservations du jour</a></li>
+          <li><a href="/reservations/non-livrees" class="nav-link text-white">Non livrées</a></li>
+          <li><a href="/reservations/livrees" class="nav-link text-white">Livrées</a></li>
+        </ul>
+      </div>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarStockMateriel" data-bs-toggle="collapse">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Stock Matériel</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarStockMateriel">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/materiel/index" class="nav-link text-white">Gestion Matériel</a></li>
+          <li><a href="/materiel/entree" class="nav-link text-white">Entrée</a></li>
+          <li><a href="/materiel/sortie" class="nav-link text-white">Sortie</a></li>
+          <li><a href="/materiel/rebut" class="nav-link text-white">Rebut</a></li>
+          <li><a href="/materiel/statistiques" class="nav-link text-white">Statistiques</a></li>
+        </ul>
+      </div>
+    </li>
+
+  <% } else if (currentUser && currentUser.profil === 'caissier') { %>
+    <li class="nav-item">
+      <a href="/ventes/index/caissier" class="nav-link text-white">
+        <i class="ri-shopping-cart-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Ventes</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="/tickets/index/" class="nav-link text-white">
+        <i class="ri-shopping-cart-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Ticket</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarReservations" data-bs-toggle="collapse">
+        <i class="ri-calendar-todo-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Réservations</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarReservations">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/reservations/index" class="nav-link text-white">Faire une réservation</a></li>
+          <li><a href="/reservations/jour" class="nav-link text-white">Réservations du jour</a></li>
+          <li><a href="/reservations/non-livrees" class="nav-link text-white">Non livrées</a></li>
+          <li><a href="/reservations/livrees" class="nav-link text-white">Livrées</a></li>
+        </ul>
+      </div>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarCommandesCaissier" data-bs-toggle="collapse">
+        <i class="ri-shopping-bag-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Commandes</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarCommandesCaissier">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/commandes/index" class="nav-link text-white">Gestion Commandes</a></li>
+          <li><a href="/commandes/jour" class="nav-link text-white">Commandes du jour</a></li>
+        </ul>
+      </div>
+    </li>
+
+  <% } else if (currentUser && currentUser.profil === 'visualisation') { %>
     <li class="nav-item">
       <a href="/dashboard/index/<%=currentMonth%>/<%=currentYear%>" class="nav-link text-white">
-        <i class="ri-dashboard-line fw-bold text-white"></i> 
+        <i class="ri-dashboard-line fw-bold text-white"></i>
+        <span class="fw-bold text-white">Dashboard</span>
+      </a>
+    </li>
+  <% } else if (currentUser && currentUser.profil === 'magasinier') { %>
+    <li class="nav-item">
+      <a href="/mvt_matieres/index" class="nav-link text-white">
+        <i class="ri-dashboard-line fw-bold text-white"></i>
         <span class="fw-bold text-white">Gestion Matieres</span>
       </a>
     </li>
-     <li class="nav-item">
-      <a href="/dashboard/index/<%=currentMonth%>/<%=currentYear%>" class="nav-link text-white">
-        <i class="ri-dashboard-line fw-bold text-white"></i> 
+    <li class="nav-item">
+      <a href="/mvt_matieres/filtre" class="nav-link text-white">
+        <i class="ri-dashboard-line fw-bold text-white"></i>
         <span class="fw-bold text-white">Filtrage</span>
       </a>
     </li>
-     <li class="nav-item">
-      <a href="/dashboard/index/<%=currentMonth%>/<%=currentYear%>" class="nav-link text-white">
-        <i class="ri-dashboard-line fw-bold text-white"></i> 
+    <li class="nav-item">
+      <a href="/mvt_matieres/non-valide" class="nav-link text-white">
+        <i class="ri-dashboard-line fw-bold text-white"></i>
         <span class="fw-bold text-white">Matiere non validées</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="/materiel/index" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Gestion Matériel</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="/materiel/entree" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Entrée Matériel</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="/materiel/sortie" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Sortie Matériel</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="/materiel/rebut" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Rebut Matériel</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="/materiel/statistiques" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Statistiques Matériel</span>
       </a>
     </li>
   <% } %>

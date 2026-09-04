@@ -1,0 +1,158 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center">Gestion des Congés</h4>
+    </div>
+
+    <div class="card-body">
+      <!-- Formulaire d'ajout -->
+      <form id="congeForm" action="/conge/create" method="POST" class="row g-2 align-items-end">
+        <div id="formStatus" class="col-12"></div>
+
+        <div class="col-md-3">
+          <label for="id_personnel" class="form-label">Personnel</label>
+          <select class="form-select select2-client" id="id_personnel" name="id_personnel" required>
+            <option value="">-- Choisir un personnel --</option>
+            <% personnels.forEach(personnel => { %>
+              <option value="<%= personnel.id %>"><%= personnel.nom %> <%= personnel.prenom %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label for="date_depart" class="form-label">Date de départ</label>
+          <input type="date" class="form-control" id="date_depart" name="date_depart" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="nombre_jours" class="form-label">Nombre de jours</label>
+          <input type="number" min="1" class="form-control" id="nombre_jours" name="nombre_jours" required>
+        </div>
+
+        <div class="col-md-4">
+          <label for="motif" class="form-label">Motif</label>
+          <input type="text" class="form-control" id="motif" name="motif">
+        </div>
+
+        <div class="col-md-12 d-flex justify-content-end">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Ajouter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Liste des congés -->
+  <div id="congeListContainer" class="mt-4">
+    <h5 class="mb-3 fw-bold">Liste des congés</h5>
+
+    <% if (conges && conges.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Personnel</th>
+              <th>Date départ</th>
+              <th>Nombre de jours</th>
+              <th>Date retour</th>
+              <th>Motif</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% conges.forEach((conge, index) => { %>
+              <tr>
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= conge.personnel ? conge.personnel.nom + ' ' + conge.personnel.prenom : '-' %></td>
+                <td><%= new Date(conge.date_depart).toLocaleDateString('fr-FR') %></td>
+                <td><%= conge.nombre_jours %></td>
+                <td><%= new Date(conge.date_retour).toLocaleDateString('fr-FR') %></td>
+                <td><%= conge.motif || '-' %></td>
+                <td class="text-end">
+                  <% if (conge.date_depart > today) { %>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="showSnackbar('<%= conge.id %>')">
+                      <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucun congé enregistré.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Snackbar de confirmation d'annulation -->
+<div id="snackbar" class="snackbar shadow">
+  <span id="snackbar-message">Confirmer l'annulation de ce congé ?</span>
+  <form id="snackbarForm" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, annuler</button>
+    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Retour</button>
+  </form>
+</div>
+
+<!-- Styles Snackbar -->
+<style>
+  .snackbar {
+    visibility: hidden;
+    min-width: 320px;
+    background-color: #323232;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    transition: all 0.3s ease-in-out;
+  }
+
+  .snackbar.show {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+<!-- Scripts -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+  });
+
+  const snackbar = document.getElementById('snackbar');
+  const snackbarForm = document.getElementById('snackbarForm');
+
+  function showSnackbar(id) {
+    snackbarForm.action = `/conge/delete/${id}`;
+    snackbar.classList.add('show');
+  }
+
+  function hideSnackbar() {
+    snackbar.classList.remove('show');
+  }
+</script>
+
+<%- include('../partials/footer') %>

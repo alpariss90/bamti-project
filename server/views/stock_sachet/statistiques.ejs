@@ -1,0 +1,76 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center"><i class="bi bi-bar-chart-line me-2"></i>Statistiques stock des sachets produits</h4>
+    </div>
+
+    <div class="card-body">
+      <form id="filtreForm" method="GET" action="/stock-sachet/statistiques" class="row g-2 align-items-end mb-4">
+        <div class="col-md-3">
+          <label for="date" class="form-label">Une date précise</label>
+          <input type="date" class="form-control" id="date" name="date" value="<%= date %>">
+        </div>
+        <div class="col-md-1 text-center text-muted">ou</div>
+        <div class="col-md-3">
+          <label for="date_debut" class="form-label">Du</label>
+          <input type="date" class="form-control" id="date_debut" name="date_debut" value="<%= dateDebut %>">
+        </div>
+        <div class="col-md-3">
+          <label for="date_fin" class="form-label">Au</label>
+          <input type="date" class="form-control" id="date_fin" name="date_fin" value="<%= dateFin %>">
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-funnel"></i> Filtrer
+          </button>
+        </div>
+      </form>
+      <% if (!date && !(dateDebut && dateFin)) { %>
+        <p class="text-muted small">Aucun filtre appliqué : les totaux ci-dessous portent sur toute la période. Le stock actuel, lui, est toujours global.</p>
+      <% } %>
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="rounded-3 text-center py-3" style="background:#f0fdf4;border:2px solid #86efac;">
+            <div class="text-muted small mb-1">Sachets produits (entrées)</div>
+            <div class="fw-bold fs-3 text-success">+<%= entrees %></div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="rounded-3 text-center py-3" style="background:#fef2f2;border:2px solid #fca5a5;">
+            <div class="text-muted small mb-1">Sachets sortis (ventes + annulations)</div>
+            <div class="fw-bold fs-3 text-danger">-<%= sorties %></div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="rounded-3 text-center py-3" style="background:#eff6ff;border:2px solid #93c5fd;">
+            <div class="text-muted small mb-1">Stock actuel (global)</div>
+            <div class="fw-bold fs-3 text-primary"><%= stock %></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+  });
+</script>
+
+<%- include('../partials/footer') %>

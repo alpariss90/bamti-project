@@ -208,12 +208,6 @@ exports.valideChangePasswordJson = async (req, res) => {
   }
 };
 
-// Fonction helper pour les redirections (gardée pour compatibilité)
-function redirectWithMessage(req, res, message) {
-  req.flash('message', message);
-  return res.redirect("/users/change-password");
-}
-
 //  POST /users/reset-password/:id — Réinitialiser le mot de passe
 exports.resetPassword = async (req, res) => {
   try {

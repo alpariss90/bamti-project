@@ -23,6 +23,16 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: null
     },
+    date_prise_service: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      defaultValue: null
+    },
+    id_profil: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null
+    },
     etat: {
       type: DataTypes.BOOLEAN, // true = actif, false = inactif
       allowNull: false,
