@@ -1,0 +1,159 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header bg-secondary text-white">
+      <h4 class="mb-0 text-center"><i class="bi bi-box-arrow-up me-2"></i>Sortie de matériel</h4>
+    </div>
+
+    <div class="card-body">
+      <form id="sortieForm" action="/materiel/sortie/create" method="POST">
+        <div class="row g-2 mb-3">
+          <div class="col-md-3">
+            <label for="date_sortie" class="form-label">Date de sortie</label>
+            <input type="date" class="form-control" id="date_sortie" name="date_sortie" required>
+          </div>
+          <div class="col-md-5">
+            <label for="beneficiaire" class="form-label">Remis à</label>
+            <input type="text" class="form-control" id="beneficiaire" name="beneficiaire" placeholder="Nom de la personne" required>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Matériel</th>
+                <th style="width:160px">Quantité</th>
+                <th style="width:60px"></th>
+              </tr>
+            </thead>
+            <tbody id="lignesBody">
+              <tr class="ligne-row">
+                <td>
+                  <select class="form-select select2-client" name="id_materiel[]" required>
+                    <option value="">-- Choisir un matériel --</option>
+                    <% materiels.forEach(m => { %>
+                      <option value="<%= m.id %>"><%= m.libelle %> (stock : <%= m.stock %>)</option>
+                    <% }) %>
+                  </select>
+                </td>
+                <td><input type="number" min="1" class="form-control" name="quantite[]" required></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm remove-ligne"><i class="bi bi-trash"></i></button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <template id="ligneTemplate">
+          <tr class="ligne-row">
+            <td>
+              <select class="form-select select2-client" name="id_materiel[]" required>
+                <option value="">-- Choisir un matériel --</option>
+                <% materiels.forEach(m => { %>
+                  <option value="<%= m.id %>"><%= m.libelle %> (stock : <%= m.stock %>)</option>
+                <% }) %>
+              </select>
+            </td>
+            <td><input type="number" min="1" class="form-control" name="quantite[]" required></td>
+            <td><button type="button" class="btn btn-outline-danger btn-sm remove-ligne"><i class="bi bi-trash"></i></button></td>
+          </tr>
+        </template>
+
+        <button type="button" id="addLigne" class="btn btn-outline-primary btn-sm mb-3">
+          <i class="bi bi-plus-circle"></i> Ajouter une ligne
+        </button>
+
+        <div class="d-flex justify-content-end">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-box-arrow-up"></i> Enregistrer la sortie
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Liste des sorties -->
+  <div class="mt-4">
+    <h5 class="mb-3 fw-bold">Historique des sorties</h5>
+
+    <% if (sorties && sorties.length > 0) { %>
+      <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
+        <table class="table table-hover align-middle table-bordered" id="dtable">
+          <thead class="table-secondary">
+            <tr>
+              <th>#</th>
+              <th>Matériel</th>
+              <th>Quantité</th>
+              <th>Remis à</th>
+              <th>Date de sortie</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% sorties.forEach((sortie, index) => { %>
+              <tr>
+                <th scope="row"><%= index + 1 %></th>
+                <td><%= sortie.materiel ? sortie.materiel.libelle : '-' %></td>
+                <td><%= sortie.quantite %></td>
+                <td><%= sortie.beneficiaire %></td>
+                <td><%= new Date(sortie.date_sortie).toLocaleDateString('fr-FR') %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+    <% } else { %>
+      <div class="alert alert-info">Aucune sortie enregistrée.</div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+
+    const tbody = document.getElementById('lignesBody');
+    const template = document.getElementById('ligneTemplate');
+
+    function attachRemove(row) {
+      const btn = row.querySelector('.remove-ligne');
+      btn.addEventListener('click', () => {
+        if (tbody.querySelectorAll('.ligne-row').length > 1) {
+          row.remove();
+        }
+      });
+    }
+
+    tbody.querySelectorAll('.ligne-row').forEach(attachRemove);
+
+    document.getElementById('addLigne').addEventListener('click', () => {
+      const clone = template.content.cloneNode(true);
+      tbody.appendChild(clone);
+      const newRow = tbody.lastElementChild;
+      attachRemove(newRow);
+
+      if (window.jQuery) {
+        $(newRow).find('.select2-client').select2({
+          theme: 'bootstrap4',
+          placeholder: '-- Choisir un matériel --',
+          allowClear: true
+        });
+      }
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>

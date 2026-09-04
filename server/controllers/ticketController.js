@@ -3,6 +3,7 @@ const db = require('../models');
 
 const {sequelize, Vente, Paiement, Ticket} = db;
 const Client = db.Client;
+const { enregistrerSortieSachet } = require('./stockSachetController');
 
 //  Fonction utilitaire pour rediriger avec message flash
 function redirectWithMessage(req, res, msg, type = 'success', path = '/tickets/index') {
@@ -161,8 +162,16 @@ user=req.session?.user?.id;
 
          await Paiement.create({ id_vente: vente.id, montant: 0, date: date_vente }, { transaction: t });
 
+         await enregistrerSortieSachet({
+           quantite,
+           date: date_vente,
+           motif: `Ticket #${ticket.id} validé (vente #${vente.id})`,
+           id_vente: vente.id,
+           createdBy: req.session?.user?.login || null
+         }, t);
+
 await t.commit();
-     
+
     return redirectWithMessage(req, res, ` vente enregistré avec succès.`, 'success');
 
   } catch (err) {

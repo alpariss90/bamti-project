@@ -76,7 +76,8 @@
     <h5 class="mb-3 fw-bold">Dépenses filtrées</h5>
 
     <% if (depenses && depenses.length > 0) { %>
-      <div class="d-flex justify-content-end mb-2">
+      <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+        <span id="exportButtonsDepenses"></span>
         <button class="btn btn-secondary" onclick="imprimerToutesLesDepenses()">
           <i class="bi bi-printer"></i> Imprimer les dépenses
         </button>
@@ -167,3 +168,32 @@
 </script>
 
 <%- include('../partials/footer') %>
+
+<!-- DataTables Buttons (export Copier / Excel / PDF) — chargé après le footer
+     pour que jQuery et DataTables (déjà inclus par le footer) soient prêts. -->
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.2.2/css/buttons.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script>
+  if (document.getElementById('depenseTable')) {
+    const dtDepenses = $('#depenseTable').DataTable({
+      dom: 't',
+      paging: false,
+      searching: false,
+      info: false,
+      ordering: true,
+    });
+    new $.fn.dataTable.Buttons(dtDepenses, {
+      buttons: [
+        { extend: 'copyHtml5', text: '<i class="bi bi-clipboard"></i> Copier', className: 'btn btn-sm btn-outline-secondary' },
+        { extend: 'excelHtml5', text: '<i class="bi bi-file-earmark-excel"></i> Excel', className: 'btn btn-sm btn-outline-success' },
+        { extend: 'pdfHtml5', text: '<i class="bi bi-file-earmark-pdf"></i> PDF', className: 'btn btn-sm btn-outline-danger' },
+      ],
+    });
+    dtDepenses.buttons().container().appendTo('#exportButtonsDepenses');
+  }
+</script>

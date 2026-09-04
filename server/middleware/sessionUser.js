@@ -1,6 +1,18 @@
-module.exports = (req, res, next) => {
+const { getAlertesStockCritique } = require('../controllers/materielController');
+
+module.exports = async (req, res, next) => {
   if (req.session && req.session.user) {
     res.locals.currentUser = req.session.user;
+
+    if (req.session.user.profil === 'admin' && req.session.showStockAlert) {
+      req.session.showStockAlert = false;
+      try {
+        res.locals.stockAlerts = await getAlertesStockCritique();
+      } catch (err) {
+        console.error('Erreur lors du calcul des alertes de stock matériel :', err);
+        res.locals.stockAlerts = [];
+      }
+    }
   } else {
     res.locals.currentUser = null;
   }

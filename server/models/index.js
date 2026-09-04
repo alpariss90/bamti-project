@@ -9,6 +9,16 @@ const UserModel = require('./user')(sequelize, DataTypes);
 const PersonnelModel = require('./personnel')(sequelize, DataTypes);
 const ClientModel = require('./client')(sequelize, DataTypes);
 const EnginModel = require('./engin')(sequelize, DataTypes);
+const ProfilModel = require('./profil')(sequelize, DataTypes);
+const ServicePersonModel = require('./service_person')(sequelize, DataTypes);
+const CongeModel = require('./conge')(sequelize, DataTypes);
+const PlanificationModel = require('./planification')(sequelize, DataTypes);
+const MaterielModel = require('./materiel')(sequelize, DataTypes);
+const MaterielEntreeModel = require('./materiel_entree')(sequelize, DataTypes);
+const MaterielSortieModel = require('./materiel_sortie')(sequelize, DataTypes);
+const MaterielRebutModel = require('./materiel_rebut')(sequelize, DataTypes);
+const StockSachetEntreeModel = require('./stock_sachet_entree')(sequelize, DataTypes);
+const StockSachetSortieModel = require('./stock_sachet_sortie')(sequelize, DataTypes);
 const TypeDepenseModel = require('./TypeDepense')(sequelize, DataTypes);
 const VenteModel = require('./vente')(sequelize, DataTypes);
 const PaiementModel = require('./paiement')(sequelize, DataTypes);
@@ -47,6 +57,27 @@ TypeDepenseModel.hasMany(DepenseModel, { foreignKey: 'id_type_depense', as: 'dep
 
 DepenseModel.belongsTo(EnginModel, { foreignKey: 'id_engin', as: 'engin' });
 EnginModel.hasMany(DepenseModel, { foreignKey: 'id_engin', as: 'depenses' });
+
+PersonnelModel.belongsTo(ProfilModel, { foreignKey: 'id_profil', as: 'profil' });
+ProfilModel.hasMany(PersonnelModel, { foreignKey: 'id_profil', as: 'personnels' });
+
+PersonnelModel.hasMany(ServicePersonModel, { foreignKey: 'id_personnel', as: 'services' });
+ServicePersonModel.belongsTo(PersonnelModel, { foreignKey: 'id_personnel', as: 'personnel' });
+
+PersonnelModel.hasMany(CongeModel, { foreignKey: 'id_personnel', as: 'conges' });
+CongeModel.belongsTo(PersonnelModel, { foreignKey: 'id_personnel', as: 'personnel' });
+
+PersonnelModel.hasMany(PlanificationModel, { foreignKey: 'id_personnel', as: 'planifications' });
+PlanificationModel.belongsTo(PersonnelModel, { foreignKey: 'id_personnel', as: 'personnel' });
+
+MaterielModel.hasMany(MaterielEntreeModel, { foreignKey: 'id_materiel', as: 'entrees' });
+MaterielEntreeModel.belongsTo(MaterielModel, { foreignKey: 'id_materiel', as: 'materiel' });
+
+MaterielModel.hasMany(MaterielSortieModel, { foreignKey: 'id_materiel', as: 'sorties' });
+MaterielSortieModel.belongsTo(MaterielModel, { foreignKey: 'id_materiel', as: 'materiel' });
+
+MaterielModel.hasMany(MaterielRebutModel, { foreignKey: 'id_materiel', as: 'rebuts' });
+MaterielRebutModel.belongsTo(MaterielModel, { foreignKey: 'id_materiel', as: 'materiel' });
 ClientModel.hasMany(CommandeModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 CommandeModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
 TicketModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
@@ -72,6 +103,16 @@ module.exports = {
   Personnel: PersonnelModel, 
   Client: ClientModel,
   Engin:EnginModel,
+  Profil:ProfilModel,
+  ServicePerson:ServicePersonModel,
+  Conge:CongeModel,
+  Planification:PlanificationModel,
+  Materiel:MaterielModel,
+  MaterielEntree:MaterielEntreeModel,
+  MaterielSortie:MaterielSortieModel,
+  MaterielRebut:MaterielRebutModel,
+  StockSachetEntree:StockSachetEntreeModel,
+  StockSachetSortie:StockSachetSortieModel,
   TypeDepense:TypeDepenseModel,
   Vente:VenteModel,
   Paiement:PaiementModel,

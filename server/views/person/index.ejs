@@ -31,6 +31,21 @@
           <input type="text" class="form-control" id="telephone" name="telephone">
         </div>
 
+        <div class="col-md-3" id="datePriseServiceGroup">
+          <label for="date_prise_service" class="form-label">Date prise de service</label>
+          <input type="date" class="form-control" id="date_prise_service" name="date_prise_service">
+        </div>
+
+        <div class="col-md-3">
+          <label for="id_profil" class="form-label">Profil</label>
+          <select class="form-control select2-client" id="id_profil" name="id_profil">
+            <option value="">-- Choisir un profil --</option>
+            <% profils.forEach(profil => { %>
+              <option value="<%= profil.id %>"><%= profil.libelle %></option>
+            <% }) %>
+          </select>
+        </div>
+
         <div class="col-md-3 d-flex justify-content-end gap-2">
           <button type="submit" class="btn btn-success">
             <i class="bi bi-plus-circle"></i> <span id="submitText">Ajouter</span>
@@ -56,8 +71,8 @@
     <% if (personnels && personnels.length > 0) { %>
       <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
         <div class="d-flex justify-content-end mb-0">
-
-</div>
+          <span id="exportButtonsPersonnel"></span>
+        </div>
 
         <table class="table table-hover align-middle table-bordered" id="dtable">
           <thead class="table-secondary">
@@ -66,22 +81,57 @@
               <th>Nom</th>
               <th>Prénom</th>
               <th>Téléphone</th>
+              <th>Date prise de service</th>
+              <th>Profil</th>
+              <th>Durée de service</th>
               <th>État</th>
               <th class="text-end">Actions</th>
             </tr>
           </thead>
           <tbody>
             <% personnels.forEach((personnel, index) => { %>
+              <%
+                const auj = new Date(); auj.setHours(0, 0, 0, 0);
+
+                const prisesPersonnel = (personnel.services || []).filter(s => s.type === 'prise');
+                const dernierePrise = prisesPersonnel.length ? prisesPersonnel[prisesPersonnel.length - 1] : null;
+                let dureeJours = null;
+                if (personnel.etat && dernierePrise) {
+                  const dPrise = new Date(dernierePrise.date_service); dPrise.setHours(0, 0, 0, 0);
+                  dureeJours = Math.floor((auj - dPrise) / 86400000);
+                }
+
+                const congeActif = (personnel.conges || []).find(c => {
+                  const d = new Date(c.date_depart); d.setHours(0, 0, 0, 0);
+                  const r = new Date(c.date_retour); r.setHours(0, 0, 0, 0);
+                  return d <= auj && auj <= r;
+                });
+              %>
               <tr>
                 <th scope="row"><%= index + 1 %></th>
                 <td><%= personnel.nom %></td>
                 <td><%= personnel.prenom %></td>
                 <td><%= personnel.telephone || '-' %></td>
+                <td><%= personnel.date_prise_service ? new Date(personnel.date_prise_service).toLocaleDateString('fr-FR') : '-' %></td>
+                <td><%= personnel.profil ? personnel.profil.libelle : '-' %></td>
+                <td><%= dureeJours !== null ? dureeJours + ' jour' + (dureeJours > 1 ? 's' : '') : '-' %></td>
                 <td>
                   <% if (personnel.etat) { %>
                     <span class="badge bg-success">Actif</span>
                   <% } else { %>
                     <span class="badge bg-danger">Inactif</span>
+                  <% } %>
+                  <% if (congeActif) { %>
+                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" title="En congé"
+                      onclick='ouvrirModalCongeInfo(<%- JSON.stringify({
+                        nom: personnel.nom + " " + personnel.prenom,
+                        date_depart: congeActif.date_depart,
+                        nombre_jours: congeActif.nombre_jours,
+                        date_retour: congeActif.date_retour,
+                        motif: congeActif.motif
+                      }) %>)'>
+                      <i class="bi bi-airplane-fill text-info"></i>
+                    </button>
                   <% } %>
                 </td>
                <td class="text-end">
@@ -90,25 +140,30 @@
       Actions
     </button>
     <ul class="dropdown-menu dropdown-menu-end">
-      <% if (personnel.etat) { %>
+      <% if (personnel.etat && congeActif) { %>
+        <li><span class="dropdown-item text-muted disabled"><i class="bi bi-airplane-fill"></i> En congé</span></li>
+      <% } else if (personnel.etat) { %>
         <li>
-          <form action="/person/deactivate/<%= personnel.id %>" method="POST" class="d-inline">
-            <button type="submit" class="dropdown-item text-warning">
-              <i class="bi bi-person-x"></i> Désactiver
-            </button>
-          </form>
+          <button type="button" class="dropdown-item text-danger"
+            data-id="<%= personnel.id %>" data-nom="<%= personnel.nom %> <%= personnel.prenom %>"
+            onclick="ouvrirModalFinService(this)">
+            <i class="bi bi-box-arrow-right"></i> Fin service
+          </button>
         </li>
       <% } else { %>
         <li>
-          <form action="/person/activate/<%= personnel.id %>" method="POST" class="d-inline">
-            <button type="submit" class="dropdown-item text-success">
-              <i class="bi bi-person-check"></i> Activer
-            </button>
-          </form>
+          <button type="button" class="dropdown-item text-success"
+            data-id="<%= personnel.id %>" data-nom="<%= personnel.nom %> <%= personnel.prenom %>"
+            onclick="ouvrirModalRepriseService(this)">
+            <i class="bi bi-person-check"></i> Reprise service
+          </button>
         </li>
       <% } %>
      <li> <a class="dropdown-item text-warning" href="#" onclick='editPersonnel(<%- JSON.stringify(personnel) %>)'>
-      <i class="bi bi-pencil"></i> Modifier</a> 
+      <i class="bi bi-pencil"></i> Modifier</a>
+    </li>
+    <li> <a class="dropdown-item" href="#" onclick='ouvrirModalDetails(<%- JSON.stringify(personnel) %>)'>
+      <i class="bi bi-list-ul"></i> Détails</a>
     </li>
     </ul>
   </div>
@@ -133,6 +188,80 @@
     <button type="submit" class="btn btn-danger btn-sm ms-3">Oui, supprimer</button>
     <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
   </form>
+</div>
+
+<!-- Modal Fin / Reprise de service -->
+<div class="modal fade" id="finServiceModal" tabindex="-1" aria-labelledby="finServiceModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="finServiceForm" method="POST">
+        <div class="modal-header bg-danger text-white" id="finServiceModalHeader">
+          <h5 class="modal-title" id="finServiceModalLabel"><span id="finServiceTitre">Fin de service</span> — <span id="finServiceNom"></span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="finServiceDate" class="form-label" id="finServiceDateLabel">Date fin de service</label>
+            <input type="date" class="form-control" id="finServiceDate" name="date_service" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="finServiceMotif" class="form-label">Motif</label>
+            <textarea class="form-control" id="finServiceMotif" name="motif" rows="3" required></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-danger" id="finServiceSubmitBtn">
+            <i class="bi bi-check-circle"></i> Enregistrer
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Détails historique de service -->
+<div class="modal fade" id="detailsServiceModal" tabindex="-1" aria-labelledby="detailsServiceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title" id="detailsServiceModalLabel">Historique de service — <span id="detailsServiceNom"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="detailsServiceBody"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Info congé en cours -->
+<div class="modal fade" id="congeInfoModal" tabindex="-1" aria-labelledby="congeInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title" id="congeInfoModalLabel">Congé en cours — <span id="congeInfoNom"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="list-unstyled mb-0">
+          <li><strong>Date départ :</strong> <span id="congeInfoDepart"></span></li>
+          <li><strong>Nombre de jours :</strong> <span id="congeInfoJours"></span></li>
+          <li><strong>Date de retour :</strong> <span id="congeInfoRetour"></span></li>
+          <li><strong>Motif :</strong> <span id="congeInfoMotif"></span></li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Snackbar styles -->
@@ -168,16 +297,27 @@
   const nomInput = document.getElementById('nom');
   const prenomInput = document.getElementById('prenom');
   const telephoneInput = document.getElementById('telephone');
+  const datePriseServiceInput = document.getElementById('date_prise_service');
+  const datePriseServiceGroup = document.getElementById('datePriseServiceGroup');
+  const idProfilInput = document.getElementById('id_profil');
   const submitText = document.getElementById('submitText');
   const cancelBtn = document.getElementById('cancelBtn');
   const formStatus = document.getElementById('formStatus');
   const personnelListContainer = document.getElementById('personnelListContainer');
+
+  // Aucune date de service (prise ou arrêt) ne peut être postérieure à aujourd'hui
+  const todayISO = new Date().toLocaleDateString('sv-SE'); // format YYYY-MM-DD en heure locale
+  datePriseServiceInput.max = todayISO;
 
   function editPersonnel(personnel) {
     personnelIdInput.value = personnel.id;
     nomInput.value = personnel.nom;
     prenomInput.value = personnel.prenom || '';
     telephoneInput.value = personnel.telephone || '';
+    datePriseServiceInput.value = personnel.date_prise_service || '';
+    datePriseServiceGroup.style.display = personnel.date_prise_service ? 'none' : '';
+    idProfilInput.value = personnel.id_profil || '';
+    if (window.jQuery) $(idProfilInput).trigger('change');
     submitText.textContent = 'Modifier';
 
     formStatus.innerHTML = `
@@ -193,6 +333,8 @@
   cancelBtn.addEventListener('click', () => {
     personnelForm.reset();
     personnelIdInput.value = '';
+    datePriseServiceGroup.style.display = '';
+    if (window.jQuery) $(idProfilInput).val('').trigger('change');
     submitText.textContent = 'Ajouter';
     formStatus.innerHTML = '';
     personnelListContainer.style.display = '';
@@ -219,6 +361,83 @@
 
   function hideSnackbar() {
     snackbar.classList.remove('show');
+  }
+
+  // Modal Fin / Reprise de service
+  function ouvrirModalService(btn, mode) {
+    const id = btn.dataset.id;
+    const nom = btn.dataset.nom;
+    const estReprise = mode === 'reprise';
+
+    document.getElementById('finServiceNom').textContent = nom || '';
+    document.getElementById('finServiceTitre').textContent = estReprise ? 'Reprise de service' : 'Fin de service';
+    document.getElementById('finServiceDateLabel').textContent = estReprise ? 'Date de reprise de service' : 'Date fin de service';
+    document.getElementById('finServiceModalHeader').className = 'modal-header text-white ' + (estReprise ? 'bg-success' : 'bg-danger');
+    document.getElementById('finServiceSubmitBtn').className = 'btn ' + (estReprise ? 'btn-success' : 'btn-danger');
+    document.getElementById('finServiceForm').action = estReprise ? '/person/repriseService/' + id : '/person/finService/' + id;
+    document.getElementById('finServiceForm').reset();
+    document.getElementById('finServiceDate').max = todayISO;
+
+    new bootstrap.Modal(document.getElementById('finServiceModal')).show();
+  }
+
+  function ouvrirModalFinService(btn) {
+    ouvrirModalService(btn, 'fin');
+  }
+
+  function ouvrirModalRepriseService(btn) {
+    ouvrirModalService(btn, 'reprise');
+  }
+
+  // Modal Détails historique de service
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  function ouvrirModalDetails(personnel) {
+    document.getElementById('detailsServiceNom').textContent = `${personnel.nom || ''} ${personnel.prenom || ''}`;
+
+    const services = personnel.services || [];
+    const body = document.getElementById('detailsServiceBody');
+
+    if (services.length === 0) {
+      body.innerHTML = '<p class="text-muted mb-0">Aucun mouvement de service enregistré.</p>';
+    } else {
+      const rows = services.map(s => {
+        const isPrise = s.type === 'prise';
+        const badge = isPrise ? 'bg-success' : 'bg-danger';
+        const label = isPrise ? 'Prise de service' : 'Fin de service';
+        const dateStr = new Date(s.date_service).toLocaleDateString('fr-FR');
+        const motif = s.motif ? escapeHtml(s.motif) : '-';
+        return `<tr><td>${dateStr}</td><td><span class="badge ${badge}">${label}</span></td><td>${motif}</td></tr>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-0">
+            <thead class="table-light">
+              <tr><th>Date</th><th>Type</th><th>Motif</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    new bootstrap.Modal(document.getElementById('detailsServiceModal')).show();
+  }
+
+  // Modal Info congé en cours
+  function ouvrirModalCongeInfo(conge) {
+    document.getElementById('congeInfoNom').textContent = conge.nom || '';
+    document.getElementById('congeInfoDepart').textContent = new Date(conge.date_depart).toLocaleDateString('fr-FR');
+    document.getElementById('congeInfoJours').textContent = conge.nombre_jours;
+    document.getElementById('congeInfoRetour').textContent = new Date(conge.date_retour).toLocaleDateString('fr-FR');
+    document.getElementById('congeInfoMotif').textContent = conge.motif || '-';
+
+    new bootstrap.Modal(document.getElementById('congeInfoModal')).show();
   }
 </script>
 <script>
@@ -251,3 +470,29 @@
 
 </script>
 <%- include('../partials/footer') %>
+
+<!-- DataTables Buttons (export Copier / Excel / PDF) — chargé après le footer
+     pour que jQuery et DataTables (déjà inclus par le footer, qui a aussi déjà
+     initialisé #dtable) soient prêts. -->
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.2.2/css/buttons.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script>
+  if (document.getElementById('dtable')) {
+    // retrieve: true récupère l'instance DataTable déjà créée par le footer,
+    // sans la réinitialiser.
+    const dtPersonnel = $('#dtable').DataTable({ retrieve: true });
+    new $.fn.dataTable.Buttons(dtPersonnel, {
+      buttons: [
+        { extend: 'copyHtml5', text: '<i class="bi bi-clipboard"></i> Copier', className: 'btn btn-sm btn-outline-secondary' },
+        { extend: 'excelHtml5', text: '<i class="bi bi-file-earmark-excel"></i> Excel', className: 'btn btn-sm btn-outline-success' },
+        { extend: 'pdfHtml5', text: '<i class="bi bi-file-earmark-pdf"></i> PDF', className: 'btn btn-sm btn-outline-danger' },
+      ],
+    });
+    dtPersonnel.buttons().container().appendTo('#exportButtonsPersonnel');
+  }
+</script>

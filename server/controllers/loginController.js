@@ -45,6 +45,10 @@ exports.login = async (req, res) => {
       profil: user.profil
     };
 
+    if (user.profil === 'admin') {
+      req.session.showStockAlert = true;
+    }
+
     return res.redirect('/');
   } catch (err) {
     console.error('Erreur lors de la connexion :', err);

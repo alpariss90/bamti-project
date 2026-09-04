@@ -1,0 +1,86 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid no-margin-top">
+
+ <% if (message) { %>
+  <div class="container-fluid p-0">
+    <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
+      <%= message.text %>
+    </div>
+  </div>
+<% } %>
+
+  <div class="card shadow-sm mt-0">
+    <div class="card-header text-white" style="background:linear-gradient(135deg,#1e3a5f 0%,#0ea5c9 100%);">
+      <h4 class="mb-0 text-center"><i class="bi bi-file-earmark-text me-2"></i>Élaborer une facture proforma</h4>
+    </div>
+
+    <div class="card-body">
+      <form id="proformaForm" action="/facture/proforma/generate" method="POST" target="_blank" class="row g-3 align-items-end">
+
+        <div class="col-md-4">
+          <label for="client_nom" class="form-label fw-semibold"><i class="bi bi-person-fill me-1 text-primary"></i>Client</label>
+          <input type="text" class="form-control" id="client_nom" name="client_nom" placeholder="Nom du client" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="quantite" class="form-label fw-semibold"><i class="bi bi-stack me-1 text-primary"></i>Quantité (sachets)</label>
+          <input type="number" min="1" class="form-control" id="quantite" name="quantite" required>
+        </div>
+
+        <div class="col-md-2">
+          <label for="prix_unitaire" class="form-label fw-semibold"><i class="bi bi-cash-coin me-1 text-primary"></i>Prix unitaire</label>
+          <div class="input-group">
+            <input type="number" step="0.01" min="0" value="350" class="form-control" id="prix_unitaire" name="prix_unitaire" required>
+            <span class="input-group-text text-muted small">FCFA</span>
+          </div>
+        </div>
+
+        <div class="col-md-2">
+          <label for="date_facture" class="form-label fw-semibold"><i class="bi bi-calendar-date-fill me-1 text-primary"></i>Date d'élaboration</label>
+          <input type="date" class="form-control" id="date_facture" name="date_facture" required>
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="w-100 rounded-3 text-center py-2 px-2" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;">
+            <div class="text-muted small mb-1"><i class="bi bi-calculator me-1"></i>Montant</div>
+            <div id="montantPreview" class="fw-bold text-success">0 FCFA</div>
+          </div>
+        </div>
+
+        <div class="col-12 d-flex justify-content-end">
+          <button type="submit" class="btn btn-success px-4">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Élaborer la facture
+          </button>
+        </div>
+      </form>
+      <p class="text-muted small mt-3 mb-0">
+        La facture s'ouvre dans un nouvel onglet (PDF). Si la conversion PDF n'est pas disponible sur le serveur,
+        un fichier Word (.docx) est proposé au téléchargement à la place.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const alert = document.getElementById('myAlert');
+    if (alert) {
+      setTimeout(() => alert.style.display = 'none', 3000);
+    }
+
+    document.getElementById('date_facture').value = new Date().toLocaleDateString('sv-SE');
+
+    function majMontant() {
+      const qte = parseFloat(document.getElementById('quantite').value) || 0;
+      const pu = parseFloat(document.getElementById('prix_unitaire').value) || 0;
+      document.getElementById('montantPreview').textContent =
+        new Intl.NumberFormat('fr-FR').format(qte * pu) + ' FCFA';
+    }
+    document.getElementById('quantite').addEventListener('input', majMontant);
+    document.getElementById('prix_unitaire').addEventListener('input', majMontant);
+    majMontant();
+  });
+</script>
+
+<%- include('../partials/footer') %>

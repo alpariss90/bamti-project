@@ -80,6 +80,38 @@
       <% } %>
 </div>
 
+<% if (typeof stockAlerts !== 'undefined' && stockAlerts && stockAlerts.length > 0) { %>
+<div class="modal fade" id="stockAlertModal" tabindex="-1" aria-labelledby="stockAlertModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title" id="stockAlertModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stock matériel critique</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Les matériels suivants sont en stock bas. Pensez à effectuer une entrée :</p>
+        <ul class="mb-0">
+          <% stockAlerts.forEach(a => { %>
+            <li><strong><%= a.libelle %></strong> — stock actuel : <%= a.stock %> (seuil critique : <%= a.stock_critique %>)</li>
+          <% }) %>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const stockAlertModalEl = document.getElementById('stockAlertModal');
+    if (stockAlertModalEl && window.bootstrap) {
+      new bootstrap.Modal(stockAlertModalEl).show();
+    }
+  });
+</script>
+<% } %>
+
     <!-- Begin page -->
     <div id="layout-wrapper">
 
@@ -279,6 +311,14 @@
       </div>
     </li>
 
+    <!-- Facture Proforma -->
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="/facture/proforma">
+        <i class="ri-file-text-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Facture Proforma</span>
+      </a>
+    </li>
+
     <!-- Tout le menu pour l'admin -->
     <li class="nav-item">
   <a class="nav-link menu-link" href="#sidebarLanding" data-bs-toggle="collapse">
@@ -291,6 +331,9 @@
       <li><a href="/montant_personnel/index" class="nav-link text-white">Montant Mise A jour</a></li>
       <li><a href="/personnel_avance/index" class="nav-link text-white">Personnel Avance</a></li>
       <li><a href="/salaire/index" class="nav-link text-white">Salaire</a></li>
+      <li><a href="/conge/index" class="nav-link text-white">Gestion Congés</a></li>
+      <li><a href="/planification/index" class="nav-link text-white">Planifier Congé</a></li>
+      <li><a href="/planification/liste" class="nav-link text-white">Liste Planifications</a></li>
 
       <!-- Ventes avec sous-menu -->
       <li>
@@ -355,8 +398,21 @@
 
 
     <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarStockSachet" data-bs-toggle="collapse">
+        <i class="ri-drop-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Stock Sachets</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarStockSachet">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/stock-sachet/index" class="nav-link text-white">Enregistrer Production</a></li>
+          <li><a href="/stock-sachet/statistiques" class="nav-link text-white">Statistiques</a></li>
+        </ul>
+      </div>
+    </li>
+
+    <li class="nav-item">
       <a class="nav-link menu-link" href="#menu2" data-bs-toggle="collapse">
-        <i class="ri-user-line fw-bold text-white"></i> 
+        <i class="ri-user-line fw-bold text-white"></i>
         <span class="fw-bold text-white">Gestion Nomenclatures</span>
       </a>
       <div class="collapse menu-dropdown" id="menu2">
@@ -365,6 +421,7 @@
           <li><a href="/users/index" class="nav-link text-white">Gestion Utilisateur</a></li>
           <li><a href="/person/index" class="nav-link text-white">Gestion Personnel</a></li>
           <li><a href="/engin/index" class="nav-link text-white">Gestion Engin</a></li>
+          <li><a href="/profil/index" class="nav-link text-white">Gestion Profil</a></li>
           <li><a href="/type_depense/index" class="nav-link text-white">Gestion Dépense</a></li>
           <li>
             <a href="#submenuCommandes" class="nav-link text-white" data-bs-toggle="collapse">Commandes</a>
@@ -392,6 +449,22 @@
           <li><a href="/reservations/jour" class="nav-link text-white">Réservations du jour</a></li>
           <li><a href="/reservations/non-livrees" class="nav-link text-white">Non livrées</a></li>
           <li><a href="/reservations/livrees" class="nav-link text-white">Livrées</a></li>
+        </ul>
+      </div>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link menu-link" href="#sidebarStockMateriel" data-bs-toggle="collapse">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Stock Matériel</span>
+      </a>
+      <div class="collapse menu-dropdown" id="sidebarStockMateriel">
+        <ul class="nav nav-sm flex-column">
+          <li><a href="/materiel/index" class="nav-link text-white">Gestion Matériel</a></li>
+          <li><a href="/materiel/entree" class="nav-link text-white">Entrée</a></li>
+          <li><a href="/materiel/sortie" class="nav-link text-white">Sortie</a></li>
+          <li><a href="/materiel/rebut" class="nav-link text-white">Rebut</a></li>
+          <li><a href="/materiel/statistiques" class="nav-link text-white">Statistiques</a></li>
         </ul>
       </div>
     </li>
@@ -464,8 +537,38 @@
     </li>
      <li class="nav-item">
       <a href="/mvt_matieres/non-valide" class="nav-link text-white">
-        <i class="ri-dashboard-line fw-bold text-white"></i> 
+        <i class="ri-dashboard-line fw-bold text-white"></i>
         <span class="fw-bold text-white">Matiere non validées</span>
+      </a>
+    </li>
+     <li class="nav-item">
+      <a href="/materiel/index" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Gestion Matériel</span>
+      </a>
+    </li>
+     <li class="nav-item">
+      <a href="/materiel/entree" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Entrée Matériel</span>
+      </a>
+    </li>
+     <li class="nav-item">
+      <a href="/materiel/sortie" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Sortie Matériel</span>
+      </a>
+    </li>
+     <li class="nav-item">
+      <a href="/materiel/rebut" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Rebut Matériel</span>
+      </a>
+    </li>
+     <li class="nav-item">
+      <a href="/materiel/statistiques" class="nav-link text-white">
+        <i class="ri-tools-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Statistiques Matériel</span>
       </a>
     </li>
   <% } %>

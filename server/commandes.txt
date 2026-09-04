@@ -1,0 +1,354 @@
+CREATE TABLE `profils` ( `id` int NOT NULL AUTO_INCREMENT, `libelle` varchar(255) NOT NULL, `deletedAt` 
+datetime DEFAULT NULL, `deletedBy` varchar(255) DEFAULT NULL, `createdAt` datetime NOT NULL, `updatedAt` 
+datetime NOT NULL, PRIMARY KEY (`id`), UNIQUE KEY `libelle_profils` (`libelle`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+ALTER TABLE `personnels`
+  ADD COLUMN `date_prise_service` date DEFAULT NULL AFTER `salaire`,
+  ADD COLUMN `id_profil` int DEFAULT NULL AFTER `date_prise_service`,
+  ADD CONSTRAINT `fk_personnels_id_profil` FOREIGN KEY (`id_profil`) REFERENCES `profils` (`id`);
+
+
+lors d'ajout d'un personnel (le model person avec son model personnel et controlleur personnel) il faut mettre a jour la fonction ajout personnel (apres ajout il faut ajouter une ligne dans service_person (tu recupere l'id de la personne que tu as ajouter tu met dans la colonne personnel, dans type tu met "prise" et dans motif tu laisse vide. aussi lors de modification d'un personnel tu fait la meme chose (si la date prise service etait vide avant modification donc on fais la meme chose comme a la creation mais si elle existais avant on ne fais rien).
+
+CREATE TABLE `service_person` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `date_service` date NOT NULL,
+  `type` enum('prise','arret') NOT NULL,
+  `id_personnel` int NOT NULL,
+  `motif` text,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_service_person_id_personnel` (`id_personnel`),
+  CONSTRAINT `fk_service_person_id_personnel` FOREIGN KEY (`id_personnel`) REFERENCES `personnels` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+
+
+Voici le récapitulatif exact du comportement actuellement implémenté :
+
+Table service_person reçoit une nouvelle ligne dans exactement 4 cas :
+
+1. Création d'un personnel (formulaire "Ajouter")
+Si le champ Date prise de service est rempli → insertion d'une ligne :
+type = "prise"
+date_service = la date saisie
+motif = "" (vide)
+Si le champ est laissé vide → aucune ligne n'est créée.
+2. Modification d'un personnel (formulaire "Modifier")
+Le champ Date prise de service n'est visible en modification que si il était vide avant.
+S'il était vide et qu'on le renseigne maintenant → insertion d'une ligne type = "prise", date_service = date saisie, motif = "".
+S'il était déjà renseigné avant → le champ est caché, donc rien n'est modifié et aucune ligne n'est créée.
+3. Bouton "Fin service" (uniquement visible si le personnel est actif)
+Ouvre le modal → l'utilisateur saisit une date et un motif obligatoires.
+À l'enregistrement :
+insertion d'une ligne type = "arret", date_service = date saisie, motif = motif saisi
+etat du personnel passe à false (inactif)
+4. Bouton "Reprise service" (uniquement visible si le personnel est inactif)
+Ouvre le même modal (libellés adaptés) → date et motif obligatoires.
+À l'enregistrement :
+insertion d'une ligne type = "prise", date_service = date saisie, motif = motif saisi
+etat du personnel passe à true (actif)
+Résumé type :
+
+"prise" → soit automatique (création/1ère modif avec la date de prise de service, motif vide), soit manuelle via "Reprise service" (avec motif).
+"arret" → uniquement via "Fin service" (avec motif obligatoire).
+
+
+CREATE TABLE `conges` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_personnel` int NOT NULL,
+  `date_depart` date NOT NULL,
+  `nombre_jours` int NOT NULL,
+  `date_retour` date NOT NULL,
+  `motif` text,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_conges_id_personnel` (`id_personnel`),
+  CONSTRAINT `fk_conges_id_personnel` FOREIGN KEY (`id_personnel`) REFERENCES `personnels` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+
+CREATE TABLE `planifications` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_personnel` int NOT NULL,
+  `date_depart` date NOT NULL,
+  `nombre_jours` int NOT NULL,
+  `date_retour` date NOT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_planifications_id_personnel` (`id_personnel`),
+  CONSTRAINT `fk_planifications_id_personnel` FOREIGN KEY (`id_personnel`) REFERENCES `personnels` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+
+
+
+Six modules ajoutés autour du personnel : profils, dossier employé, historique de service, congés et leur planification. Ce document liste, pour chacun, ce qu'il fait et à quelle condition exacte chaque action se déclenche — pour préparer la présentation au client.
+
+6 modules
+4 nouvelles tables
+Application BAMTI — gestion vente / personnel
+Sélection client par recherche
+Gestion des profils
+Dossier personnel enrichi
+Historique de service
+Gestion des congés
+Planification des congés
+01
+Sélection du client par recherche instantanée
+Commandes → Gestion Commandes
+Le champ « Client » du formulaire de commande passe d'une liste déroulante classique à une liste avec recherche au clavier (identique à celle déjà utilisée dans Ventes) : on tape les premières lettres du nom et la liste se filtre.
+
+Déclenchement
+Automatique à l'ouverture du formulaire — aucune action requise, aucune condition métier.
+02
+Gestion des profils
+Gestion Nomenclatures → Gestion Profil
+Nouveau module simple pour définir les intitulés de poste utilisés dans le personnel (ex. Chauffeur, Comptable, Manœuvre...).
+
+Champs
+Champ	Description
+libelle	Intitulé du profil — texte libre, obligatoire
+Déclenchement
+Ajout — le libellé est obligatoire et doit être unique (refus si déjà existant).
+Modification — bouton « Modifier » sur une ligne : précharge le libellé dans le formulaire.
+03
+Dossier personnel enrichi
+Gestion Nomenclatures → Gestion Personnel
+Deux informations supplémentaires sur la fiche d'un agent, plus une colonne calculée dans la liste.
+
+Champs ajoutés
+Champ	Description
+date_prise_service	Date d'entrée en service — calendrier
+id_profil	Profil de l'agent — liste déroulante avec recherche, alimentée par le module Profils
+Déclenchement & règles
+La date de prise de service ne peut jamais être postérieure à aujourd'hui (bloqué au clavier et vérifié côté serveur).
+En modification, si cette date est déjà renseignée, le champ est masqué : une fois fixée, elle ne se modifie plus depuis ce formulaire (elle continue de vivre dans l'historique de service, module 04).
+Colonne Durée de service dans la liste : affichée uniquement si l'agent est Actif, calculée comme aujourd'hui − date de la dernière reprise de service.
+04
+Historique de service — fin & reprise
+Gestion Personnel → menu Actions d'une ligne
+Remplace les anciens boutons « Activer / Désactiver » par deux actions tracées, chacune avec date et motif, qui alimentent un historique complet consultable par agent.
+
+Actif Fin de service
+→
+Inactif
+→
+Reprise de service
+→
+Actif
+Déclenchement & règles
+« Fin service » — visible seulement si l'agent est actif et n'est pas actuellement en congé. Ouvre une fenêtre demandant date et motif (tous deux obligatoires) ; à l'enregistrement, l'agent passe Inactif.
+« Reprise service » — visible seulement si l'agent est inactif. Même fenêtre (date + motif obligatoires) ; à l'enregistrement, l'agent repasse Actif.
+Aucune des deux dates ne peut être postérieure à aujourd'hui.
+« Détails » — ouvre l'historique complet de l'agent (toutes les prises et fins de service, avec leurs motifs), classé du plus ancien au plus récent.
+05
+Gestion des congés
+Gestion Personnels → Gestion Congés
+Enregistrement des départs en congé réels, avec calcul automatique du retour et un filtre d'éligibilité basé sur l'ancienneté.
+
+Formulaire
+Champ	Description
+id_personnel	Agent concerné — recherche instantanée
+date_depart	Date de départ saisie
+nombre_jours	Nombre de jours de congé saisi
+date_retour	Calculée automatiquement = date de départ + nombre de jours
+motif	Texte libre, facultatif
+Condition d'éligibilité
+L'agent doit avoir au moins 1 an de service continu (12 mois pleins depuis sa dernière reprise de service) à la date de départ demandée — sinon le congé est refusé avec le nombre de mois d'ancienneté affiché.
+Refusé aussi si l'agent est actuellement Inactif (en fin de service).
+Annulation
+Bouton « Annuler » disponible sur un congé uniquement tant que sa date de départ n'est pas encore atteinte. Suppression définitive de la ligne.
+Visibilité sur la fiche personnel
+Une icône avion apparaît à côté du statut d'un agent si la date du jour se situe entre son départ et son retour de congé ; un clic ouvre le détail (dates, nombre de jours, motif).
+Tant qu'un agent est en congé en cours, l'action « Fin service » lui est indisponible (voir module 04).
+06
+Planification des congés
+Gestion Personnels → Planifier Congé / Liste Planifications
+Deux pages pour anticiper des départs en congé avant qu'ils ne soient officiels — utile pour organiser les équipes à l'avance, sans imposer tout de suite la règle d'ancienneté.
+
+Page « Planifier un congé »
+Un agent actif par ligne, avec sa propre date de départ probable et son nombre de jours ; bouton « Planifier » indépendant sur chaque ligne, plus une recherche pour retrouver rapidement un agent dans la liste.
+
+Déclenchement
+Seule condition pour planifier : l'agent doit être Actif — l'ancienneté n'est pas vérifiée à ce stade.
+Un même agent peut avoir plusieurs planifications, à condition que les périodes ne se chevauchent pas.
+Page « Liste des planifications »
+Toutes les planifications en attente, triées avec le départ le plus proche en premier.
+
+Déclenchement & règles
+Bouton « Valider » — n'apparaît que si la date de départ est à 7 jours ou moins. Au clic, l'éligibilité réelle est revérifiée (ancienneté + statut actif) ; si tout est bon, le congé officiel est créé automatiquement et la planification est supprimée.
+Si l'agent n'est plus éligible au moment de valider, un message explique pourquoi (ancienneté insuffisante ou mis en fin de service) et la planification reste dans la liste pour être corrigée ou supprimée.
+La ligne passe en rouge dès qu'il reste 1 jour ou moins avant le départ, pour rappeler à l'administrateur de valider ou de supprimer.
+Bouton « Supprimer » — disponible à tout moment, suppression définitive (avec confirmation).
+
+
+-- ===== Module Stock Matériel =====
+
+CREATE TABLE `materiels` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `libelle` varchar(255) NOT NULL,
+  `stock_critique` int DEFAULT NULL,
+  `deletedAt` datetime DEFAULT NULL,
+  `deletedBy` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `libelle_materiels` (`libelle`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+CREATE TABLE `materiel_entrees` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_materiel` int NOT NULL,
+  `quantite` int NOT NULL,
+  `date_entree` date NOT NULL,
+  `createdBy` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_materiel_entrees_id_materiel` (`id_materiel`),
+  CONSTRAINT `fk_materiel_entrees_id_materiel` FOREIGN KEY (`id_materiel`) REFERENCES `materiels` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+CREATE TABLE `materiel_sorties` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_materiel` int NOT NULL,
+  `quantite` int NOT NULL,
+  `date_sortie` date NOT NULL,
+  `beneficiaire` varchar(255) NOT NULL,
+  `createdBy` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_materiel_sorties_id_materiel` (`id_materiel`),
+  CONSTRAINT `fk_materiel_sorties_id_materiel` FOREIGN KEY (`id_materiel`) REFERENCES `materiels` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+CREATE TABLE `materiel_rebuts` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_materiel` int NOT NULL,
+  `quantite` int NOT NULL,
+  `date_rebut` date NOT NULL,
+  `motif` text NOT NULL,
+  `createdBy` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_materiel_rebuts_id_materiel` (`id_materiel`),
+  CONSTRAINT `fk_materiel_rebuts_id_materiel` FOREIGN KEY (`id_materiel`) REFERENCES `materiels` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+
+
+Module implémenté. Récapitulatif :
+
+Modèles — Materiel (catalogue, libellé unique + stock_critique optionnel + soft delete), MaterielEntree, MaterielSortie (avec bénéficiaire texte libre), MaterielRebut (avec motif) — associations dans models/index.js.
+
+materielController.js :
+
+calculerStock() — stock calculé à la volée (jamais stocké), réutilisé partout
+Catalogue (CRUD, pattern Engin/Profil), Entrée/Sortie/Rebut en saisie groupée (tableau dynamique de lignes, une date — et bénéficiaire ou motif — commune)
+Blocage stock négatif : sortie et rebut vérifient le stock disponible ligne par ligne, dans une transaction Sequelize (tout ou rien si une ligne échoue)
+Statistiques par date ou plage de dates (entrées/sorties/rebuts filtrés, stock actuel toujours global)
+getAlertesStockCritique() exportée pour l'alerte de connexion
+Alerte stock critique à la connexion : loginController.js pose un flag en session à la connexion admin ; middleware/sessionUser.js le consomme une seule fois (calcule les alertes puis efface le flag) ; header.ejs affiche automatiquement un modal au chargement de la page suivante si des matériels sont sous leur seuil.
+
+Vues : catalogue, entrée, sortie, rebut (formulaires multi-lignes avec select2 + bouton "Ajouter une ligne"), statistiques — plus menu "Stock Matériel" ajouté pour admin (sous-menu) et magasinier (liens plats), dans header.ejs et partials/index.ejs.
+
+SQL ajouté à la suite dans commandes.txt (4 tables : materiels, materiel_entrees, materiel_sorties, materiel_rebuts).
+
+À vous de tester.
+
+
+
+Packages installés : docxtemplater, pizzip, libreoffice-convert (déjà dans package.json). À vous de tester.
+
+
+-- ===== Module Stock des sachets produits (produit fini) =====
+
+CREATE TABLE `stock_sachet_entrees` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `quantite` int NOT NULL,
+  `date_production` date NOT NULL,
+  `observation` text,
+  `createdBy` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+CREATE TABLE `stock_sachet_sorties` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `quantite` int NOT NULL,
+  `date_sortie` date NOT NULL,
+  `motif` varchar(255) DEFAULT NULL,
+  `id_vente` int DEFAULT NULL,
+  `createdBy` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+-- Remarque : `id_vente` est une référence libre (pas de clé étrangère), car lors
+-- d'une annulation la vente est physiquement supprimée juste après (ventes_annuler).
+
+
+-- ===== Initialisation du stock sachets à partir des ventes déjà existantes =====
+-- À exécuter UNE SEULE FOIS, juste après la création des 2 tables ci-dessus et
+-- avant de commencer à utiliser le module (sinon les quantités seront comptées
+-- deux fois). Système en place depuis plus d'un an : on reconstitue l'historique
+-- mois par mois plutôt qu'en un seul bloc — une ligne par mois calendaire, datée
+-- au 1er du mois concerné.
+-- Sortie = somme des ventes du mois (table `ventes`).
+-- Entrée = somme des ventes annulées du mois (table `ventes_annuler`), en restitution.
+
+INSERT INTO `stock_sachet_sorties` (`quantite`, `date_sortie`, `motif`, `id_vente`, `createdBy`, `createdAt`, `updatedAt`)
+SELECT
+  SUM(`quantite`),
+  STR_TO_DATE(CONCAT(YEAR(`date_vente`), '-', MONTH(`date_vente`), '-01'), '%Y-%m-%d'),
+  CONCAT('Initialisation - ventes de ', DATE_FORMAT(`date_vente`, '%m/%Y')),
+  NULL,
+  'system',
+  NOW(),
+  NOW()
+FROM `ventes`
+GROUP BY YEAR(`date_vente`), MONTH(`date_vente`);
+
+INSERT INTO `stock_sachet_entrees` (`quantite`, `date_production`, `observation`, `createdBy`, `createdAt`, `updatedAt`)
+SELECT
+  SUM(`quantite`),
+  STR_TO_DATE(CONCAT(YEAR(`date_vente`), '-', MONTH(`date_vente`), '-01'), '%Y-%m-%d'),
+  CONCAT('Initialisation - restitution ventes annulées de ', DATE_FORMAT(`date_vente`, '%m/%Y')),
+  'system',
+  NOW(),
+  NOW()
+FROM `ventes_annuler`
+GROUP BY YEAR(`date_vente`), MONTH(`date_vente`);
+
+
+-- ===== Régularisation : ramener le stock exactement à 0 =====
+-- Les scripts ci-dessus enregistrent des SORTIES historiques (les ventes) et déjà
+-- un peu d'ENTRÉE (restitution des ventes annulées) -> stock encore négatif.
+-- Pour tomber pile à 0, chaque entrée de régularisation ne compense QUE la
+-- différence (sortie du mois − restitution déjà enregistrée ce même mois), pas
+-- toute la sortie : sortie_mois = entrée_restitution_mois + entrée_régularisation_mois.
+-- Le WHERE/JOIN ne touche que les lignes créées par les scripts d'initialisation
+-- ci-dessus (jamais les vraies sorties/entrées enregistrées depuis la mise en service).
+
+INSERT INTO `stock_sachet_entrees` (`quantite`, `date_production`, `observation`, `createdBy`, `createdAt`, `updatedAt`)
+SELECT
+  s.`quantite` - COALESCE(r.`quantite`, 0),
+  DATE_ADD(s.`date_sortie`, INTERVAL 1 DAY),
+  CONCAT('Régularisation stock - production non enregistrée de ', DATE_FORMAT(s.`date_sortie`, '%m/%Y')),
+  'system',
+  NOW(),
+  NOW()
+FROM `stock_sachet_sorties` s
+LEFT JOIN `stock_sachet_entrees` r
+  ON r.`date_production` = s.`date_sortie`
+  AND r.`observation` LIKE 'Initialisation - restitution%'
+WHERE s.`motif` LIKE 'Initialisation - ventes de%'
+  AND (s.`quantite` - COALESCE(r.`quantite`, 0)) > 0;
+
