@@ -352,3 +352,4 @@ LEFT JOIN `stock_sachet_entrees` r
 WHERE s.`motif` LIKE 'Initialisation - ventes de%'
   AND (s.`quantite` - COALESCE(r.`quantite`, 0)) > 0;
 
+ 
