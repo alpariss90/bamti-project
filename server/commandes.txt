@@ -354,7 +354,7 @@ WHERE s.`motif` LIKE 'Initialisation - ventes de%'
 
  
 
-
+ 
  CREATE TABLE `rapports_envoyes` (
   `id` int NOT NULL AUTO_INCREMENT,
   `type` enum('journalier','hebdomadaire','mensuel') NOT NULL,
