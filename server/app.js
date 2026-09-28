@@ -38,6 +38,8 @@ const ticketRouter = require('./routes/ticket');
 const revendeurRouter = require('./routes/revendeur');
 const backupRouter = require('./routes/backup');
 const reservationRouter = require('./routes/reservation');
+const rapportRouter = require('./routes/rapport');
+const logRouter = require('./routes/log');
 
 const sessionUser = require('./middleware/sessionUser');
 const authRole = require('./middleware/authRole');
@@ -123,6 +125,8 @@ app.use('/revendeurs', authRole('admin'), revendeurRouter);
 app.use('/mdp', authRole('admin', 'caissier', 'visualisation'), mdpRoutes);
 app.use('/backup', authRole('admin'), backupRouter);
 app.use('/reservations', authRole('admin', 'caissier'), reservationRouter);
+app.use('/rapports', authRole('admin'), rapportRouter);
+app.use('/logs', authRole('admin'), logRouter);
 
 // catch 404 and forward to error handler
 /*app.use(function(req, res, next) {

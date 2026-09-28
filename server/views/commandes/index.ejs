@@ -88,6 +88,7 @@
             <tr>
               <th>#</th>
               <th>Client</th>
+              <th>Téléphone</th>
               <th>Quantité</th>
               <th>Statut</th>
               <th>Date</th>
@@ -99,6 +100,7 @@
               <tr>
                 <th scope="row"><%= index + 1 %></th>
                 <td><%= commande.Client ? commande.Client.nom + ' ' + commande.Client.prenom : '-' %></td>
+                 <td><%= commande.Client && commande.Client.telephone ? commande.Client.telephone : '-' %></td>
                 <td><%= commande.quantite %></td>
                 <td>
                   <% if (commande.statut === 'en attente') { %>

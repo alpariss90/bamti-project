@@ -31,6 +31,7 @@
                 <th><input type="checkbox" id="checkAllJour" onclick="toggleAllJour(this)"></th>
                 <th>#</th>
                 <th>Client</th>
+                <th>Téléphone</th>
                 <th>Qté</th>
                 <th>PU (F)</th>
                 <th>Total (F)</th>
@@ -43,6 +44,7 @@
                   <td><input type="checkbox" class="commande-checkbox-jour" onchange="updateSelectionButtonJour()"></td>
                   <td><%= i+1 %></td>
                   <td class="fw-semibold"><%= c.Client ? c.Client.nom + ' ' + c.Client.prenom : '-' %></td>
+                  <td><%= c.Client && c.Client.telephone ? c.Client.telephone : '-' %></td>
                   <td><%= c.quantite %></td>
                   <td><%= fmt(c.prix_unitaire) %></td>
                   <td class="fw-semibold"><%= fmt(c.quantite * c.prix_unitaire) %></td>
@@ -59,7 +61,7 @@
             <tfoot class="table-light fw-semibold">
               <tr>
                 <td></td>
-                <td colspan="2" class="text-end">Total</td>
+                <td colspan="3" class="text-end">Total</td>
                 <td><%= duJour.reduce((s, c) => s + c.quantite, 0) %></td>
                 <td>—</td>
                 <td><%= fmt(duJour.reduce((s, c) => s + (c.quantite * c.prix_unitaire), 0)) %> F</td>
@@ -96,6 +98,7 @@
                 <th><input type="checkbox" id="checkAllRetard" onclick="toggleAllRetard(this)"></th>
                 <th>#</th>
                 <th>Client</th>
+                <th>Téléphone</th>
                 <th>Qté</th>
                 <th>PU (F)</th>
                 <th>Total (F)</th>
@@ -111,6 +114,7 @@
                   <td><input type="checkbox" class="commande-checkbox-retard" onchange="updateSelectionButtonRetard()"></td>
                   <td><%= i+1 %></td>
                   <td class="fw-semibold"><%= c.Client ? c.Client.nom + ' ' + c.Client.prenom : '-' %></td>
+                  <td><%= c.Client && c.Client.telephone ? c.Client.telephone : '-' %></td>
                   <td><%= c.quantite %></td>
                   <td><%= fmt(c.prix_unitaire) %></td>
                   <td class="fw-semibold"><%= fmt(c.quantite * c.prix_unitaire) %></td>

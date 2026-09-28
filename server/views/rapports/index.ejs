@@ -1,0 +1,110 @@
+<%- include('../partials/header') %>
+
+<div class="container-fluid">
+
+  <%- include('../partials/alerts') %>
+
+  <% const fmtDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '-'; %>
+  <% const fmtDateHeure = (d) => d ? new Date(d).toLocaleString('fr-FR') : '-'; %>
+
+  <!-- ── Génération manuelle ─────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0 text-white"><i class="ri-file-chart-line me-2"></i>Rapports d'activité</h5>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-3">
+        Envoi automatique :
+        <% if (actif) { %>
+          <span class="badge bg-success">activé</span>
+        <% } else { %>
+          <span class="badge bg-secondary">désactivé</span> <small>(RAPPORT_ACTIF=true dans .env pour l'activer)</small>
+        <% } %>
+        — Destinataire(s) : <strong><%= destinataires || 'non configuré' %></strong>
+      </p>
+
+      <form id="rapportForm" action="/rapports/envoyer" method="POST" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label for="type" class="form-label fw-semibold">Type de rapport</label>
+          <select class="form-select" id="type" name="type" required>
+            <option value="journalier">Journalier</option>
+            <option value="hebdomadaire">Hebdomadaire</option>
+            <option value="mensuel">Mensuel</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label for="date" class="form-label fw-semibold">Date de référence</label>
+          <input type="date" class="form-control" id="date" name="date" value="<%= dateDefaut %>" required>
+          <small class="text-muted">Le rapport couvre le jour, la semaine ou le mois de cette date.</small>
+        </div>
+
+        <div class="col-md-6 d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary" onclick="apercu()">
+            <i class="bi bi-eye me-1"></i> Aperçu PDF
+          </button>
+          <button type="submit" class="btn btn-secondary">
+            <i class="bi bi-envelope me-1"></i> Envoyer par email
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Historique des envois automatiques ─────────────────────────────── -->
+  <div class="card shadow-sm mt-4">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0 text-white"><i class="ri-history-line me-2"></i>Historique des envois automatiques</h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover table-bordered align-middle">
+          <thead class="table-secondary">
+            <tr>
+              <th>Type</th>
+              <th>Période</th>
+              <th>Statut</th>
+              <th>Tentatives</th>
+              <th>Envoyé le</th>
+              <th>Destinataires / Erreur</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (historique.length === 0) { %>
+              <tr><td colspan="6" class="text-center text-muted py-4">Aucun rapport automatique envoyé pour le moment.</td></tr>
+            <% } %>
+            <% historique.forEach(r => { %>
+              <tr>
+                <td class="text-capitalize"><%= r.type %></td>
+                <td><%= fmtDate(r.date_debut) %><%= r.date_fin !== r.date_debut ? ' → ' + fmtDate(r.date_fin) : '' %></td>
+                <td>
+                  <% if (r.statut === 'envoye') { %>
+                    <span class="badge bg-success">Envoyé</span>
+                  <% } else if (r.statut === 'echec') { %>
+                    <span class="badge bg-danger">Échec</span>
+                  <% } else { %>
+                    <span class="badge bg-warning text-dark">En cours</span>
+                  <% } %>
+                </td>
+                <td><%= r.tentatives %></td>
+                <td><%= fmtDateHeure(r.envoye_le) %></td>
+                <td class="small"><%= r.statut === 'envoye' ? r.destinataires : (r.message_erreur || '-') %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function apercu() {
+    const type = document.getElementById('type').value;
+    const date = document.getElementById('date').value;
+    if (!date) return;
+    window.open(`/rapports/apercu?type=${encodeURIComponent(type)}&date=${encodeURIComponent(date)}`, '_blank');
+  }
+</script>
+
+<%- include('../partials/footer') %>

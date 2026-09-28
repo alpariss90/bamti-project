@@ -6,6 +6,7 @@ const db = require('../models');
 const { User, Revendeur } = db;
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { journaliserConnexion } = require('../utils/journalConnexion');
 
 const JWT_SECRET     = process.env.JWT_SECRET     || 'bamti_jwt_secret_key_2024';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -84,6 +85,7 @@ exports.login = async (req, res) => {
     const revendeur = await Revendeur.findOne({ where: { id_user: user.id, deletedAt: null } });
 
     const token = generateToken(user, revendeur);
+    await journaliserConnexion(req, user.id, 'connexion', 'mobile');
 
     return res.status(200).json({
       success: true,
@@ -113,7 +115,10 @@ exports.offlineUsers = async (_req, res) => {
 };
 
 // POST /api/mobile/auth/logout
-exports.logout = (_req, res) => {
+exports.logout = async (req, res) => {
+  if (req.apiUser?.id) {
+    await journaliserConnexion(req, req.apiUser.id, 'deconnexion', 'mobile');
+  }
   return res.status(200).json({ success: true, message: 'Déconnexion réussie.' });
 };
 

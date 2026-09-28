@@ -353,3 +353,34 @@ WHERE s.`motif` LIKE 'Initialisation - ventes de%'
   AND (s.`quantite` - COALESCE(r.`quantite`, 0)) > 0;
 
  
+
+
+ CREATE TABLE `rapports_envoyes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `type` enum('journalier','hebdomadaire','mensuel') NOT NULL,
+  `date_debut` date NOT NULL,
+  `date_fin` date NOT NULL,
+  `statut` enum('en_cours','envoye','echec') NOT NULL DEFAULT 'en_cours',
+  `tentatives` int NOT NULL DEFAULT 0,
+  `destinataires` varchar(500) DEFAULT NULL,
+  `message_erreur` text,
+  `envoye_le` datetime DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_rapport_type_periode` (`type`,`date_debut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+
+CREATE TABLE `user_logs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_user` int NOT NULL,
+  `action` enum('connexion','deconnexion') NOT NULL,
+  `source` enum('web','mobile') NOT NULL DEFAULT 'web',
+  `ip` varchar(45) DEFAULT NULL,
+  `user_agent` varchar(255) DEFAULT NULL,
+  `date_action` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_logs_user_date` (`id_user`,`date_action`),
+  CONSTRAINT `fk_user_logs_id_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;

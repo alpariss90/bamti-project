@@ -23,7 +23,7 @@ exports.list = async (req, res) => {
       include: [
         {
           model: Client,      
-          attributes: ['id', 'nom', 'prenom']  
+          attributes: ['id', 'nom', 'prenom', 'telephone']  
         }
       ],
       order: [['date_commande', 'DESC']] // tri par date
@@ -113,7 +113,7 @@ exports.jour = async (req, res) => {
         date_commande: { [Op.gte]: aujourdhui, [Op.lt]: demain },
         statut: { [Op.ne]: 'livrée' }
       },
-      include: [{ model: Client, attributes: ['id', 'nom', 'prenom'] }],
+      include: [{ model: Client, attributes: ['id', 'nom', 'prenom', 'telephone'] }],
       order: [['date_commande', 'ASC']]
     });
 
@@ -122,7 +122,7 @@ exports.jour = async (req, res) => {
         date_commande: { [Op.lt]: aujourdhui },
         statut: 'en attente'
       },
-      include: [{ model: Client, attributes: ['id', 'nom', 'prenom'] }],
+      include: [{ model: Client, attributes: ['id', 'nom', 'prenom', 'telephone'] }],
       order: [['date_commande', 'ASC']]
     });
 

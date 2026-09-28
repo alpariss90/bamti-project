@@ -35,6 +35,8 @@ const TicketModel = require('./ticket')(sequelize, DataTypes);
 const RevendeurModel = require('./revendeur')(sequelize, DataTypes);
 const ClientClientTmpModel = require('./client_client_tmp')(sequelize, DataTypes);
 const ReservationModel = require('./reservation')(sequelize, DataTypes);
+const RapportEnvoyeModel = require('./rapport_envoye')(sequelize, DataTypes);
+const UserLogModel = require('./user_log')(sequelize, DataTypes);
 //relations entre les tables
 ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
@@ -87,6 +89,10 @@ ClientModel.hasMany(TicketModel, { foreignKey: 'id_client', onDelete: 'CASCADE' 
 RevendeurModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'user' });
 UserModel.hasOne(RevendeurModel, { foreignKey: 'id_user', as: 'revendeur' });
 
+// User <-> UserLog (historique des connexions)
+UserModel.hasMany(UserLogModel, { foreignKey: 'id_user', as: 'logs' });
+UserLogModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'user' });
+
 
 // Synchronisation automatique
 /*sequelize.sync({ alter: true }) 
@@ -129,4 +135,6 @@ module.exports = {
   Revendeur: RevendeurModel,
   ClientClientTmp: ClientClientTmpModel,
   Reservation: ReservationModel,
+  RapportEnvoye: RapportEnvoyeModel,
+  UserLog: UserLogModel,
 };
