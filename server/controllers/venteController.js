@@ -1,6 +1,7 @@
 const db = require('../models');
 const { Vente, User, Paiement, Client, sequelize } = db;
 const { Op } = require('sequelize');
+const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 const { enregistrerSortieSachet, enregistrerEntreeSachet } = require('./stockSachetController');
 
 // Fonction utilitaire pour rediriger avec message
@@ -375,7 +376,7 @@ exports.annuler = async (req, res) => {
 
     await enregistrerEntreeSachet({
       quantite: vente.quantite,
-      date: new Date().toISOString().slice(0, 10),
+      date: aujourdhui(),
       observation: `Restitution suite à annulation de la vente #${vente.id}`,
       createdBy: req.session?.user?.login || null
     }, t);
@@ -486,6 +487,12 @@ exports.ajouterVersement = async (req, res) => {
   return `${annee}-${mois}-${jour}`; // Format MySQL
 }
 
+// 'AAAA-MM-JJ' (DATEONLY) -> 'JJ/MM/AAAA'
+function convertToFR(dateISO) {
+  const [annee, mois, jour] = String(dateISO).split('-');
+  return `${jour}/${mois}/${annee}`;
+}
+
 exports.ventesFiltrees = async (req, res) => {
   try {
     // Si aucun filtre soumis, afficher le formulaire vide
@@ -533,46 +540,40 @@ exports.ventesFiltrees = async (req, res) => {
         { model: Paiement, as: 'Paiements' },
         { model: Client, as: 'Client', attributes: ['nom', 'prenom'] }
       ],
-      order: [['date_vente', 'DESC']]
+      order: [['date_vente', 'DESC'], ['createdAt', 'DESC']]
     });
 
-    // Regrouper les ventes par client
-    const ventesParClient = {};
+    // Caissiers indexés par id pour afficher qui a fait chaque vente
+    const tousUsers = await User.findAll({ attributes: ['id', 'login', 'nom'] });
+    const usersParId = {};
+    tousUsers.forEach(u => { usersParId[u.id] = u; });
 
-    ventes.forEach(v => {
-      const clientId = v.id_client;
-      if (!ventesParClient[clientId]) {
-        ventesParClient[clientId] = {
-          client: v.Client,
-          type_ventes: new Set(),
-          quantite: 0,
-          montantTotal: 0,
-          montantPayes: 0,
-          reste: 0
-        };
-      }
-
-      ventesParClient[clientId].type_ventes.add(v.type_vente);
-      ventesParClient[clientId].quantite += v.quantite;
+    // Une ligne par vente (heure = heure de saisie, date_vente n'ayant pas d'heure)
+    const lignesVentes = ventes.map(v => {
       const montantTotal = v.quantite * v.prix_unitaire || 0;
       const montantPayes = v.Paiements?.reduce((s, p) => s + p.montant, 0) || 0;
-      const reste = montantTotal - montantPayes;
+      const caissier = usersParId[v.user];
 
-      ventesParClient[clientId].montantTotal += montantTotal;
-      ventesParClient[clientId].montantPayes += montantPayes;
-      ventesParClient[clientId].reste += reste;
+      return {
+        client: v.Client,
+        date_vente: v.date_vente ? convertToFR(v.date_vente) : '-',
+        date_tri: v.createdAt ? new Date(v.createdAt).getTime() : 0,
+        heure_vente: v.createdAt
+          ? new Date(v.createdAt).toLocaleTimeString('fr-FR', { timeZone: 'Africa/Niamey', hour: '2-digit', minute: '2-digit' })
+          : '-',
+        caissier: caissier ? caissier.login : '-',
+        type_vente: v.type_vente,
+        quantite: v.quantite,
+        montantTotal,
+        montantPayes,
+        reste: montantTotal - montantPayes
+      };
     });
 
-    // Convertir en tableau pour EJS
-    const ventesAggregees = Object.values(ventesParClient).map(v => ({
-      ...v,
-      type_ventes: Array.from(v.type_ventes).join(', ') // plusieurs types de vente possibles
-    }));
-
     // Calculer totaux globaux
-    const montantTotalVentes = ventesAggregees.reduce((sum, v) => sum + v.montantTotal, 0);
-    const montantPaye = ventesAggregees.reduce((sum, v) => sum + v.montantPayes, 0);
-    const resteTotal = ventesAggregees.reduce((sum, v) => sum + v.reste, 0);
+    const montantTotalVentes = lignesVentes.reduce((sum, v) => sum + v.montantTotal, 0);
+    const montantPaye = lignesVentes.reduce((sum, v) => sum + v.montantPayes, 0);
+    const resteTotal = lignesVentes.reduce((sum, v) => sum + v.reste, 0);
 
     // Récupérer la liste des clients pour le filtre
     let clients = [];
@@ -594,11 +595,12 @@ exports.ventesFiltrees = async (req, res) => {
 
     res.render('ventes/filtre', {
       clients, users,
-      ventes: ventesAggregees,
+      ventes: lignesVentes,
       montantTotalVentes,
       montantPaye,
       resteTotal,
       id_client: id_client || '',
+      id_user: id_user || '',
       type_vente: type_vente || '',
       date_debut: date_debut || '',
       date_fin: date_fin || '',

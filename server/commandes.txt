@@ -384,3 +384,13 @@ CREATE TABLE `user_logs` (
   KEY `idx_user_logs_user_date` (`id_user`,`date_action`),
   CONSTRAINT `fk_user_logs_id_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+
+
+-- Utilisateurs connectés : dernière activité de chaque utilisateur (page Logs de connexion)
+ALTER TABLE `users`
+  ADD COLUMN `derniere_activite` datetime DEFAULT NULL,
+  ADD COLUMN `derniere_source` enum('web','mobile') DEFAULT NULL;
+
+
+-- Nouveau profil gestionnaire (droits définis dans config/permissions.js)
+ALTER TABLE `users` MODIFY `profil` enum('admin','visualisation','caissier','magasinier','revendeur','gestionnaire') NOT NULL DEFAULT 'admin';

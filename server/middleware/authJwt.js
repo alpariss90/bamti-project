@@ -2,6 +2,7 @@
  * Middleware d'authentification JWT pour les routes API mobiles
  */
 const jwt = require('jsonwebtoken');
+const { enregistrerActivite } = require('../utils/activiteUtilisateur');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'bamti_jwt_secret_key_2024';
 
@@ -24,6 +25,7 @@ module.exports = function authJwt(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.apiUser = decoded; // { id, nom, login, profil, iat, exp }
+    enregistrerActivite(decoded.id, 'mobile');
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

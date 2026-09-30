@@ -3,6 +3,12 @@ const { Op } = require("sequelize");
 const Depense = db.Depense;
 const TypeDepense = db.TypeDepense;
 const Engin = db.Engin;
+const { peut } = require("../middleware/autorise");
+
+// L'admin peut toucher à toutes les dépenses non validées ; les autres seulement à celles qu'ils ont saisies
+function peutModifierDepense(req, depense) {
+  return peut(req, "depenses.modifier_toutes") || depense.createdBy === req.session?.user?.login;
+}
 
 // Affichage de la page dépenses + liste
 exports.list = async (req, res) => {
@@ -105,12 +111,21 @@ exports.createOrUpdate = async (req, res) => {
       if (!depense)
         return redirectWithMessage(req, res, "Dépense introuvable.", "danger");
 
-      if (depense.valide) {
+      if (depense.isValid) {
         return redirectWithMessage(
           req,
           res,
           "Dépense validée, modification impossible.",
           "warning"
+        );
+      }
+
+      if (!peutModifierDepense(req, depense)) {
+        return redirectWithMessage(
+          req,
+          res,
+          "Vous ne pouvez modifier que les dépenses que vous avez saisies.",
+          "danger"
         );
       }
 
@@ -120,6 +135,7 @@ exports.createOrUpdate = async (req, res) => {
         date_depense,
         montant_depense,
         observation,
+        updatedBy: createdBy,
       });
 
       return redirectWithMessage(
@@ -137,7 +153,7 @@ exports.createOrUpdate = async (req, res) => {
         montant_depense,
         observation,
         createdBy,
-        valide: false,
+        isValid: false,
       });
 
       return redirectWithMessage(
@@ -166,12 +182,21 @@ exports.delete = async (req, res) => {
     if (!depense)
       return redirectWithMessage(req, res, "Dépense introuvable.", "danger");
 
-    if (depense.valide) {
+    if (depense.isValid) {
       return redirectWithMessage(
         req,
         res,
         "Dépense validée, suppression impossible.",
         "warning"
+      );
+    }
+
+    if (!peutModifierDepense(req, depense)) {
+      return redirectWithMessage(
+        req,
+        res,
+        "Vous ne pouvez supprimer que les dépenses que vous avez saisies.",
+        "danger"
       );
     }
 
@@ -258,7 +283,7 @@ exports.depensesFiltrees = async (req, res) => {
         { model: TypeDepense, as: "typeDepense", attributes: ["libelle"] },
         { model: Engin, as: "engin", attributes: ["libelle"], required: false },
       ],
-      order: [["date_depense", "DESC"]],
+      order: [["date_depense", "DESC"], ["createdAt", "DESC"]],
     });
 
     // Total global sur les dépenses brutes

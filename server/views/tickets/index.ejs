@@ -8,7 +8,7 @@
     </div>
 
     <div class="card-body">
-      <% if (currentUser && currentUser.profil === 'admin') { %>
+      <% if (peut('tickets.gerer')) { %>
       <!-- Formulaire -->
       <form id="ticketForm" action="/tickets/createOrUpdate" method="POST" class="row g-2 align-items-end">
         <input type="hidden" name="id" id="ticketId">
@@ -139,7 +139,7 @@
                        
                       </li>
                       <% }%>
-<% if (currentUser && currentUser.profil === 'admin' && ticket.statut == 'NON LIVRE') { %>
+<% if (peut('tickets.gerer') && ticket.statut == 'NON LIVRE') { %>
                       <li>
                         <a class="dropdown-item text-danger" href="#" onclick='showSnackbar(<%= ticket.id %>, "<%= ticket.Client ? ticket.Client.nom : "" %>")'>
                           <i class="bi bi-trash"></i> Supprimer
@@ -147,7 +147,7 @@
                       </li>
                       <% }%>
 
-                      <% if (currentUser && currentUser.profil === 'admin' && ticket.statut != 'NON LIVRE') { %>
+                      <% if (peut('tickets.gerer') && ticket.statut != 'NON LIVRE') { %>
                       <li>
                         <a class="dropdown-item text-success" href="#" onclick='showSnackbarvv(<%= index + 1 %>, "<%= ticket.Client ? ticket.Client.nom : "" %>", <%= ticket.id %>)'>
                           <i class="bi bi-check"></i> Effectuer vente

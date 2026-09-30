@@ -1,4 +1,5 @@
 const { UserLog } = require('../models');
+const { enregistrerActivite, oublierActivite } = require('./activiteUtilisateur');
 
 // Enregistre une connexion ou une déconnexion.
 // Ne lève jamais d'erreur : un problème de journalisation ne doit pas bloquer l'utilisateur.
@@ -15,6 +16,10 @@ async function journaliserConnexion(req, id_user, action, source = 'web') {
   } catch (err) {
     console.error(`[Logs] Impossible d'enregistrer la ${action} de l'utilisateur ${id_user} :`, err);
   }
+
+  // Une connexion compte comme activité immédiate ; une déconnexion réinitialise le suivi
+  oublierActivite(id_user);
+  if (action === 'connexion') enregistrerActivite(id_user, source);
 }
 
 module.exports = { journaliserConnexion };

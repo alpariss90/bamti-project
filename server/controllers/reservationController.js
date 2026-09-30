@@ -1,9 +1,10 @@
 const db = require('../models');
 const { Reservation, Vente, Paiement, sequelize } = db;
 const { Op } = require('sequelize');
+const { aujourdhui: dateDuJourNiamey } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 
 function today() {
-  return new Date().toISOString().split('T')[0];
+  return dateDuJourNiamey();
 }
 
 function redirectMsg(req, res, type, text, path = '/reservations/index') {

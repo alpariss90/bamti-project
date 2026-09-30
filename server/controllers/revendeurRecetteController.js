@@ -6,6 +6,7 @@
 const db = require('../models');
 const { VenteTmp, PaiementTmp, ClientTmp, Revendeur, User } = db;
 const { Op } = require('sequelize');
+const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 
 function _buildStats(ventes, gainParSachet) {
   let totalVente = 0, totalEncaisse = 0, totalReste = 0, totalQte = 0;
@@ -101,7 +102,7 @@ exports.recettePeriode = async (req, res) => {
       ({ ventes: ventesData, totaux } = _buildStats(ventes, rev?.gain_par_sachet));
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = aujourdhui();
 
     res.render('revendeurs/recette_periode', {
       revendeurs, id_revendeur,

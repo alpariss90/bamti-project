@@ -8,6 +8,44 @@ function redirectWithMessage(req, res, msg, type = 'success', path = '/mvt_matie
   return res.redirect(path);
 }
 
+// Seuils critiques (en kg) définis dans le .env ; vide ou absent = pas d'alerte pour cette matière
+const SEUILS_MATIERE = {
+  'SACHET PURE WATER': process.env.SEUIL_SACHET_PURE_WATER,
+  'EMBALLAGE': process.env.SEUIL_EMBALLAGE
+};
+
+function lireSeuil(valeur) {
+  if (valeur === undefined || valeur === null || String(valeur).trim() === '') return null;
+  const seuil = parseFloat(valeur);
+  return isNaN(seuil) ? null : seuil;
+}
+
+// Stock actuel de chaque matière (Σ quantités des mouvements validés), avec son seuil
+async function getStocksMatiere() {
+  const result = await MvtMatiere.findAll({
+    attributes: [
+      'type_matiere',
+      [Sequelize.fn('SUM', Sequelize.col('quantite')), 'total_quantite']
+    ],
+    where: { isValid: true },
+    group: ['type_matiere'],
+    raw: true
+  });
+
+  return Object.keys(SEUILS_MATIERE).map(libelle => {
+    const ligne = result.find(r => r.type_matiere === libelle);
+    const stock = Math.round((Number(ligne?.total_quantite) || 0) * 100) / 100;
+    const seuil = lireSeuil(SEUILS_MATIERE[libelle]);
+    return { libelle, stock, seuil, critique: seuil !== null && stock <= seuil };
+  });
+}
+
+// Matières dont le stock est descendu au seuil critique ou en dessous
+async function getAlertesStockMatiere() {
+  const stocks = await getStocksMatiere();
+  return stocks.filter(s => s.critique);
+}
+
 
 // Affichage des depenses non valides
 exports.matiereNonValide = async (req, res) => {
@@ -43,27 +81,11 @@ exports.list = async (req, res) => {
     });
 
 
- const result = await MvtMatiere.findAll({
-    attributes: [
-        'type_matiere',
-        [Sequelize.fn('SUM', Sequelize.col('quantite')), 'total_quantite']
-    ],
-    where: {
-        isValid: true   // si tu veux filtrer
-    },
-    group: ['type_matiere']
-});
-
-
-
-//console.log("---------------------------------");
-//console.log(result[0].dataValues.total_quantite);
-
-
+    const stocksMatiere = await getStocksMatiere();
 
     res.render('mvt_matieres/index', {
       mvtMatieres,
-      rs: result,
+      stocksMatiere,
       message: req.flash('message')[0] || null,
       pageTitle: 'Gestion des Mouvements de Matière'
     });
@@ -312,3 +334,5 @@ const emballageRebus = resultats['EMBALLAGE']?.['rebus'] ?? { totalPrix: 0, tota
     redirectWithMessage(req, res, 'Erreur lors du filtrage des mouvements de matière.', 'danger');
   }
 };
+exports.getStocksMatiere = getStocksMatiere;
+exports.getAlertesStockMatiere = getAlertesStockMatiere;

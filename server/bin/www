@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
-
+/**
+ * Fuseau horaire : le serveur doit fonctionner à l'heure de Niamey, quel que soit
+ * le pays de la machine. À faire avant tout le reste pour que toutes les dates
+ * (new Date(), toLocaleString…) soient calculées dans ce fuseau.
+ */
+require('dotenv').config();
+process.env.TZ = process.env.TZ || 'Africa/Niamey';
 
 /**
  * Module dependencies.

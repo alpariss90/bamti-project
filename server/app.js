@@ -42,7 +42,8 @@ const rapportRouter = require('./routes/rapport');
 const logRouter = require('./routes/log');
 
 const sessionUser = require('./middleware/sessionUser');
-const authRole = require('./middleware/authRole');
+// Droits par profil : voir config/permissions.js
+const { autorise } = require('./middleware/autorise');
 
 var app = express();
 
@@ -94,39 +95,39 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Routes API Mobile (JWT — sans session, sans authRole) ───────────────────
+// ── Routes API Mobile (JWT — sans session, sans contrôle de profil) ───────────────────
 app.use('/api/mobile/auth', mobileAuthRoutes);
 app.use('/api/mobile',      mobileDataRoutes);
 
 app.use('/login', loginRoutes);
-app.use('/', authRole('admin', 'caissier', 'visualisation', 'magasinier'), indexRouter);
-app.use('/dashboard', authRole('admin', 'caissier', 'visualisation'), dashboardRoutes);
-app.use('/users', authRole('admin'), usersRouter); 
-app.use('/personnes', authRole('admin'), clientsRouter);
-app.use('/person', authRole('admin'), personnelsRouter);
-app.use('/commandes', authRole('admin', 'caissier'), commandesRouter);
+app.use('/', autorise('accueil'), indexRouter);
+app.use('/dashboard', autorise('dashboard'), dashboardRoutes);
+app.use('/users', autorise('users'), usersRouter);
+app.use('/personnes', autorise('personnes'), clientsRouter);
+app.use('/person', autorise('personnel'), personnelsRouter);
+app.use('/commandes', autorise('commandes'), commandesRouter);
 
-app.use('/type_depense', authRole('admin'), typeDepenseRoutes);
-app.use('/depenses', authRole('admin'), depenseRoutes);
-app.use('/engin', authRole('admin'), enginRoutes);
-app.use('/profil', authRole('admin'), profilRoutes);
-app.use('/conge', authRole('admin'), congeRoutes);
-app.use('/planification', authRole('admin'), planificationRoutes);
-app.use('/ventes', authRole('admin', 'caissier'), venteRoutes);
-app.use('/montant_personnel', authRole('admin'), montantPersonnelRoutes);
-app.use('/personnel_avance', authRole('admin'), personnelAvanceRoutes);
-app.use('/salaire', authRole('admin'), salaireRoutes);
-app.use('/mvt_matieres', authRole('admin', 'magasinier'), mvtMatiereRoutes);
-app.use('/materiel', authRole('admin', 'magasinier'), materielRoutes);
-app.use('/facture', authRole('admin', 'caissier'), factureRoutes);
-app.use('/stock-sachet', authRole('admin'), stockSachetRoutes);
-app.use('/tickets', authRole('admin', 'caissier'), ticketRouter);
-app.use('/revendeurs', authRole('admin'), revendeurRouter);
-app.use('/mdp', authRole('admin', 'caissier', 'visualisation'), mdpRoutes);
-app.use('/backup', authRole('admin'), backupRouter);
-app.use('/reservations', authRole('admin', 'caissier'), reservationRouter);
-app.use('/rapports', authRole('admin'), rapportRouter);
-app.use('/logs', authRole('admin'), logRouter);
+app.use('/type_depense', autorise('type_depense'), typeDepenseRoutes);
+app.use('/depenses', autorise('depenses'), depenseRoutes);
+app.use('/engin', autorise('engin'), enginRoutes);
+app.use('/profil', autorise('profil'), profilRoutes);
+app.use('/conge', autorise('conge'), congeRoutes);
+app.use('/planification', autorise('planification'), planificationRoutes);
+app.use('/ventes', autorise('ventes'), venteRoutes);
+app.use('/montant_personnel', autorise('montant_personnel'), montantPersonnelRoutes);
+app.use('/personnel_avance', autorise('personnel_avance'), personnelAvanceRoutes);
+app.use('/salaire', autorise('salaire'), salaireRoutes);
+app.use('/mvt_matieres', autorise('mvt_matieres'), mvtMatiereRoutes);
+app.use('/materiel', autorise('materiel'), materielRoutes);
+app.use('/facture', autorise('facture'), factureRoutes);
+app.use('/stock-sachet', autorise('stock_sachet'), stockSachetRoutes);
+app.use('/tickets', autorise('tickets'), ticketRouter);
+app.use('/revendeurs', autorise('revendeurs'), revendeurRouter);
+app.use('/mdp', autorise('mdp'), mdpRoutes);
+app.use('/backup', autorise('backup'), backupRouter);
+app.use('/reservations', autorise('reservations'), reservationRouter);
+app.use('/rapports', autorise('rapports'), rapportRouter);
+app.use('/logs', autorise('logs'), logRouter);
 
 // catch 404 and forward to error handler
 /*app.use(function(req, res, next) {

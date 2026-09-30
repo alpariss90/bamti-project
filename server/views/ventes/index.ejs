@@ -183,7 +183,7 @@
     </thead>
     <tbody>
       <% ventes.forEach((vente, index) => { %>
-        <tr id="vente-<%= vente.id %>" >
+        <tr id="vente-<%= vente.id %>" data-recu="<%= JSON.stringify({ id: vente.id, client: vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-', type_vente: vente.type_vente, type_paiement: vente.type_paiement, quantite: vente.quantite, prix_unitaire: vente.prix_unitaire, montantTotal: vente.montantTotal, montantPayes: vente.montantPayes, reste: vente.reste, date_vente: vente.date_vente }) %>">
         <th scope="row">
           <button class="btn btn-danger btn-sm"
             data-id="<%= vente.id %>"
@@ -397,6 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
+<script src="/js/recu-vente.js"></script>
 <script>
  function imprimerToutesLesVentes() {
     const contenu = document.getElementById("venteTable").outerHTML;
@@ -539,137 +540,10 @@ document.addEventListener('DOMContentLoaded', function() {
     printWindow.document.close();
     printWindow.print();
   }
-  // imprimer une vente spécifique par son ID
+  // imprimer le reçu d'une vente (voir /js/recu-vente.js)
   function imprimerVente(idVente) {
-  const row = document.querySelector(`#vente-${idVente}`);
-  if (!row) return alert("Vente introuvable.");
-
-  const data = Array.from(row.children).map(td => td.innerText);
-  const nowImpression = new Date();
-  const dateImpression = nowImpression.toLocaleDateString('fr-FR');
-  const heureImpression = nowImpression.toLocaleTimeString('fr-FR');
-
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Fiche de Vente - BAMTI</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-        <style>
-          body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: #f8f9fa;
-            margin: 40px;
-            color: #333;
-          }
-          .facture-container {
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-            padding: 30px;
-          }
-          .entete {
-            text-align: center;
-            border-bottom: 2px solid #0d6efd;
-            margin-bottom: 25px;
-            padding-bottom: 10px;
-          }
-          .entete h3 {
-            color: #0d6efd;
-            font-weight: bold;
-          }
-          table {
-            width: 100%;
-            margin-top: 10px;
-          }
-          th {
-            background-color: #e9ecef !important;
-          }
-          .signature {
-            margin-top: 50px;
-            display: flex;
-            justify-content: space-between;
-          }
-          .signature div {
-            width: 45%;
-            text-align: center;
-            font-size: 14px;
-          }
-          footer {
-            text-align: center;
-            margin-top: 40px;
-            font-size: 13px;
-            color: #777;
-          }
-          @media print {
-            button { display: none; }
-            body { margin: 10mm; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container facture-container">
-
-
-		  <div class="entete">
-            <h2>Entreprise BAMTI</h2>
-            <p>NIF:64750/P </p>
-            <p>Adresse : SONUCI KOUBIA | Tél : 99582158/90231123</p>
-            <small>Date d'impression : ${dateImpression} à ${heureImpression}</small>
-          </div>
-
-          <h5 class="text-center text-primary mb-3">Détails de la vente</h5>
-
-          <table class="table table-bordered table-striped">
-            <thead class="table-light">
-              <tr>
-                
-                <th scope="col">Client</th>
-                <th scope="col">Type Vente</th>
-                <th scope="col">Quantité</th>
-                <th scope="col">Prix Unitaire</th>
-                <th scope="col">Montant Payé</th>
-                <th scope="col">Reste</th>
-                <th scope="col">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-               <td>${data[2]}</td>
-                <td>${data[2]}</td>
-                <td>${data[4]}</td>
-                <td>${data[5]}</td>
-                <td>${data[8]}</td>
-                <td>${data[9]}</td>
-                <td>${data[10]}</td>
-               
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="signature mt-5">
-            <div>
-              <p>________________________</p>
-              <p><strong>Signature Client</strong></p>
-            </div>
-            <div>
-              <p>________________________</p>
-              <p><strong>Signature Responsable</strong><br> <%= currentUser.nom %></p>
-            </div>
-          </div>
-
-          <footer>
-            <p>Merci pour votre confiance  — © Entreprise BAMTI</p>
-          </footer>
-        </div>
-      </body>
-    </html>
-  `);
-
-  printWindow.document.close();
-  printWindow.print();
-}
+    imprimerRecuVente(idVente, { responsable: <%- JSON.stringify(currentUser.nom || '').replace(/</g, '\\u003c') %> });
+  }
 
  
 </script>

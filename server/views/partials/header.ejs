@@ -80,21 +80,33 @@
       <% } %>
 </div>
 
-<% if (typeof stockAlerts !== 'undefined' && stockAlerts && stockAlerts.length > 0) { %>
+<% const _alertesMateriel = (typeof stockAlerts !== 'undefined' && stockAlerts) ? stockAlerts : []; %>
+<% const _alertesMatiere = (typeof matiereAlerts !== 'undefined' && matiereAlerts) ? matiereAlerts : []; %>
+<% if (_alertesMateriel.length > 0 || _alertesMatiere.length > 0) { %>
 <div class="modal fade" id="stockAlertModal" tabindex="-1" aria-labelledby="stockAlertModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-warning text-dark">
-        <h5 class="modal-title" id="stockAlertModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stock matériel critique</h5>
+        <h5 class="modal-title" id="stockAlertModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stock critique</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <% if (_alertesMateriel.length > 0) { %>
         <p>Les matériels suivants sont en stock bas. Pensez à effectuer une entrée :</p>
         <ul class="mb-0">
-          <% stockAlerts.forEach(a => { %>
+          <% _alertesMateriel.forEach(a => { %>
             <li><strong><%= a.libelle %></strong> — stock actuel : <%= a.stock %> (seuil critique : <%= a.stock_critique %>)</li>
           <% }) %>
         </ul>
+        <% } %>
+        <% if (_alertesMatiere.length > 0) { %>
+        <p class="<%= _alertesMateriel.length > 0 ? 'mt-3' : '' %>">Les matières suivantes sont en stock bas. Pensez à effectuer un achat :</p>
+        <ul class="mb-0">
+          <% _alertesMatiere.forEach(a => { %>
+            <li><strong><%= a.libelle %></strong> — stock actuel : <%= new Intl.NumberFormat('fr-FR').format(a.stock) %> KG (seuil critique : <%= new Intl.NumberFormat('fr-FR').format(a.seuil) %> KG)</li>
+          <% }) %>
+        </ul>
+        <% } %>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
@@ -187,6 +199,8 @@
             <% if (currentUser) { %>
     <% if (currentUser.profil === 'admin') { %>
       Administrateur
+    <% } else if (currentUser.profil === 'gestionnaire') { %>
+      Gestionnaire
     <% } else if (currentUser.profil === 'caissier') { %>
       Caissier
     <% } else if (currentUser.profil === 'visualisation') { %>
@@ -287,7 +301,7 @@
                     <ul class="navbar-nav" id="navbar-nav">
   <li class="menu-title"><span class="fw-bold text-white">Menu</span></li>
 
-  <% if (currentUser && currentUser.profil === 'admin') { %>
+  <% if (currentUser && ['admin', 'gestionnaire'].includes(currentUser.profil)) { %>
     <!-- Revendeurs -->
     <li class="nav-item">
       <a class="nav-link menu-link" href="/revendeurs/index">
@@ -328,9 +342,9 @@
 
   <div class="collapse menu-dropdown" id="sidebarLanding">
     <ul class="nav nav-sm flex-column">
-      <li><a href="/montant_personnel/index" class="nav-link text-white">Montant Mise A jour</a></li>
-      <li><a href="/personnel_avance/index" class="nav-link text-white">Personnel Avance</a></li>
-      <li><a href="/salaire/index" class="nav-link text-white">Salaire</a></li>
+      <% if (peut('montant_personnel')) { %><li><a href="/montant_personnel/index" class="nav-link text-white">Montant Mise A jour</a></li><% } %>
+      <% if (peut('personnel_avance')) { %><li><a href="/personnel_avance/index" class="nav-link text-white">Personnel Avance</a></li><% } %>
+      <% if (peut('salaire')) { %><li><a href="/salaire/index" class="nav-link text-white">Salaire</a></li><% } %>
       <li><a href="/conge/index" class="nav-link text-white">Gestion Congés</a></li>
       <li><a href="/planification/index" class="nav-link text-white">Planifier Congé</a></li>
       <li><a href="/planification/liste" class="nav-link text-white">Liste Planifications</a></li>
@@ -418,10 +432,10 @@
       <div class="collapse menu-dropdown" id="menu2">
         <ul class="nav nav-sm flex-column">
           <li><a href="/personnes/index" class="nav-link text-white">Gestion Client</a></li>
-          <li><a href="/users/index" class="nav-link text-white">Gestion Utilisateur</a></li>
+          <% if (peut('users')) { %><li><a href="/users/index" class="nav-link text-white">Gestion Utilisateur</a></li><% } %>
           <li><a href="/person/index" class="nav-link text-white">Gestion Personnel</a></li>
           <li><a href="/engin/index" class="nav-link text-white">Gestion Engin</a></li>
-          <li><a href="/profil/index" class="nav-link text-white">Gestion Profil</a></li>
+          <% if (peut('profil')) { %><li><a href="/profil/index" class="nav-link text-white">Gestion Profil</a></li><% } %>
           <li><a href="/type_depense/index" class="nav-link text-white">Gestion Dépense</a></li>
           <li>
             <a href="#submenuCommandes" class="nav-link text-white" data-bs-toggle="collapse">Commandes</a>
@@ -434,7 +448,7 @@
           </li>
           <li><a href="/tickets/index" class="nav-link text-white">Gestion Ticket</a></li>
           <li><a href="/backup/liste" class="nav-link text-white">Liste sauvegarde</a></li>
-          <li><a href="/rapports/index" class="nav-link text-white">Rapports d'activité</a></li>
+          <% if (peut('rapports')) { %><li><a href="/rapports/index" class="nav-link text-white">Rapports d'activité</a></li><% } %>
           <li><a href="/logs/index" class="nav-link text-white">Logs de connexion</a></li>
         </ul>
       </div>

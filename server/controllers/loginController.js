@@ -2,6 +2,7 @@ const db = require('../models');
 const User = db.User;
 const bcrypt = require('bcrypt');
 const { journaliserConnexion } = require('../utils/journalConnexion');
+const { aLaPermission } = require('../middleware/autorise');
 
 // Fonction utilitaire de redirection avec message
 function redirectWithMessage(req, res, msg, type = 'danger', path = '/login') {
@@ -46,7 +47,7 @@ exports.login = async (req, res) => {
       profil: user.profil
     };
 
-    if (user.profil === 'admin') {
+    if (aLaPermission(user.profil, 'alerte_stock')) {
       req.session.showStockAlert = true;
     }
 

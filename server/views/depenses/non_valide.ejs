@@ -60,7 +60,9 @@
                   <% } %>
                 </td>
                 <td class="text-end">
-                  <% if (!d.isValid) { %>
+                  <% if (!d.isValid && !peut('depenses.valider')) { %>
+                    <span class="text-muted small">En attente de validation</span>
+                  <% } else if (!d.isValid) { %>
                     <div class="dropdown">
                       <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                         Actions

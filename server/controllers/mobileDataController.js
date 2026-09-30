@@ -5,6 +5,7 @@
 const db = require('../models');
 const { Client, Vente, Paiement, Revendeur, ClientTmp, VenteTmp, PaiementTmp, sequelize } = db;
 const { Op } = require('sequelize');
+const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ exports.createVente = async (req, res) => {
       prix_unitaire: Number(prix_unitaire),
       montant,
       type_paiement: paye >= montant ? 'total' : 'echellonner',
-      date_vente:    date_vente || new Date().toISOString().split('T')[0],
+      date_vente:    date_vente || aujourdhui(),
       id_client:     Number(id_client),
       user:          id_user,
       observation:   observation || null
@@ -219,7 +220,7 @@ exports.createVente = async (req, res) => {
       await Paiement.create({
         id_vente:    vente.id,
         montant:     paye,
-        date:        date_vente || new Date().toISOString().split('T')[0],
+        date:        date_vente || aujourdhui(),
         observation: null
       }, { transaction: t });
     }
@@ -317,7 +318,7 @@ exports.createPaiement = async (req, res) => {
     const paiement = await Paiement.create({
       id_vente: vente.id,
       montant:  Number(montant),
-      date:     new Date().toISOString().split('T')[0],
+      date:     aujourdhui(),
       observation: observation || null
     });
 

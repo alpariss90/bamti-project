@@ -12,6 +12,7 @@ const {
   sequelize
 } = db;
 const { Op } = require('sequelize');
+const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 
 // GET /revendeurs/sync
 exports.showForm = async (req, res) => {
@@ -22,7 +23,7 @@ exports.showForm = async (req, res) => {
       order: [['nom', 'ASC']]
     });
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = aujourdhui();
 
     res.render('revendeurs/sync_donnees', {
       revendeurs,
@@ -50,7 +51,7 @@ exports.syncData = async (req, res) => {
       include: [{ model: User, as: 'user', attributes: ['id', 'nom'] }],
       order: [['nom', 'ASC']]
     });
-    const today = new Date().toISOString().split('T')[0];
+    const today = aujourdhui();
     res.render('revendeurs/sync_donnees', {
       revendeurs, today,
       result: null,
@@ -92,7 +93,7 @@ exports.syncData = async (req, res) => {
         include: [{ model: User, as: 'user', attributes: ['id', 'nom'] }],
         order: [['nom', 'ASC']]
       });
-      const today = new Date().toISOString().split('T')[0];
+      const today = aujourdhui();
       return res.render('revendeurs/sync_donnees', {
         revendeurs, today,
         result: { clients: 0, ventes: 0, paiements: 0, message: 'Aucune donnée à synchroniser pour cette date.' },
@@ -218,7 +219,7 @@ exports.syncData = async (req, res) => {
       include: [{ model: User, as: 'user', attributes: ['id', 'nom'] }],
       order: [['nom', 'ASC']]
     });
-    const today = new Date().toISOString().split('T')[0];
+    const today = aujourdhui();
 
     res.render('revendeurs/sync_donnees', {
       revendeurs, today,
