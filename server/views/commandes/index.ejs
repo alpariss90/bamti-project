@@ -27,6 +27,13 @@
           </select>
         </div>
 
+        <!-- Téléphone : affiché et obligatoire uniquement pour le client Anonyme -->
+        <div class="col-md-2 d-none" id="telephoneGroup">
+          <label for="telephone" class="form-label">Téléphone <span class="text-danger">*</span></label>
+          <input type="tel" class="form-control" id="telephone" name="telephone" maxlength="20"
+                 pattern="(?:\D*\d){8,}\D*" title="Au moins 8 chiffres" placeholder="Ex : 90 12 34 56">
+        </div>
+
         <div class="col-md-2">
           <label for="quantite" class="form-label">Quantité</label>
           <input type="number" class="form-control" id="quantite" name="quantite" min="1" value="1" required>
@@ -92,6 +99,8 @@
               <th>Quantité</th>
               <th>Statut</th>
               <th>Date</th>
+              <th>Livreur</th>
+              <th>Observation</th>
               <th class="text-end">Actions</th>
             </tr>
           </thead>
@@ -100,7 +109,7 @@
               <tr>
                 <th scope="row"><%= index + 1 %></th>
                 <td><%= commande.Client ? commande.Client.nom + ' ' + commande.Client.prenom : '-' %></td>
-                 <td><%= commande.Client && commande.Client.telephone ? commande.Client.telephone : '-' %></td>
+                 <td><%= commande.telephone || '-' %></td>
                 <td><%= commande.quantite %></td>
                 <td>
                   <% if (commande.statut === 'en attente') { %>
@@ -112,11 +121,16 @@
                   <% } %>
                 </td>
                 <td><%= commande.date_commande.toLocaleDateString() %></td>
+                <td><%= commande.livreur || '-' %></td>
+                <td><%= commande.observation_livraison || '-' %></td>
                 <td class="text-end">
                   <% if (commande.statut === 'en attente') { %>
                   <div class="d-flex gap-1">
                     <button class="btn btn-sm btn-outline-warning"
-                      onclick='showSnackbarvalider(<%= commande.id %>, "<%= commande.Client ? commande.Client.nom : "" %>")'>
+                      data-id="<%= commande.id %>"
+                      data-client="<%= commande.Client ? commande.Client.nom + ' ' + (commande.Client.prenom || '') : '' %>"
+                      data-quantite="<%= commande.quantite %>"
+                      onclick="ouvrirValidation(this)">
                       <i class="bi bi-check2-circle"></i> Valider
                     </button>
                     <% if (peut('commandes.gerer')) { %>
@@ -149,13 +163,31 @@
   </form>
 </div>
 
-<!-- Snackbar de validation -->
-<div id="snackbarv" class="snackbar shadow">
-  <span id="snackbar-messagev">Confirmer la validation ?</span>
-  <form id="snackbarFormv" method="POST" class="d-inline">
-    <button type="submit" class="btn btn-success btn-sm ms-3">Oui, valider</button>
-    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbar()">Annuler</button>
-  </form>
+<!-- Fenêtre de validation : livreur (obligatoire) + observation -->
+<div class="modal fade" id="validationModal" tabindex="-1" aria-labelledby="validationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="validationForm" method="POST" class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white" id="validationModalLabel"><i class="bi bi-truck me-2"></i>Valider la livraison</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3" id="validationResume"></p>
+        <div class="mb-3">
+          <label for="livreur" class="form-label">Livreur <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="livreur" name="livreur" maxlength="100" required placeholder="Nom du livreur">
+        </div>
+        <div>
+          <label for="observation_livraison" class="form-label">Observation <span class="text-muted small">(facultatif)</span></label>
+          <textarea class="form-control" id="observation_livraison" name="observation_livraison" rows="2" maxlength="255"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Valider la livraison</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Snackbar styles -->
@@ -197,10 +229,29 @@
     const quantiteInput = document.getElementById('quantite');
     const submitText = document.getElementById('submitText');
     const formStatus = document.getElementById('formStatus');
+    const telephoneGroup = document.getElementById('telephoneGroup');
+    const telephoneInput = document.getElementById('telephone');
+    const ID_CLIENT_ANONYME = '<%= idClientAnonyme %>';
+
+    // Client Anonyme : le champ Téléphone apparaît et devient obligatoire
+    function majChampTelephone() {
+      const anonyme = clientInput.value === ID_CLIENT_ANONYME;
+      telephoneGroup.classList.toggle('d-none', !anonyme);
+      telephoneInput.required = anonyme;
+      if (!anonyme) telephoneInput.value = '';
+    }
+    clientInput.addEventListener('change', majChampTelephone);
+    // Select2 déclenche l'événement change via jQuery (chargé par le footer)
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.jQuery) window.jQuery(clientInput).on('change', majChampTelephone);
+      majChampTelephone();
+    });
 
     function editCommande(commande) {
       commandeIdInput.value = commande.id;
       clientInput.value = commande.id_client;
+      if (window.jQuery) window.jQuery(clientInput).trigger('change'); else majChampTelephone();
+      telephoneInput.value = commande.telephone || '';
       quantiteInput.value = commande.quantite;
       submitText.textContent = 'Modifier';
       formStatus.innerHTML = `
@@ -214,6 +265,7 @@
 
     cancelBtn.addEventListener('click', () => {
       commandeForm.reset();
+      majChampTelephone();
       commandeIdInput.value = '';
       submitText.textContent = 'Ajouter';
       formStatus.innerHTML = '';
@@ -232,9 +284,6 @@
   const snackbarMessage = document.getElementById('snackbar-message');
   const snackbarForm = document.getElementById('snackbarForm');
 
-   const snackbarv = document.getElementById('snackbarv');
-  const snackbarMessagev = document.getElementById('snackbar-messagev');
-  const snackbarFormv = document.getElementById('snackbarFormv');
 
   function showSnackbar(id, clientName) {
     snackbarMessage.innerHTML = `Supprimer la commande du client "<strong>${clientName}</strong>" ?`;
@@ -243,10 +292,23 @@
   }
 
 
-  function showSnackbarvalider(id, clientName) {
-    snackbarMessagev.innerHTML = `Valider la commande du client "<strong>${clientName}</strong>" ?`;
-    snackbarFormv.action = `/commandes/valider/${id}`;
-    snackbarv.classList.add('show');
+  // Ouvre la fenêtre de validation d'une commande (données lues sur le bouton)
+  function ouvrirValidation(btn) {
+    const { id, client, quantite } = btn.dataset;
+    const form = document.getElementById('validationForm');
+    form.reset();
+    form.action = `/commandes/valider/${id}`;
+
+    const resume = document.getElementById('validationResume');
+    resume.textContent = '';
+    resume.append('Commande n° ', id, ' — ');
+    const nom = document.createElement('strong');
+    nom.textContent = client || 'Client';
+    resume.append(nom, ` — ${quantite} sachet(s)`);
+
+    const modalEl = document.getElementById('validationModal');
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    modalEl.addEventListener('shown.bs.modal', () => document.getElementById('livreur').focus(), { once: true });
   }
 
   function hideSnackbar() {

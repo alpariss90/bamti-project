@@ -95,6 +95,11 @@
     <div class="container-fluid p-0 mt-2">
       <div class="alert alert-<%= message.type %> w-75 mb-0" id="myAlert" role="alert">
         <%= message.text %>
+        <% if (message.details && message.details.length) { %>
+          <ul class="mb-0 mt-2">
+            <% message.details.forEach(d => { %><li><%= d %></li><% }) %>
+          </ul>
+        <% } %>
       </div>
     </div>
   <% } %>
@@ -132,14 +137,26 @@
                 <td><%= s.annee %></td>
                 <td><%= s.nom %> <%= s.prenom %></td>
                 <td><%= s.telephone %></td>
-                <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(s.montant_salaire)) %> FCFA</td>
+                <td>
+                  <%= new Intl.NumberFormat('fr-FR').format(parseInt(s.montant_salaire)) %> FCFA
+                  <% const retenue = Number(s.montant_retenue) || 0, joursNonPayes = Number(s.montant_jours_non_payes) || 0; %>
+                  <% if (retenue > 0 || joursNonPayes > 0) { %>
+                    <div class="small text-muted">
+                      base <%= new Intl.NumberFormat('fr-FR').format(Number(s.salaire_base) || 0) %>
+                      <% if (joursNonPayes > 0) { %> — jours non payés <%= new Intl.NumberFormat('fr-FR').format(joursNonPayes) %><% } %>
+                      <% if (retenue > 0) { %> — retenue <%= new Intl.NumberFormat('fr-FR').format(retenue) %><% } %>
+                    </div>
+                  <% } %>
+                </td>
                 <td><%= new Intl.NumberFormat('fr-FR').format(Math.abs(s.montant_credit)) %> FCFA</td>
                 <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(s.montant_gratification)) %> FCFA</td>
                 <td class="fw-bold text-primary"><%= new Intl.NumberFormat('fr-FR').format(parseInt(s.montant_reçu)) %> FCFA</td>
               </tr>
             <% }) %>
-
-
+          </tbody>
+          <!-- Totaux dans le pied du tableau : DataTables refuse les colspan dans le corps,
+               et le pied reste toujours en bas même après un tri -->
+          <tfoot>
             <tr class="table-secondary fw-bold">
               <th colspan="5">Totaux généraux</th>
               <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(salaires[0].ms))  %> FCFA</td>
@@ -147,10 +164,7 @@
               <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(salaires[0].mg))  %> FCFA</td>
               <td><%= new Intl.NumberFormat('fr-FR').format(parseInt(salaires[0].mr))  %> FCFA</td>
             </tr>
-
-
-           
-          </tbody>
+          </tfoot>
         </table>
 		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
       </div>

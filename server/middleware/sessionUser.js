@@ -2,6 +2,7 @@ const { getAlertesStockCritique } = require('../controllers/materielController')
 const { getAlertesStockMatiere } = require('../controllers/mvtMatiereController');
 const { enregistrerActivite } = require('../utils/activiteUtilisateur');
 const { peut } = require('./autorise');
+const { calculerStock: calculerStockSachet } = require('../controllers/stockSachetController');
 
 module.exports = async (req, res, next) => {
   // Disponible dans toutes les vues : <% if (peut('depenses.valider')) { %> …
@@ -10,6 +11,14 @@ module.exports = async (req, res, next) => {
   if (req.session && req.session.user) {
     res.locals.currentUser = req.session.user;
     enregistrerActivite(req.session.user.id, 'web');
+
+    // Stock de sachets affiché en bas du menu latéral, pour tous les profils
+    try {
+      res.locals.stockSachet = await calculerStockSachet();
+    } catch (err) {
+      console.error('Erreur lors du calcul du stock de sachets :', err);
+      res.locals.stockSachet = null;
+    }
 
     if (peut(req, 'alerte_stock') && req.session.showStockAlert) {
       req.session.showStockAlert = false;

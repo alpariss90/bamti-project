@@ -589,10 +589,15 @@
     </li>
   <% } %>
 
-
-
-  
-
+  <% if (currentUser && typeof stockSachet !== 'undefined' && stockSachet !== null) { %>
+    <!-- Stock de sachets : visible par tous les profils (calculé dans middleware/sessionUser.js) -->
+    <li class="nav-item mt-3">
+      <div class="nav-link text-white" style="cursor: default; border-top: 1px solid rgba(255,255,255,.25);">
+        <i class="ri-drop-fill fw-bold text-white"></i>
+        <span class="fw-bold text-white">Stock sachets : <%= new Intl.NumberFormat('fr-FR').format(stockSachet) %> sachets</span>
+      </div>
+    </li>
+  <% } %>
 
 </ul>
 

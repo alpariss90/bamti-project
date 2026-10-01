@@ -131,50 +131,54 @@ exports.delete = async (req, res) => {
 };
  
 
-//  validation physique
+//  validation physique : le ticket devient une vente livrée
 exports.vente = async (req, res) => {
   const { id } = req.params;
-   const t = await sequelize.transaction();
+  const t = await sequelize.transaction();
 
   try {
-    const ticket = await Ticket.findByPk(id);
+    const ticket = await Ticket.findByPk(id, { transaction: t });
     if (!ticket) {
+      await t.rollback();
       return redirectWithMessage(req, res, 'Ticket introuvable.', 'danger');
-    } 
-    statut='VENTE EFFECTUEE';
-    type_vente='livrer';
-    const montantTotal = ticket.quantite * 350;
-quantite=ticket.quantite;
-prix_unitaire=350;
-id_client=ticket.id_client;
-type_paiement='echellonner';
-date_vente=ticket.date_livraison; 
-user=req.session?.user?.id;
+    }
 
-    await ticket.update({ statut}, {transaction: t});
+    const quantite = ticket.quantite;
+    const prix_unitaire = 350;
+    const montantTotal = quantite * prix_unitaire;
+    const id_client = ticket.id_client;
+    const date_vente = ticket.date_livraison;
+    const user = req.session?.user?.id;
 
+    // Livreur de la vente : « nom du chauffeur - marque de la voiture » (ce qui est renseigné)
+    const livreur = [ticket.nom_chauffeur, ticket.marque_voiture]
+      .map(v => String(v || '').trim())
+      .filter(Boolean)
+      .join(' - ')
+      .slice(0, 100) || null;
 
-    
+    await ticket.update({ statut: 'VENTE EFFECTUEE' }, { transaction: t });
 
     const vente = await Vente.create(
-        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, user },
-        { transaction: t });
+      { type_vente: 'livrer', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: 'echellonner', date_vente, user, livreur },
+      { transaction: t });
 
-         await Paiement.create({ id_vente: vente.id, montant: 0, date: date_vente }, { transaction: t });
+    await Paiement.create({ id_vente: vente.id, montant: 0, date: date_vente }, { transaction: t });
 
-         await enregistrerSortieSachet({
-           quantite,
-           date: date_vente,
-           motif: `Ticket #${ticket.id} validé (vente #${vente.id})`,
-           id_vente: vente.id,
-           createdBy: req.session?.user?.login || null
-         }, t);
+    await enregistrerSortieSachet({
+      quantite,
+      date: date_vente,
+      motif: `Ticket #${ticket.id} validé (vente #${vente.id})`,
+      id_vente: vente.id,
+      createdBy: req.session?.user?.login || null
+    }, t);
 
-await t.commit();
+    await t.commit();
 
     return redirectWithMessage(req, res, ` vente enregistré avec succès.`, 'success');
 
   } catch (err) {
+    await t.rollback();
     console.error('Erreur lors de la creation  de la vente :', err);
     return redirectWithMessage(req, res, 'Erreur lors de la creation  de la vente.', 'danger');
   }

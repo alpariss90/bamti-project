@@ -394,3 +394,82 @@ ALTER TABLE `users`
 
 -- Nouveau profil gestionnaire (droits définis dans config/permissions.js)
 ALTER TABLE `users` MODIFY `profil` enum('admin','visualisation','caissier','magasinier','revendeur','gestionnaire') NOT NULL DEFAULT 'admin';
+
+
+-- Commandes : téléphone enregistré sur la commande (saisi pour le client Anonyme, copié de la fiche client sinon)
+ALTER TABLE `commandes` ADD COLUMN `telephone` varchar(20) DEFAULT NULL;
+-- Reprise des anciennes commandes (celles du client Anonyme, id 1, restent vides)
+UPDATE `commandes` c JOIN `clients` cl ON cl.id = c.id_client
+SET c.telephone = cl.telephone
+WHERE c.telephone IS NULL AND c.id_client <> 1;
+
+
+-- Commandes : livreur et observation saisis à la validation
+ALTER TABLE `commandes`
+  ADD COLUMN `livreur` varchar(100) DEFAULT NULL,
+  ADD COLUMN `observation_livraison` varchar(255) DEFAULT NULL;
+
+
+-- Ventes : livreur (obligatoire pour une vente livrée, vide pour une vente usine)
+ALTER TABLE `ventes` ADD COLUMN `livreur` varchar(100) DEFAULT NULL;
+ALTER TABLE `ventes_annuler` ADD COLUMN `livreur` varchar(100) DEFAULT NULL;
+
+
+-- ── Salaires : retenue (sanction) et jours non payés, déduits directement du salaire ──
+-- 1. Nouveaux types d'avance (enregistrés en négatif, comme le crédit)
+ALTER TABLE `personnel_avances`
+  MODIFY `type` enum('credit','gratification','retenue','jours_non_payes') NOT NULL;
+
+-- 2. Détail du calcul dans la paie (montant_salaire = salaire_base − retenue − jours non payés)
+ALTER TABLE `salaires`
+  ADD COLUMN `salaire_base` decimal(15,2) DEFAULT NULL,
+  ADD COLUMN `montant_retenue` decimal(15,2) NOT NULL DEFAULT 0,
+  ADD COLUMN `montant_jours_non_payes` decimal(15,2) NOT NULL DEFAULT 0;
+
+-- ── Vues des salaires (à recréer si elles sont vides : « select 1 AS ... ») ──
+-- Lancer avec un client en UTF-8 (la colonne montant_reçu contient un ç), APRÈS les ALTER ci-dessus
+SET NAMES utf8mb4;
+
+-- Total des avances par personnel, mois, année et type
+CREATE OR REPLACE VIEW `vpersonnel_avance` AS
+SELECT
+  `personnel_avances`.`id_personnel` AS `id_personnel`,
+  `personnel_avances`.`mois` AS `mois`,
+  `personnel_avances`.`annee` AS `annee`,
+  `personnel_avances`.`type` AS `type`,
+  SUM(`personnel_avances`.`montant`) AS `montant`
+FROM `personnel_avances`
+GROUP BY `personnel_avances`.`id_personnel`, `personnel_avances`.`mois`, `personnel_avances`.`annee`, `personnel_avances`.`type`;
+
+-- Paie générée avec le nom du personnel, le détail du salaire, le net reçu et les totaux du mois (ms, mc, mg, mr)
+CREATE OR REPLACE VIEW `vsalaires` AS
+SELECT
+  `s`.`id` AS `id`,
+  `s`.`id_personnel` AS `id_personnel`,
+  `p`.`nom` AS `nom`,
+  `p`.`prenom` AS `prenom`,
+  `p`.`telephone` AS `telephone`,
+  `s`.`mois` AS `mois`,
+  `s`.`annee` AS `annee`,
+  `s`.`salaire_base` AS `salaire_base`,
+  `s`.`montant_retenue` AS `montant_retenue`,
+  `s`.`montant_jours_non_payes` AS `montant_jours_non_payes`,
+  `s`.`montant_salaire` AS `montant_salaire`,
+  `s`.`montant_credit` AS `montant_credit`,
+  `s`.`montant_gratification` AS `montant_gratification`,
+  (`s`.`montant_salaire` + `s`.`montant_credit` + `s`.`montant_gratification`) AS `montant_reçu`,
+  `ss`.`ms` AS `ms`,
+  `ss`.`mc` AS `mc`,
+  `ss`.`mg` AS `mg`,
+  `ss`.`mr` AS `mr`
+FROM `salaires` `s`
+JOIN (
+  SELECT `mois`, `annee`,
+         SUM(`montant_salaire`) AS `ms`,
+         SUM(`montant_credit`) AS `mc`,
+         SUM(`montant_gratification`) AS `mg`,
+         SUM(`montant_salaire` + `montant_credit` + `montant_gratification`) AS `mr`
+  FROM `salaires`
+  GROUP BY `mois`, `annee`
+) `ss` ON `s`.`mois` = `ss`.`mois` AND `s`.`annee` = `ss`.`annee`
+JOIN `personnels` `p` ON `p`.`id` = `s`.`id_personnel`;

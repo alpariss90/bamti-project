@@ -41,6 +41,11 @@ module.exports = (sequelize, DataTypes) => {
     user: {
       type: DataTypes.INTEGER,
       allowNull: false
+    },
+    // Obligatoire pour une vente livrée, toujours vide pour une vente usine
+    livreur: {
+      type: DataTypes.STRING(100),
+      allowNull: true
     }
   }, {
     tableName: 'ventes',

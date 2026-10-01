@@ -29,6 +29,21 @@ module.exports = (sequelize, DataTypes) => {
     id_client: {
       type: DataTypes.INTEGER,
       allowNull: false
+    },
+    // Téléphone au moment de la commande : saisi pour le client Anonyme,
+    // copié depuis la fiche client pour les autres
+    telephone: {
+      type: DataTypes.STRING(20),
+      allowNull: true
+    },
+    // Saisis à la validation (livraison) de la commande
+    livreur: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    observation_livraison: {
+      type: DataTypes.STRING(255),
+      allowNull: true
     }
   }, {
     tableName: 'commandes',

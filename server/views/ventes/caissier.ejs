@@ -49,6 +49,13 @@
           <div class="invalid-feedback">Veuillez choisir le type de vente.</div>
         </div>
 
+        <!-- Livreur : affiché et obligatoire uniquement pour une vente livrée -->
+        <div class="col-md-2 d-none" id="livreurGroup">
+          <label for="livreur" class="form-label fw-semibold"><i class="bi bi-truck me-1 text-primary"></i>Livreur</label>
+          <input type="text" class="form-control" id="livreur" name="livreur" maxlength="100" placeholder="Nom du livreur">
+          <div class="invalid-feedback">Le livreur est obligatoire pour une vente livrée.</div>
+        </div>
+
         <div class="col-md-1">
           <label for="quantite" class="form-label fw-semibold"><i class="bi bi-stack me-1 text-primary"></i>Qté</label>
           <input type="number" min="1" class="form-control" id="quantite" name="quantite" required>
@@ -138,6 +145,7 @@
         <th>#</th>
         <th>Client</th>
         <th>Type vente</th>
+        <th>Livreur</th>
         <th>Quantité</th>
         <th>Prix unitaire</th>
         <th>Montant total</th>
@@ -154,6 +162,7 @@
           <th scope="row"><%= index + 1 %></th>
           <td><%= vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-' %></td>
           <td><%= vente.type_vente %></td>
+          <td><%= vente.livreur || '-' %></td>
           <td><%= vente.quantite %></td>
           <td><%= new Intl.NumberFormat('fr-FR').format(vente.prix_unitaire.toFixed(2)) %> FCFA</td>
           <td><%= new Intl.NumberFormat('fr-FR').format(vente.montantTotal.toFixed(2)) %> FCFA</td>
@@ -164,7 +173,7 @@
           </td>
           <td><%= new Intl.NumberFormat('fr-FR').format(vente.montantPayes.toFixed(2)) %> FCFA</td>
           <td><%= new Intl.NumberFormat('fr-FR').format(vente.reste.toFixed(2)) %> FCFA</td>
-          <td><%= new Date(vente.date_vente).toLocaleDateString('fr-FR') %></td>
+          <td class="col-date-vente" data-date="<%= String(vente.date_vente).slice(0, 10) %>"><%= new Date(vente.date_vente).toLocaleDateString('fr-FR') %></td>
           <td class="text-end">
             <% if (vente.type_paiement === 'echellonner') { %>
               <div class="dropdown">
@@ -289,6 +298,17 @@
   document.getElementById('quantite').addEventListener('input', majMontant);
   document.getElementById('prix_unitaire').addEventListener('input', majMontant);
   majMontant();
+
+  // Vente livrée : le champ Livreur apparaît et devient obligatoire
+  function majChampLivreur() {
+    const livree = document.getElementById('type_vente').value === 'livrer';
+    const livreurInput = document.getElementById('livreur');
+    document.getElementById('livreurGroup').classList.toggle('d-none', !livree);
+    livreurInput.required = livree;
+    if (!livree) livreurInput.value = '';
+  }
+  document.getElementById('type_vente').addEventListener('change', majChampLivreur);
+  majChampLivreur();
 
   function openVersementModal(idVente) {
  const modalElement = document.getElementById('versementModal');
@@ -461,8 +481,7 @@ function filterVentes() {
   const rows = document.querySelectorAll('#venteTable tbody tr');
 
   rows.forEach(row => {
-    const dateVente = row.children[9].innerText.split('/'); // jj/mm/aaaa
-    const dateISO = `${dateVente[2]}-${dateVente[1]}-${dateVente[0]}`;
+    const dateISO = row.querySelector('.col-date-vente')?.dataset.date || ''; // aaaa-mm-jj
     
     if ((!start || dateISO >= start) && (!end || dateISO <= end)) {
       row.style.display = '';

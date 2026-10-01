@@ -17,7 +17,10 @@
         </div>
       <% } %>
 
-      <!-- Tableau des personnels -->
+      <!-- Tableau des personnels (message à la place du tableau s'il est vide : DataTables refuse les colspan) -->
+      <% if (personnels.length === 0) { %>
+        <div class="alert alert-light border text-center text-muted">Aucun personnel trouvé.</div>
+      <% } else { %>
       <div class="table-wrapper shadow-sm rounded" style="border: 1px solid #dee2e6;">
         <div class="d-flex justify-content-end mb-2">
          <!-- <input type="text" id="searchInput" class="form-control form-control-sm w-auto" placeholder="Rechercher ..."> -->
@@ -35,11 +38,6 @@
             </tr>
           </thead>
           <tbody>
-            <% if (personnels.length === 0) { %>
-              <tr>
-                <td colspan="6" class="text-center text-muted">Aucun personnel trouvé.</td>
-              </tr>
-            <% } else { %>
               <% personnels.forEach((p, i) => { %>
                 <tr>
                   <th scope="row"><%= i + 1 %></th>
@@ -82,11 +80,11 @@
                   </td>
                 </tr>
               <% }); %>
-            <% } %>
           </tbody>
         </table>
 		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
       </div>
+      <% } %>
 
     </div>
   </div>

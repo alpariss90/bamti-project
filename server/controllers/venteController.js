@@ -188,6 +188,15 @@ exports.redevableprint = async (req, res) => {
   } 
 };
 
+// Livreur d'une vente : obligatoire si livrée, toujours vide si usine.
+// Renvoie { livreur } ou { erreur }.
+function livreurVente(type_vente, livreurSaisi) {
+  if (type_vente !== 'livrer') return { livreur: null };
+  const livreur = String(livreurSaisi || '').trim().slice(0, 100);
+  if (!livreur) return { erreur: 'Le nom du livreur est obligatoire pour une vente livrée.' };
+  return { livreur };
+}
+
 // Créer ou mettre à jour une vente
 exports.createOrUpdate = async (req, res) => {
   const t = await sequelize.transaction();
@@ -199,6 +208,12 @@ exports.createOrUpdate = async (req, res) => {
       return redirectWithMessage(req, res, 'Tous les champs sont obligatoires.', 'danger');
     }
 
+    const { livreur, erreur: erreurLivreur } = livreurVente(type_vente, req.body.livreur);
+    if (erreurLivreur) {
+      await t.rollback();
+      return redirectWithMessage(req, res, erreurLivreur, 'danger');
+    }
+
     const montantTotal = quantite * prix_unitaire;
 
     //console.log(res.locals.currentUser.id+"+++++++++++++++++++++++++++++++");
@@ -207,7 +222,7 @@ exports.createOrUpdate = async (req, res) => {
 
     if (!id) {
       const vente = await Vente.create(
-        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, user: req.session.user.id },
+        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur, user: req.session.user.id },
         { transaction: t }
       );
 
@@ -234,7 +249,7 @@ exports.createOrUpdate = async (req, res) => {
         return redirectWithMessage(req, res, 'Vente introuvable.', 'danger');
       }
 
-      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente }, { transaction: t });
+      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur }, { transaction: t });
       await t.commit();
 
       return redirectWithMessage(req, res, 'Vente mise à jour avec succès.', 'warning');
@@ -258,6 +273,12 @@ exports.createOrUpdateCaissier = async (req, res) => {
       return redirectWithMessageCaissier(req, res, 'Tous les champs sont obligatoires.', 'danger');
     }
 
+    const { livreur, erreur: erreurLivreur } = livreurVente(type_vente, req.body.livreur);
+    if (erreurLivreur) {
+      await t.rollback();
+      return redirectWithMessageCaissier(req, res, erreurLivreur, 'danger');
+    }
+
     const montantTotal = quantite * prix_unitaire;
     const date_vente = new Date();
     date_vente.setHours(0, 0, 0, 0);
@@ -268,7 +289,7 @@ exports.createOrUpdateCaissier = async (req, res) => {
 
     if (!id) {
       const vente = await Vente.create(
-        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, user: req.session.user.id },
+        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur, user: req.session.user.id },
         { transaction: t }
       );
 
@@ -295,7 +316,7 @@ exports.createOrUpdateCaissier = async (req, res) => {
         return redirectWithMessageCaissier(req, res, 'Vente introuvable.', 'danger');
       }
 
-      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente }, { transaction: t });
+      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur }, { transaction: t });
       await t.commit();
 
       return redirectWithMessageCaissier(req, res, 'Vente mise à jour avec succès.', 'warning');
@@ -345,8 +366,8 @@ exports.annuler = async (req, res) => {
 
       const query = `
             INSERT INTO ventes_annuler 
-            (id, type_vente, quantite, observation, type_paiement, montant, prix_unitaire, date_vente, id_client, user, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            (id, type_vente, quantite, observation, type_paiement, montant, prix_unitaire, date_vente, id_client, user, livreur, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `;
         
         const observation = req.body.observation?.trim() || 'Annulée sans observation';
@@ -362,6 +383,7 @@ exports.annuler = async (req, res) => {
             vente.date_vente,
             vente.id_client,
             req.session.user.id,
+            vente.livreur || null,
         ];
 
         // Exécuter l'insertion
