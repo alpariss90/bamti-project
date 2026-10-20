@@ -1,0 +1,86 @@
+<%#
+  Menu latéral, commun à toutes les pages (header.ejs et partials/index.ejs).
+  Contenu : config/menu.js — construit pour le profil connecté dans middleware/sessionUser.js (menuLateral).
+  Comportement (un seul groupe ouvert, recherche, mode réduit mémorisé) : public/js/menu.js
+%>
+<% const elements = (typeof menuLateral !== 'undefined' && menuLateral) ? menuLateral : []; %>
+<style>
+  #navbar-nav .nav-link { color: rgba(255,255,255,.88) !important; }
+  #navbar-nav .nav-link:hover { color: #fff !important; background: rgba(255,255,255,.08); }
+  #navbar-nav .menu-title span { color: rgba(255,255,255,.6) !important; letter-spacing: .08em; }
+  #navbar-nav .nav-link.active { color: #fff !important; background: rgba(0,0,0,.15); font-weight: 600; box-shadow: inset 3px 0 0 #fff; }
+  #navbar-nav .menu-link.contient-actif { color: #fff !important; font-weight: 600; }
+  #navbar-nav .badge-menu { margin-left: auto; background: #f7b84b; color: #1f2937; border-radius: 10px; padding: 0 7px; font-size: 10.5px; font-weight: 600; line-height: 18px; }
+  #navbar-nav .menu-link .badge-menu { margin-right: 18px; }
+  #navbar-nav .menu-link[aria-expanded="true"] .badge-groupe { display: none; }
+  .menu-recherche { padding: 6px 4px 8px; }
+  .menu-recherche .champ { position: relative; }
+  .menu-recherche input { width: 100%; border: 0; border-radius: 6px; padding: 7px 10px 7px 30px; background: rgba(255,255,255,.15); color: #fff; outline: none; font-size: 13px; }
+  .menu-recherche input::placeholder { color: rgba(255,255,255,.7); }
+  .menu-recherche i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.8); }
+  .menu-aucun { color: rgba(255,255,255,.7); padding: 8px 20px; font-size: 12.5px; }
+  .menu-stock { border-top: 1px solid rgba(255,255,255,.25); margin-top: 12px; }
+  /* Mode complet : défilement natif du menu (SimpleBar du thème ne s'initialise pas sur #scrollbar) */
+  [data-sidebar-size="lg"] #scrollbar { height: 100%; overflow-y: auto; }
+  /* Mode réduit (bouton ☰) : icônes seules */
+  [data-sidebar-size="sm"] .menu-recherche,
+  [data-sidebar-size="sm"] .menu-aucun,
+  [data-sidebar-size="sm"] #navbar-nav > .nav-item > .nav-link .badge-menu { display: none !important; }
+</style>
+
+<ul class="navbar-nav" id="navbar-nav">
+  <li class="menu-recherche">
+    <div class="champ">
+      <i class="ri-search-line"></i>
+      <input type="search" id="menuRecherche" placeholder="Rechercher une page…" autocomplete="off" aria-label="Rechercher une page dans le menu">
+    </div>
+  </li>
+
+  <% elements.forEach(item => { %>
+    <% if (item.section) { %>
+      <li class="menu-title"><span><%= item.section %></span></li>
+
+    <% } else if (item.groupe) { %>
+      <li class="nav-item menu-groupe">
+        <a class="nav-link menu-link<%= item.ouvert ? ' contient-actif' : ' collapsed' %>" href="#<%= item.id %>" data-bs-toggle="collapse"
+           role="button" aria-expanded="<%= item.ouvert ? 'true' : 'false' %>" aria-controls="<%= item.id %>" title="<%= item.groupe %>">
+          <i class="<%= item.icone %>"></i> <span><%= item.groupe %></span>
+          <% if (item.compteur > 0) { %><span class="badge-menu badge-groupe"><%= item.compteur %></span><% } %>
+        </a>
+        <div class="collapse menu-dropdown<%= item.ouvert ? ' show' : '' %>" id="<%= item.id %>">
+          <ul class="nav nav-sm flex-column">
+            <% item.liens.forEach(l => { %>
+              <li class="nav-item">
+                <a href="<%= l.href %>" class="nav-link d-flex align-items-center<%= l.actif ? ' active' : '' %>">
+                  <span><%= l.lien %></span>
+                  <% if (l.compteur > 0) { %><span class="badge-menu"><%= l.compteur %></span><% } %>
+                </a>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+      </li>
+
+    <% } else { %>
+      <li class="nav-item">
+        <a class="nav-link menu-link<%= item.actif ? ' active' : '' %>" href="<%= item.href %>" title="<%= item.lien %>">
+          <i class="<%= item.icone %>"></i> <span><%= item.lien %></span>
+          <% if (item.compteur > 0) { %><span class="badge-menu"><%= item.compteur %></span><% } %>
+        </a>
+      </li>
+    <% } %>
+  <% }) %>
+
+  <li class="menu-aucun d-none" id="menuAucun">Aucune page trouvée</li>
+
+  <% if (typeof stockSachet !== 'undefined' && stockSachet !== null) { %>
+    <!-- Stock de sachets : visible par tous les profils (calculé dans middleware/sessionUser.js) -->
+    <li class="nav-item menu-stock">
+      <div class="nav-link" style="cursor: default;" title="Stock sachets">
+        <i class="ri-drop-fill"></i>
+        <span>Stock sachets : <%= new Intl.NumberFormat('fr-FR').format(stockSachet) %> sachets</span>
+      </div>
+    </li>
+  <% } %>
+</ul>
+<script src="/js/menu.js"></script>

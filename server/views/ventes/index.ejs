@@ -174,7 +174,7 @@
     <thead class="table-secondary position-sticky top-0" >
       <tr>
 
-        <th>X</th>
+        <% if (peut('ventes.annuler')) { %><th>X</th><% } %>
         <th>#</th>
         <th>Client</th>
         <th>Type vente</th>
@@ -192,7 +192,8 @@
     </thead>
     <tbody>
       <% ventes.forEach((vente, index) => { %>
-        <tr id="vente-<%= vente.id %>" data-recu="<%= JSON.stringify({ id: vente.id, client: vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-', type_vente: vente.type_vente, type_paiement: vente.type_paiement, quantite: vente.quantite, prix_unitaire: vente.prix_unitaire, montantTotal: vente.montantTotal, montantPayes: vente.montantPayes, reste: vente.reste, date_vente: vente.date_vente }) %>">
+        <tr id="vente-<%= vente.id %>" data-recu="<%= JSON.stringify({ id: vente.id, client: vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-', type_vente: vente.type_vente, type_paiement: vente.type_paiement, quantite: vente.quantite, prix_unitaire: vente.prix_unitaire, montantTotal: vente.montantTotal, montantPayes: vente.montantPayes, reste: vente.reste, date_vente: vente.date_vente, heure_vente: vente.createdAt ? new Date(vente.createdAt).toLocaleTimeString('fr-FR', { timeZone: 'Africa/Niamey', hour: '2-digit', minute: '2-digit' }) : '' }) %>">
+        <% if (peut('ventes.annuler')) { %>
         <th scope="row">
           <button class="btn btn-danger btn-sm"
             data-id="<%= vente.id %>"
@@ -201,6 +202,7 @@
             <i class="bi bi-x-circle me-1"></i>Annuler
           </button>
         </th>
+        <% } %>
           <th scope="row"><%= index + 1 %></th>
           <td><%= vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-' %></td>
           <td><%= vente.type_vente %></td>

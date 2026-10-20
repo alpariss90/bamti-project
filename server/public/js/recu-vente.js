@@ -42,7 +42,7 @@
           <div class="numero">
             <span class="libelle">Reçu N°</span>
             <strong>${numeroRecu(vente)}</strong>
-            <span class="libelle">Date de vente : ${formaterDate(vente.date_vente)}</span>
+            <span class="libelle">Date de vente : ${formaterDate(vente.date_vente)}${vente.heure_vente ? ` à ${echapper(vente.heure_vente)}` : ''}</span>
           </div>
         </header>
 

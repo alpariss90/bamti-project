@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const venteController = require('../controllers/venteController');
+const { autorise } = require('../middleware/autorise');
 
 // Liste des ventes
 router.get('/index', venteController.list);
@@ -31,7 +32,7 @@ router.get('/redevable/print', venteController.redevableprint);
 router.get('/index/caissier', venteController.caissier);
 
 
-router.post('/annuler/:id', venteController.annuler);
+router.post('/annuler/:id', autorise('ventes.annuler'), venteController.annuler);
 router.get('/annulees', venteController.annulees);
 
 

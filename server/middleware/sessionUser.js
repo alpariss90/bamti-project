@@ -3,6 +3,7 @@ const { getAlertesStockMatiere } = require('../controllers/mvtMatiereController'
 const { enregistrerActivite } = require('../utils/activiteUtilisateur');
 const { peut } = require('./autorise');
 const { calculerStock: calculerStockSachet } = require('../controllers/stockSachetController');
+const { construireMenu, calculerCompteurs } = require('../utils/menu');
 
 module.exports = async (req, res, next) => {
   // Disponible dans toutes les vues : <% if (peut('depenses.valider')) { %> …
@@ -18,6 +19,22 @@ module.exports = async (req, res, next) => {
     } catch (err) {
       console.error('Erreur lors du calcul du stock de sachets :', err);
       res.locals.stockSachet = null;
+    }
+
+    // Menu latéral du profil (config/menu.js), avec le lien actif et les compteurs.
+    // Seulement pour l'affichage d'une page : les POST redirigent sans rien afficher.
+    if (req.method === 'GET') try {
+      const profil = req.session.user.profil;
+      const maintenant = new Date();
+      res.locals.menuLateral = construireMenu({
+        profil,
+        chemin: (req.originalUrl || '/').split('?')[0].replace(/\/+$/, '') || '/',
+        compteurs: await calculerCompteurs(profil),
+        ctx: { mois: maintenant.getMonth() + 1, annee: maintenant.getFullYear() }
+      });
+    } catch (err) {
+      console.error('Erreur lors de la construction du menu :', err);
+      res.locals.menuLateral = [];
     }
 
     if (peut(req, 'alerte_stock') && req.session.showStockAlert) {

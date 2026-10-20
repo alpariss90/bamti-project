@@ -152,13 +152,14 @@
         <th>Type paiement</th>
         <th>Montant payé</th>
         <th>Reste à payer</th>
-        <th>Date</th>
+        <th>Date vente</th>
+        <th>Heure vente</th>
         <th class="text-end">Actions</th>
       </tr>
     </thead>
     <tbody>
       <% ventes.forEach((vente, index) => { %>
-        <tr id="vente-<%= vente.id %>" data-recu="<%= JSON.stringify({ id: vente.id, client: vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-', type_vente: vente.type_vente, type_paiement: vente.type_paiement, quantite: vente.quantite, prix_unitaire: vente.prix_unitaire, montantTotal: vente.montantTotal, montantPayes: vente.montantPayes, reste: vente.reste, date_vente: vente.date_vente }) %>">
+        <tr id="vente-<%= vente.id %>" data-recu="<%= JSON.stringify({ id: vente.id, client: vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-', type_vente: vente.type_vente, type_paiement: vente.type_paiement, quantite: vente.quantite, prix_unitaire: vente.prix_unitaire, montantTotal: vente.montantTotal, montantPayes: vente.montantPayes, reste: vente.reste, date_vente: vente.date_vente, heure_vente: vente.createdAt ? new Date(vente.createdAt).toLocaleTimeString('fr-FR', { timeZone: 'Africa/Niamey', hour: '2-digit', minute: '2-digit' }) : '' }) %>">
           <th scope="row"><%= index + 1 %></th>
           <td><%= vente.Client ? vente.Client.nom + ' ' + (vente.Client.prenom || '') : '-' %></td>
           <td><%= vente.type_vente %></td>
@@ -173,7 +174,8 @@
           </td>
           <td><%= new Intl.NumberFormat('fr-FR').format(vente.montantPayes.toFixed(2)) %> FCFA</td>
           <td><%= new Intl.NumberFormat('fr-FR').format(vente.reste.toFixed(2)) %> FCFA</td>
-          <td class="col-date-vente" data-date="<%= String(vente.date_vente).slice(0, 10) %>"><%= new Date(vente.date_vente).toLocaleDateString('fr-FR') %></td>
+          <td class="col-date-vente" data-date="<%= String(vente.date_vente).slice(0, 10) %>"><%= String(vente.date_vente).slice(0, 10).split('-').reverse().join('/') %></td>
+          <td><%= vente.createdAt ? new Date(vente.createdAt).toLocaleTimeString('fr-FR', { timeZone: 'Africa/Niamey', hour: '2-digit', minute: '2-digit' }) : '-' %></td>
           <td class="text-end">
             <% if (vente.type_paiement === 'echellonner') { %>
               <div class="dropdown">

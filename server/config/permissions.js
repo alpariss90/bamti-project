@@ -41,6 +41,8 @@ module.exports = {
   // Modifier / supprimer une dépense non validée saisie par un autre utilisateur
   // (sans ce droit, on ne peut toucher qu'à ses propres dépenses non validées)
   'depenses.modifier_toutes': ['admin'],
+  // Annuler une vente (bouton « Annuler » de la liste des ventes)
+  'ventes.annuler':           ['admin'],
   // Formulaire + suppression des commandes
   'commandes.gerer':          ['admin', 'gestionnaire'],
   // Formulaire, suppression et « Effectuer vente » des tickets
