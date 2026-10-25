@@ -17,6 +17,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+    // Utilisateur qui a encaissé (vide pour les anciens versements dont on ne sait pas qui les a saisis)
+    id_user: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
     observation:{
       type: DataTypes.STRING,
       allowNull: true,

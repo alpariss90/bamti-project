@@ -39,7 +39,8 @@
 
         <div class="col-md-2">
           <label for="montant_depense" class="form-label">Montant (F)</label>
-          <input type="number" step="0.01" name="montant_depense" id="montant_depense" class="form-control" required>
+          <input type="text" inputmode="numeric" id="montant_depense_aff" class="form-control" autocomplete="off" required>
+          <input type="hidden" name="montant_depense" id="montant_depense">
         </div>
 
         <div class="col-md-2">
@@ -210,13 +211,47 @@
   const formStatus = document.getElementById('formStatus');
   const depenseListContainer = document.getElementById('depenseListContainer');
 
+  // Montant avec séparateur de milliers : champ visible formaté, valeur brute dans le champ caché envoyé au serveur
+  const montantAff = document.getElementById('montant_depense_aff');
+  const montantVal = document.getElementById('montant_depense');
+
+  // Montant en XOF : entiers uniquement, pas de décimales
+  function formatMontant(v) {
+    return String(v).replace(/\D/g, '').replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function syncMontant() {
+    montantVal.value = montantAff.value.replace(/\D/g, '');
+  }
+
+  function setMontant(n) {
+    montantAff.value = formatMontant(Math.round(n));
+    syncMontant();
+  }
+
+  montantAff.addEventListener('input', () => {
+    // Conserver la position du curseur : on compte les chiffres avant lui
+    const pos = montantAff.selectionStart;
+    const avant = montantAff.value.slice(0, pos).replace(/\D/g, '').length;
+    montantAff.value = formatMontant(montantAff.value);
+    let i = 0, n = 0;
+    while (i < montantAff.value.length && n < avant) {
+      if (/\d/.test(montantAff.value[i])) n++;
+      i++;
+    }
+    montantAff.setSelectionRange(i, i);
+    syncMontant();
+  });
+
+  depenseForm.addEventListener('submit', syncMontant);
+
   // Remplir le formulaire pour modification
   function editDepense(dep) {
     depenseId.value = dep.id;
     document.getElementById('id_type_depense').value = dep.id_type_depense;
     document.getElementById('id_engin').value = dep.id_engin || '';
     document.getElementById('date_depense').value = dep.date_depense.split('T')[0];
-    document.getElementById('montant_depense').value = Number(dep.montant_depense || 0).toFixed(2);
+    setMontant(Number(dep.montant_depense || 0));
     document.getElementById('observation').value = dep.observation || '';
 
     submitText.textContent = 'Modifier';
@@ -230,9 +265,10 @@
   }
 
   // Annuler modification
-  cancelBtn.addEventListener('click', () => {
+  if (cancelBtn) cancelBtn.addEventListener('click', () => {
     depenseForm.reset();
     depenseId.value = '';
+    montantVal.value = '';
     submitText.textContent = 'Ajouter';
     formStatus.innerHTML = '';
     depenseListContainer.style.display = '';

@@ -23,7 +23,10 @@ async function collecterDonnees({ debut, fin }) {
     stock,
     ventesParJour,
     encaissementsParJour,
-    depensesParJour
+    depensesParJour,
+    clientsRecouvrement,
+    matieres,
+    materiels
   ] = await Promise.all([
     requete(`
       SELECT COUNT(*) AS nb, COALESCE(SUM(quantite), 0) AS qte, COALESCE(SUM(montant), 0) AS montant
@@ -88,7 +91,48 @@ async function collecterDonnees({ debut, fin }) {
 
     requete(`
       SELECT date_depense AS jour, COALESCE(SUM(montant_depense), 0) AS montant
-      FROM depenses WHERE isValid = 1 AND date_depense BETWEEN :debut AND :fin GROUP BY date_depense`, p)
+      FROM depenses WHERE isValid = 1 AND date_depense BETWEEN :debut AND :fin GROUP BY date_depense`, p),
+
+    // Clients ayant payé pendant la période sur des ventes antérieures (détail du recouvrement)
+    requete(`
+      SELECT c.nom, c.prenom, c.adresse, COALESCE(SUM(p.montant), 0) AS montant
+      FROM paiements p
+      JOIN ventes v ON v.id = p.id_vente
+      JOIN clients c ON c.id = v.id_client
+      WHERE p.date BETWEEN :debut AND :fin AND v.date_vente < :debut
+      GROUP BY c.id, c.nom, c.prenom, c.adresse
+      ORDER BY montant DESC, c.nom, c.prenom`, p),
+
+    // Mouvements de matières validés (utilisation et rebus sont stockés en quantités négatives)
+    requete(`
+      SELECT type_matiere AS matiere,
+             COALESCE(SUM(CASE WHEN date_mvt < :debut THEN quantite ELSE 0 END), 0) AS stock_initial,
+             COALESCE(SUM(CASE WHEN date_mvt >= :debut AND type_mvt = 'achat' THEN quantite ELSE 0 END), 0) AS achat,
+             COALESCE(SUM(CASE WHEN date_mvt >= :debut AND type_mvt = 'achat' THEN montant_total ELSE 0 END), 0) AS montant_achat,
+             COALESCE(SUM(CASE WHEN date_mvt >= :debut AND type_mvt = 'utilisation' THEN ABS(quantite) ELSE 0 END), 0) AS utilisation,
+             COALESCE(SUM(CASE WHEN date_mvt >= :debut AND type_mvt = 'rebus' THEN ABS(quantite) ELSE 0 END), 0) AS rebus
+      FROM mvt_matieres
+      WHERE isValid = 1 AND date_mvt <= :fin
+      GROUP BY type_matiere`, p),
+
+    // Mouvements de matériels : stock avant la période + entrées / sorties / rebuts de la période
+    requete(`
+      SELECT m.libelle,
+             COALESCE(SUM(CASE WHEN x.jour < :debut THEN x.signe * x.quantite ELSE 0 END), 0) AS stock_initial,
+             COALESCE(SUM(CASE WHEN x.jour >= :debut AND x.sens = 'E' THEN x.quantite ELSE 0 END), 0) AS entrees,
+             COALESCE(SUM(CASE WHEN x.jour >= :debut AND x.sens = 'S' THEN x.quantite ELSE 0 END), 0) AS sorties,
+             COALESCE(SUM(CASE WHEN x.jour >= :debut AND x.sens = 'R' THEN x.quantite ELSE 0 END), 0) AS rebuts
+      FROM materiels m
+      JOIN (
+        SELECT id_materiel, quantite, date_entree AS jour, 'E' AS sens, 1 AS signe FROM materiel_entrees WHERE date_entree <= :fin
+        UNION ALL
+        SELECT id_materiel, quantite, date_sortie, 'S', -1 FROM materiel_sorties WHERE date_sortie <= :fin
+        UNION ALL
+        SELECT id_materiel, quantite, date_rebut, 'R', -1 FROM materiel_rebuts WHERE date_rebut <= :fin
+      ) x ON x.id_materiel = m.id
+      WHERE m.deletedAt IS NULL
+      GROUP BY m.id, m.libelle
+      ORDER BY m.libelle`, p)
   ]);
 
   const v = ventesTotal[0];
@@ -119,6 +163,31 @@ async function collecterDonnees({ debut, fin }) {
     };
   });
 
+  // Les deux matières apparaissent toujours, même sans mouvement
+  const lignesMatieres = ['SACHET PURE WATER', 'EMBALLAGE'].map(matiere => {
+    const r = matieres.find(m => m.matiere === matiere) || {};
+    const initial = num(r.stock_initial);
+    const achat = num(r.achat);
+    const utilisation = num(r.utilisation);
+    const rebus = num(r.rebus);
+    return {
+      matiere, initial, achat, montantAchat: num(r.montant_achat), utilisation, rebus,
+      final: initial + achat - utilisation - rebus
+    };
+  });
+
+  // Matériels ayant un stock ou un mouvement sur la période
+  const lignesMateriels = materiels
+    .map(r => {
+      const initial = num(r.stock_initial);
+      const entrees = num(r.entrees);
+      const sorties = num(r.sorties);
+      const rebuts = num(r.rebuts);
+      return { libelle: r.libelle, initial, entrees, sorties, rebuts, final: initial + entrees - sorties - rebuts };
+    })
+    .filter(m => m.initial || m.entrees || m.sorties || m.rebuts);
+  const totalMateriels = (cle) => lignesMateriels.reduce((t, m) => t + m[cle], 0);
+
   return {
     ventes: {
       nb: num(v.nb),
@@ -144,6 +213,16 @@ async function collecterDonnees({ debut, fin }) {
       entrees: num(s.entrees),
       sorties: num(s.sorties),
       final: stockInitial + num(s.entrees) - num(s.sorties)
+    },
+    recouvrementClients: clientsRecouvrement.map(r => ({
+      nom: r.nom, prenom: r.prenom, adresse: r.adresse || '', montant: num(r.montant)
+    })),
+    matieres: lignesMatieres,
+    materiels: {
+      lignes: lignesMateriels,
+      entrees: totalMateriels('entrees'),
+      sorties: totalMateriels('sorties'),
+      rebuts: totalMateriels('rebuts')
     },
     jours
   };

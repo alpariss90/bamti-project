@@ -40,6 +40,7 @@ const backupRouter = require('./routes/backup');
 const reservationRouter = require('./routes/reservation');
 const rapportRouter = require('./routes/rapport');
 const logRouter = require('./routes/log');
+const caisseRouter = require('./routes/caisse');
 
 const sessionUser = require('./middleware/sessionUser');
 // Droits par profil : voir config/permissions.js
@@ -128,6 +129,7 @@ app.use('/backup', autorise('backup'), backupRouter);
 app.use('/reservations', autorise('reservations'), reservationRouter);
 app.use('/rapports', autorise('rapports'), rapportRouter);
 app.use('/logs', autorise('logs'), logRouter);
+app.use('/caisse', autorise('caisse'), caisseRouter);
 
 // catch 404 and forward to error handler
 /*app.use(function(req, res, next) {

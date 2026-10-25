@@ -1,0 +1,121 @@
+<%- include('../partials/header') %>
+<%# Remises d'argent adressées à l'utilisateur : « Reçu » fait passer l'argent chez lui, « Refuser » le laisse chez l'expéditeur. %>
+<% const fmt = n => new Intl.NumberFormat('fr-FR').format(n); %>
+<% const fmtDate = d => String(d).slice(0, 10).split('-').reverse().join('/'); %>
+<% const fmtHeure = d => new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); %>
+
+<div class="container-fluid">
+  <%- include('../partials/alerts') %>
+
+  <!-- ── Remises en attente ────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-header bg-secondary text-white">
+      <i class="ri-hand-coin-line me-2"></i><strong>Remises à recevoir</strong>
+    </div>
+    <div class="card-body">
+      <% if (enAttente.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune remise en attente.</div>
+      <% } %>
+
+      <% enAttente.forEach(r => { %>
+        <% const total = r.lignes.reduce((t, l) => t + l.montant_remis, 0); %>
+        <div class="border rounded p-3 mb-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+            <div>
+              De <strong><%= r.expediteur ? r.expediteur.nom : '—' %></strong>
+              <span class="text-muted">— envoyée le <%= fmtHeure(r.createdAt) %></span>
+            </div>
+            <div class="fs-5">Total : <strong><%= fmt(total) %> F</strong></div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-2">
+              <thead class="table-light">
+                <tr><th>Journée du</th><th>Caissier</th><th>Attendu (F)</th><th>Remis (F)</th><th>Écart (F)</th><th>Commentaire</th></tr>
+              </thead>
+              <tbody>
+                <% r.lignes.forEach(l => { %>
+                  <% const ecart = l.montant_attendu - l.montant_remis; %>
+                  <tr>
+                    <td><%= fmtDate(l.journee.date) %></td>
+                    <td><%= l.journee.caissier ? l.journee.caissier.nom : '—' %></td>
+                    <td><%= fmt(l.montant_attendu) %></td>
+                    <td class="fw-semibold"><%= fmt(l.montant_remis) %></td>
+                    <td class="<%= ecart > 0 ? 'text-danger fw-semibold' : 'text-muted' %>"><%= ecart > 0 ? '−' + fmt(ecart) : '—' %></td>
+                    <td class="fst-italic"><%= l.commentaire_ecart || '—' %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <form method="POST" action="/caisse/remises/<%= r.id %>/accepter"
+                  onsubmit="return confirm('Confirmez-vous avoir reçu <%= fmt(total) %> F de <%= r.expediteur ? r.expediteur.nom.replace(/'/g, ' ') : '' %> ?')">
+              <button class="btn btn-success"><i class="ri-check-line me-1"></i>Reçu</button>
+            </form>
+            <button class="btn btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#refus-<%= r.id %>">
+              <i class="ri-close-line me-1"></i>Refuser
+            </button>
+          </div>
+
+          <div class="collapse mt-2" id="refus-<%= r.id %>">
+            <form method="POST" action="/caisse/remises/<%= r.id %>/refuser" class="row g-2">
+              <div class="col-md-8">
+                <textarea name="commentaire_refus" rows="2" class="form-control" placeholder="Pourquoi refusez-vous ? (obligatoire)" required></textarea>
+              </div>
+              <div class="col-md-4">
+                <button class="btn btn-danger">Confirmer le refus</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+
+  <!-- ── Remises déjà traitées ─────────────────────────────────────────── -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-secondary text-white">
+      <i class="ri-history-line me-2"></i><strong>Remises traitées</strong> <small>(30 dernières)</small>
+    </div>
+    <div class="card-body">
+      <% if (traitees.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune remise traitée.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-0">
+            <thead class="table-secondary">
+              <tr><th>Envoyée le</th><th>De</th><th>Journées</th><th>Total remis (F)</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+              <% traitees.forEach(r => { %>
+                <tr>
+                  <td><%= fmtHeure(r.createdAt) %></td>
+                  <td><%= r.expediteur ? r.expediteur.nom : '—' %></td>
+                  <td>
+                    <% r.lignes.forEach(l => { %>
+                      <div><%= fmtDate(l.journee.date) %> — <%= l.journee.caissier ? l.journee.caissier.nom : '' %> : <strong><%= fmt(l.montant_remis) %></strong></div>
+                    <% }) %>
+                  </td>
+                  <td class="fw-semibold"><%= fmt(r.lignes.reduce((t, l) => t + l.montant_remis, 0)) %></td>
+                  <td>
+                    <% if (r.statut === 'recue') { %>
+                      <span class="badge bg-success">Reçue</span>
+                    <% } else { %>
+                      <span class="badge bg-danger">Refusée</span>
+                      <div class="small text-danger mt-1">« <%= r.commentaire_refus %> »</div>
+                    <% } %>
+                    <% if (r.date_reponse) { %><div class="small text-muted"><%= fmtHeure(r.date_reponse) %></div><% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

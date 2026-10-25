@@ -40,7 +40,7 @@
             </thead>
             <tbody>
               <% duJour.forEach((c, i) => { %>
-                <tr>
+                <tr data-qte="<%= c.quantite %>" data-total="<%= c.quantite * c.prix_unitaire %>">
                   <td><input type="checkbox" class="commande-checkbox-jour" onchange="updateSelectionButtonJour()"></td>
                   <td><%= i+1 %></td>
                   <td class="fw-semibold"><%= c.Client ? c.Client.nom + ' ' + c.Client.prenom : '-' %></td>
@@ -62,9 +62,9 @@
               <tr>
                 <td></td>
                 <td colspan="3" class="text-end">Total</td>
-                <td><%= duJour.reduce((s, c) => s + c.quantite, 0) %></td>
+                <td class="total-qte"><%= duJour.reduce((s, c) => s + c.quantite, 0) %></td>
                 <td>—</td>
-                <td><%= fmt(duJour.reduce((s, c) => s + (c.quantite * c.prix_unitaire), 0)) %> F</td>
+                <td class="total-montant"><%= fmt(duJour.reduce((s, c) => s + (c.quantite * c.prix_unitaire), 0)) %> F</td>
                 <td></td>
               </tr>
             </tfoot>
@@ -241,6 +241,17 @@ function cloneTableForPrint(tableId, { onlyChecked = false, checkboxClass = null
       const checkbox = originalRows[i].querySelector('.' + checkboxClass);
       if (!checkbox || !checkbox.checked) row.remove();
     });
+
+    // Recalculer le pied de tableau sur les seules lignes conservées
+    const keptRows = Array.from(clone.querySelectorAll('tbody tr'));
+    // Renuméroter la colonne # (index 1, avant le retrait de la colonne des cases à cocher)
+    keptRows.forEach((r, i) => { if (r.children[1]) r.children[1].textContent = i + 1; });
+    const totalQte = keptRows.reduce((s, r) => s + Number(r.dataset.qte || 0), 0);
+    const totalMontant = keptRows.reduce((s, r) => s + Number(r.dataset.total || 0), 0);
+    const cellQte = clone.querySelector('tfoot .total-qte');
+    const cellMontant = clone.querySelector('tfoot .total-montant');
+    if (cellQte) cellQte.textContent = totalQte;
+    if (cellMontant) cellMontant.textContent = new Intl.NumberFormat('fr-FR').format(totalMontant) + ' F';
   }
 
   if (excludeColIndex !== null) {

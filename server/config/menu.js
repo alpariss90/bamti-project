@@ -39,6 +39,11 @@ module.exports = [
     { lien: 'Livrées', href: '/reservations/livrees', perm: 'reservations' },
   ] },
   { lien: 'Tickets', icone: 'ri-coupon-3-line', href: '/tickets/index', perm: 'tickets' },
+  { groupe: 'Caisse', icone: 'ri-safe-2-line', liens: [
+    { lien: 'Ma caisse', href: '/caisse/index', perm: 'caisse', compteur: 'journeesACloturer' },
+    { lien: 'À recevoir', href: '/caisse/recevoir', perm: 'caisse.recevoir', compteur: 'remisesARecevoir' },
+    { lien: 'Suivi', href: '/caisse/suivi', perm: 'caisse' },
+  ] },
   { lien: 'Facture proforma', icone: 'ri-file-text-line', href: '/facture/proforma', perm: 'facture', profils: ADMIN },
 
   { section: 'Revendeurs' },

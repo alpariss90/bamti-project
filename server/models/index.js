@@ -37,11 +37,16 @@ const ClientClientTmpModel = require('./client_client_tmp')(sequelize, DataTypes
 const ReservationModel = require('./reservation')(sequelize, DataTypes);
 const RapportEnvoyeModel = require('./rapport_envoye')(sequelize, DataTypes);
 const UserLogModel = require('./user_log')(sequelize, DataTypes);
+const CaisseJourneeModel = require('./caisse_journee')(sequelize, DataTypes);
+const CaisseRemiseModel = require('./caisse_remise')(sequelize, DataTypes);
+const CaisseRemiseLigneModel = require('./caisse_remise_ligne')(sequelize, DataTypes);
 //relations entre les tables
 ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
 VenteModel.hasMany(PaiementModel, { foreignKey: 'id_vente', onDelete: 'CASCADE' });
 PaiementModel.belongsTo(VenteModel, { foreignKey: 'id_vente' });
+// Qui a encaissé le paiement (vide pour les anciens versements)
+PaiementModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'encaisseur', constraints: false });
 ClientTmpModel.hasMany(VenteTmpModel, { foreignKey: 'id_client', as: 'Ventes', onDelete: 'CASCADE' });
 VenteTmpModel.belongsTo(ClientTmpModel, { foreignKey: 'id_client', as: 'Client' });
 VenteTmpModel.hasMany(PaiementTmpModel, { foreignKey: 'id_vente', as: 'Paiements', onDelete: 'CASCADE' });
@@ -93,6 +98,16 @@ UserModel.hasOne(RevendeurModel, { foreignKey: 'id_user', as: 'revendeur' });
 UserModel.hasMany(UserLogModel, { foreignKey: 'id_user', as: 'logs' });
 UserLogModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'user' });
 
+// Clôture de caisse : journée -> remises (via les lignes) -> utilisateurs
+CaisseJourneeModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'caissier', constraints: false });
+CaisseJourneeModel.belongsTo(UserModel, { foreignKey: 'id_detenteur', as: 'detenteur', constraints: false });
+CaisseJourneeModel.hasMany(CaisseRemiseLigneModel, { foreignKey: 'id_journee', as: 'lignes' });
+CaisseRemiseModel.belongsTo(UserModel, { foreignKey: 'id_expediteur', as: 'expediteur', constraints: false });
+CaisseRemiseModel.belongsTo(UserModel, { foreignKey: 'id_destinataire', as: 'destinataire', constraints: false });
+CaisseRemiseModel.hasMany(CaisseRemiseLigneModel, { foreignKey: 'id_remise', as: 'lignes' });
+CaisseRemiseLigneModel.belongsTo(CaisseRemiseModel, { foreignKey: 'id_remise', as: 'remise' });
+CaisseRemiseLigneModel.belongsTo(CaisseJourneeModel, { foreignKey: 'id_journee', as: 'journee' });
+
 
 // Synchronisation automatique
 /*sequelize.sync({ alter: true }) 
@@ -136,5 +151,8 @@ module.exports = {
   ClientClientTmp: ClientClientTmpModel,
   Reservation: ReservationModel,
   RapportEnvoye: RapportEnvoyeModel,
+  CaisseJournee: CaisseJourneeModel,
+  CaisseRemise: CaisseRemiseModel,
+  CaisseRemiseLigne: CaisseRemiseLigneModel,
   UserLog: UserLogModel,
 };

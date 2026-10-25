@@ -29,7 +29,7 @@ module.exports = async (req, res, next) => {
       res.locals.menuLateral = construireMenu({
         profil,
         chemin: (req.originalUrl || '/').split('?')[0].replace(/\/+$/, '') || '/',
-        compteurs: await calculerCompteurs(profil),
+        compteurs: await calculerCompteurs(profil, req.session.user.id),
         ctx: { mois: maintenant.getMonth() + 1, annee: maintenant.getFullYear() }
       });
     } catch (err) {

@@ -23,6 +23,11 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n).replace(/\s/g, ' ');
 }
 
+// Quantités de matières (colonnes décimales) : jusqu'à 2 décimales
+function fmtQte(n) {
+  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(n).replace(/\s/g, ' ');
+}
+
 function construireContexte(periode, d) {
   return {
     titre: titreRapport(periode.type),
@@ -62,6 +67,26 @@ function construireContexte(periode, d) {
     st_sorties: fmt(d.stock.sorties),
     st_final: fmt(d.stock.final),
 
+    matieres: d.matieres.map(m => ({
+      libelle: m.matiere,
+      initial: fmtQte(m.initial),
+      achat: fmtQte(m.achat),
+      montant_achat: fmt(m.montantAchat),
+      utilisation: fmtQte(m.utilisation),
+      rebus: fmtQte(m.rebus),
+      final: fmtQte(m.final)
+    })),
+    mt_montant_achat: fmt(d.matieres.reduce((t, m) => t + m.montantAchat, 0)),
+
+    materiels: d.materiels.lignes.map(m => ({
+      libelle: m.libelle,
+      initial: fmt(m.initial),
+      entrees: fmt(m.entrees),
+      sorties: fmt(m.sorties),
+      rebuts: fmt(m.rebuts),
+      final: fmt(m.final)
+    })),
+
     // Détail jour par jour : uniquement pour les rapports hebdomadaire et mensuel
     afficher_detail: periode.type !== 'journalier',
     jours: d.jours.map(j => ({
@@ -78,7 +103,14 @@ function construireContexte(periode, d) {
     t_ventes: fmt(d.ventes.montant),
     t_encaissements: fmt(d.encaissements.total),
     t_depenses: fmt(d.depenses.total),
-    t_solde_caisse: fmt(d.encaissements.total - d.depenses.total)
+    t_solde_caisse: fmt(d.encaissements.total - d.depenses.total),
+
+    // Dernière section : son numéro dépend de la présence du détail jour par jour
+    n_recouvrement: periode.type !== 'journalier' ? 9 : 8,
+    recouvrement_clients: d.recouvrementClients.map(c => ({
+      nom: c.nom, prenom: c.prenom, adresse: c.adresse, montant: fmt(c.montant)
+    })),
+    r_total: fmt(d.recouvrementClients.reduce((t, c) => t + c.montant, 0))
   };
 }
 
@@ -103,4 +135,4 @@ async function genererDocument(periode, donnees) {
   }
 }
 
-module.exports = { genererDocument, fmt };
+module.exports = { genererDocument, fmt, fmtQte };

@@ -112,14 +112,36 @@ const corps = [
     ['Stock en fin de période', '{st_final}']
   ], { derniereGras: true, aligns: ['left', D] }),
 
+  titreSection('6. Mouvements de matières'),
+  tableau([2306, 1300, 1300, 1700, 1300, 1000, 1300], [
+    ['Matière', 'Stock début', 'Achat', 'Montant achat (F)', 'Utilisation', 'Rebus', 'Stock fin'],
+    ['{#matieres}{libelle}', '{initial}', '{achat}', '{montant_achat}', '{utilisation}', '{rebus}', '{final}{/matieres}'],
+    ['Total achats', '', '', '{mt_montant_achat}', '', '', '']
+  ], { derniereGras: true, aligns: ['left', D, D, D, D, D, D] }),
+
+  titreSection('7. Mouvements de matériels'),
+  para('{^materiels}Aucun matériel en stock ni aucun mouvement sur la période.{/materiels}', { couleur: '808080' }),
+  tableau([3206, 1400, 1400, 1400, 1400, 1400], [
+    ['Matériel', 'Stock début', 'Entrées', 'Sorties', 'Rebuts', 'Stock fin'],
+    ['{#materiels}{libelle}', '{initial}', '{entrees}', '{sorties}', '{rebuts}', '{final}{/materiels}']
+  ], { aligns: ['left', D, D, D, D, D] }),
+
   para('{#afficher_detail}', { apres: 0 }),
-  titreSection('6. Détail jour par jour'),
+  titreSection('8. Détail jour par jour'),
   tableau([1306, 1100, 1300, 1700, 1700, 1500, 1600], [
     ['Date', 'Nb ventes', 'Qté', 'Ventes (F)', 'Encaissé (F)', 'Dépenses (F)', 'Solde caisse (F)'],
     ['{#jours}{date}', '{nb_ventes}', '{qte}', '{ventes}', '{encaissements}', '{depenses}', '{solde_caisse}{/jours}'],
     ['Total', '{t_nb_ventes}', '{t_qte}', '{t_ventes}', '{t_encaissements}', '{t_depenses}', '{t_solde_caisse}']
   ], { derniereGras: true, aligns: ['left', D, D, D, D, D, D] }),
   para('{/afficher_detail}', { apres: 0 }),
+
+  titreSection('{n_recouvrement}. Clients — recouvrements sur ventes antérieures'),
+  para('{^recouvrement_clients}Aucun recouvrement sur ventes antérieures pendant la période.{/recouvrement_clients}', { couleur: '808080' }),
+  tableau([2400, 2400, 3206, 2200], [
+    ['Nom', 'Prénom', 'Adresse', 'Montant (F)'],
+    ['{#recouvrement_clients}{nom}', '{prenom}', '{adresse}', '{montant}{/recouvrement_clients}'],
+    ['Total', '', '', '{r_total}']
+  ], { derniereGras: true, aligns: ['left', 'left', 'left', D] }),
 
   para('Rapport généré automatiquement par la plateforme BAMTI.', { align: 'center', taille: 16, couleur: '808080', avant: 240 })
 ].join('');

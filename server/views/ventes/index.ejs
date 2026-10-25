@@ -88,10 +88,17 @@
           <div class="invalid-feedback">Requis.</div>
         </div>
 
+        <!-- Montant reçu (1re tranche) : affiché et obligatoire uniquement pour une vente échelonnée (0 si rien payé) -->
+        <div class="col-md-2 d-none" id="montantPayeGroup">
+          <label for="montant_paye" class="form-label fw-semibold"><i class="bi bi-wallet2 me-1 text-primary"></i>Montant reçu</label>
+          <input type="number" min="0" step="any" class="form-control" id="montant_paye" name="montant_paye" placeholder="0 si rien payé">
+          <div class="invalid-feedback">Obligatoire (0 si rien payé), au plus le montant total.</div>
+        </div>
+
         <div class="col-md-2">
           <label for="date_vente" class="form-label fw-semibold"><i class="bi bi-calendar-date-fill me-1 text-primary"></i>Date vente</label>
           <input type="date" class="form-control" id="date_vente" name="date_vente" required>
-          <div class="invalid-feedback">Obligatoire.</div>
+          <div class="invalid-feedback">Obligatoire, au plus aujourd’hui.</div>
         </div>
 
         <div class="col-md-12 d-flex justify-content-end gap-2 mt-1">
@@ -394,6 +401,25 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('quantite').addEventListener('input', majMontant);
   document.getElementById('prix_unitaire').addEventListener('input', majMontant);
   majMontant();
+
+  // Date de vente : jamais dans le futur (contrôlé aussi côté serveur)
+  document.getElementById('date_vente').max = new Date().toLocaleDateString('en-CA');
+
+  // Vente échelonnée : le montant reçu (1re tranche) apparaît, obligatoire (0 si rien payé), au plus le total
+  function majMontantPaye() {
+    const echelonnee = document.getElementById('type_paiement').value === 'echellonner';
+    const champ = document.getElementById('montant_paye');
+    const total = (parseFloat(document.getElementById('quantite').value) || 0) * (parseFloat(document.getElementById('prix_unitaire').value) || 0);
+    document.getElementById('montantPayeGroup').classList.toggle('d-none', !echelonnee);
+    champ.required = echelonnee;
+    champ.max = total > 0 ? total : '';
+    if (!echelonnee) champ.value = '';
+  }
+  ['type_paiement', 'quantite', 'prix_unitaire'].forEach(id => {
+    document.getElementById(id).addEventListener('input', majMontantPaye);
+    document.getElementById(id).addEventListener('change', majMontantPaye);
+  });
+  majMontantPaye();
 
   // Vente livrée : le champ Livreur apparaît et devient obligatoire
   function majChampLivreur() {

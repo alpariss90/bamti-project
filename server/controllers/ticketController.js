@@ -4,6 +4,9 @@ const db = require('../models');
 const {sequelize, Vente, Paiement, Ticket} = db;
 const Client = db.Client;
 const { enregistrerSortieSachet } = require('./stockSachetController');
+const { verifierJourneeNonCloturee } = require('../services/caisse');
+const { montantRecu, datePaiement } = require('../services/premierPaiement');
+const { PRIX_UNITAIRE_TICKET } = require('../config/constantes');
 
 //  Fonction utilitaire pour rediriger avec message flash
 function redirectWithMessage(req, res, msg, type = 'success', path = '/tickets/index') {
@@ -44,6 +47,7 @@ exports.list = async (req, res) => {
     res.render('tickets/index', {
       tickets,
       clients,
+      prixUnitaireTicket: PRIX_UNITAIRE_TICKET,
       message: req.flash('message')[0] || null,
       pageTitle: 'Gestion des Tickets'
     });
@@ -134,6 +138,11 @@ exports.delete = async (req, res) => {
 //  validation physique : le ticket devient une vente livrée
 exports.vente = async (req, res) => {
   const { id } = req.params;
+
+  // Date de paiement (= date de la vente) : obligatoire, au plus aujourd'hui
+  const { date: date_vente, erreur: erreurDate } = datePaiement(req.body.date_paiement);
+  if (erreurDate) return redirectWithMessage(req, res, erreurDate, 'danger');
+
   const t = await sequelize.transaction();
 
   try {
@@ -144,11 +153,24 @@ exports.vente = async (req, res) => {
     }
 
     const quantite = ticket.quantite;
-    const prix_unitaire = 350;
+    const prix_unitaire = PRIX_UNITAIRE_TICKET;
     const montantTotal = quantite * prix_unitaire;
     const id_client = ticket.id_client;
-    const date_vente = ticket.date_livraison;
     const user = req.session?.user?.id;
+
+    // Montant reçu obligatoire (0 si rien payé) ; s'il couvre tout, la vente est réglée (« total »)
+    const recu = montantRecu(montantTotal, req.body.montant_recu);
+    if (recu.erreur) {
+      await t.rollback();
+      return redirectWithMessage(req, res, recu.erreur, 'danger');
+    }
+
+    // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+    const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: date_vente, montant: recu.montant, transaction: t });
+    if (refus) {
+      await t.rollback();
+      return redirectWithMessage(req, res, refus, 'danger');
+    }
 
     // Livreur de la vente : « nom du chauffeur - marque de la voiture » (ce qui est renseigné)
     const livreur = [ticket.nom_chauffeur, ticket.marque_voiture]
@@ -160,10 +182,11 @@ exports.vente = async (req, res) => {
     await ticket.update({ statut: 'VENTE EFFECTUEE' }, { transaction: t });
 
     const vente = await Vente.create(
-      { type_vente: 'livrer', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: 'echellonner', date_vente, user, livreur },
+      { type_vente: 'livrer', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: recu.type_paiement, date_vente, user, livreur },
       { transaction: t });
 
-    await Paiement.create({ id_vente: vente.id, montant: 0, date: date_vente }, { transaction: t });
+    // Toujours un paiement, même à 0 F (la vente reste comptée parmi les redevables)
+    await Paiement.create({ id_vente: vente.id, montant: recu.montant, date: date_vente, id_user: user }, { transaction: t });
 
     await enregistrerSortieSachet({
       quantite,

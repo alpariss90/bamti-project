@@ -65,8 +65,9 @@ function construireMenu({ profil, chemin, compteurs = {}, ctx }) {
 
 // Compteurs affichés en pastille : seulement ceux que le profil peut voir.
 // En cas d'erreur, les compteurs restent à 0 et la page s'affiche normalement.
-async function calculerCompteurs(profil) {
+async function calculerCompteurs(profil, idUser) {
   const db = require('../models');
+  const caisse = require('../services/caisse');
   const compteurs = {};
   const nonValide = { [Op.or]: [{ isValid: false }, { isValid: null }] };
   const taches = [];
@@ -86,6 +87,13 @@ async function calculerCompteurs(profil) {
   }
   if (aLaPermission(profil, 'depenses')) {
     taches.push(db.Depense.count({ where: nonValide }).then(n => { compteurs.depensesNonValidees = n; }));
+  }
+
+  if (idUser && aLaPermission(profil, 'caisse.cloturer')) {
+    taches.push(caisse.journeesACloturer(idUser).then(j => { compteurs.journeesACloturer = j.length; }));
+  }
+  if (idUser && aLaPermission(profil, 'caisse.recevoir')) {
+    taches.push(caisse.nbRemisesARecevoir(idUser).then(n => { compteurs.remisesARecevoir = n; }));
   }
 
   const resultats = await Promise.allSettled(taches);

@@ -9,7 +9,7 @@ const cron = require('node-cron');
 const { UniqueConstraintError } = require('sequelize');
 const { RapportEnvoye } = require('../../models');
 const { collecterDonnees } = require('./donnees');
-const { genererDocument, fmt } = require('./pdf');
+const { genererDocument, fmt, fmtQte } = require('./pdf');
 const { envoyerMail } = require('./mail');
 const periodes = require('./periode');
 
@@ -38,6 +38,17 @@ async function envoyerRapport(periode) {
       <li>Dépenses : <strong>${fmt(donnees.depenses.total)} F</strong></li>
       <li>Solde de caisse : <strong>${fmt(donnees.encaissements.total - donnees.depenses.total)} F</strong></li>
       <li>Stock de sachets en fin de période : <strong>${fmt(donnees.stock.final)}</strong></li>
+    </ul>
+    <p><strong>Matières</strong></p>
+    <ul>
+      ${donnees.matieres.map(m => `<li>${m.matiere} : achat <strong>${fmtQte(m.achat)}</strong> (${fmt(m.montantAchat)} F),
+        utilisation <strong>${fmtQte(m.utilisation)}</strong>, rebus <strong>${fmtQte(m.rebus)}</strong>,
+        stock fin <strong>${fmtQte(m.final)}</strong></li>`).join('')}
+    </ul>
+    <p><strong>Matériels</strong></p>
+    <ul>
+      <li>Entrées : <strong>${fmt(donnees.materiels.entrees)}</strong>, sorties : <strong>${fmt(donnees.materiels.sorties)}</strong>,
+        rebuts : <strong>${fmt(donnees.materiels.rebuts)}</strong> (détail par matériel dans le rapport joint)</li>
     </ul>
     <p style="color:#888;font-size:12px">Message envoyé automatiquement par la plateforme BAMTI.</p>`;
 

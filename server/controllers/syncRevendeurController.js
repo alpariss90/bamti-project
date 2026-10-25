@@ -154,6 +154,7 @@ exports.syncData = async (req, res) => {
 
     // ── 2. Insertion des ventes ────────────────────────────────────────────────
     const venteTmpIdMap = {}; // id_vente_tmp → id_vente réel
+    const vendeurParVenteTmp = {}; // id_vente_tmp → revendeur (il encaisse lui-même ses ventes)
     let ventesSynced = 0;
 
     for (const vt of ventesTmp) {
@@ -173,6 +174,7 @@ exports.syncData = async (req, res) => {
       }, { transaction: t });
 
       venteTmpIdMap[vt.id] = newVente.id;
+      vendeurParVenteTmp[vt.id] = vt.user;
       ventesSynced++;
 
       await VenteTmp.update(
@@ -201,6 +203,7 @@ exports.syncData = async (req, res) => {
         montant: pt.montant,
         date: pt.date,
         id_vente: realVenteId,
+        id_user: vendeurParVenteTmp[pt.id_vente] ?? null,
         observation: pt.observation || null
       }, { transaction: t });
 

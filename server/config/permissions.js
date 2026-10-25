@@ -34,6 +34,7 @@ module.exports = {
   reservations:       ['admin', 'gestionnaire', 'caissier'],
   rapports:           ['admin'],
   logs:               ['admin', 'gestionnaire'],
+  caisse:             ['admin', 'gestionnaire', 'caissier'],
 
   // ── Actions précises ────────────────────────────────────────────────────────
   // Valider une dépense
@@ -47,6 +48,10 @@ module.exports = {
   'commandes.gerer':          ['admin', 'gestionnaire'],
   // Formulaire, suppression et « Effectuer vente » des tickets
   'tickets.gerer':            ['admin', 'gestionnaire'],
+  // Clôture de caisse : clôturer ses journées et remettre l'argent (destinataires : config/caisse.js)
+  'caisse.cloturer':          ['gestionnaire', 'caissier'],
+  // Recevoir (ou refuser) les remises d'argent
+  'caisse.recevoir':          ['admin', 'gestionnaire'],
   // Alerte de stock critique (matériel + matière) affichée à la connexion
   'alerte_stock':             ['admin', 'gestionnaire']
 };

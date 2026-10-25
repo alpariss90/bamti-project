@@ -130,6 +130,7 @@
                       data-id="<%= commande.id %>"
                       data-client="<%= commande.Client ? commande.Client.nom + ' ' + (commande.Client.prenom || '') : '' %>"
                       data-quantite="<%= commande.quantite %>"
+                      data-total="<%= commande.quantite * commande.prix_unitaire %>"
                       onclick="ouvrirValidation(this)">
                       <i class="bi bi-check2-circle"></i> Valider
                     </button>
@@ -163,7 +164,7 @@
   </form>
 </div>
 
-<!-- Fenêtre de validation : livreur (obligatoire) + observation -->
+<!-- Fenêtre de validation : livreur (obligatoire), observation, date de paiement et montant reçu (obligatoires) -->
 <div class="modal fade" id="validationModal" tabindex="-1" aria-labelledby="validationModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <form id="validationForm" method="POST" class="modal-content">
@@ -177,9 +178,21 @@
           <label for="livreur" class="form-label">Livreur <span class="text-danger">*</span></label>
           <input type="text" class="form-control" id="livreur" name="livreur" maxlength="100" required placeholder="Nom du livreur">
         </div>
-        <div>
+        <div class="mb-3">
           <label for="observation_livraison" class="form-label">Observation <span class="text-muted small">(facultatif)</span></label>
           <textarea class="form-control" id="observation_livraison" name="observation_livraison" rows="2" maxlength="255"></textarea>
+        </div>
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <label for="date_paiement" class="form-label">Date de paiement <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="date_paiement" name="date_paiement" required>
+            <div class="form-text">Date de la vente et du paiement (au plus aujourd’hui).</div>
+          </div>
+          <div class="col-sm-6">
+            <label for="montant_recu" class="form-label">Montant reçu <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="montant_recu" name="montant_recu" min="0" step="any" required placeholder="0 si rien payé">
+            <div class="form-text" id="montantRecuAide"></div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -305,6 +318,16 @@
     const nom = document.createElement('strong');
     nom.textContent = client || 'Client';
     resume.append(nom, ` — ${quantite} sachet(s)`);
+
+    // Date de paiement : aujourd'hui par défaut, jamais dans le futur ; montant reçu : au plus le total (0 si rien payé)
+    const aujourdhui = new Date().toLocaleDateString('en-CA');
+    const datePaiement = document.getElementById('date_paiement');
+    datePaiement.max = aujourdhui;
+    datePaiement.value = aujourdhui;
+    const total = Number(btn.dataset.total) || 0;
+    document.getElementById('montant_recu').max = total;
+    document.getElementById('montantRecuAide').textContent =
+      `Total : ${new Intl.NumberFormat('fr-FR').format(total)} F (tout payé = vente réglée, 0 = rien payé).`;
 
     const modalEl = document.getElementById('validationModal');
     bootstrap.Modal.getOrCreateInstance(modalEl).show();

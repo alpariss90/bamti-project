@@ -3,6 +3,8 @@ const { Vente, User, Paiement, Client, sequelize } = db;
 const { Op } = require('sequelize');
 const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 const { enregistrerSortieSachet, enregistrerEntreeSachet } = require('./stockSachetController');
+const { verifierJourneeNonCloturee } = require('../services/caisse');
+const { montantRecu } = require('../services/premierPaiement');
 
 // Fonction utilitaire pour rediriger avec message
 function redirectWithMessage(req, res, msg, type = 'success', path = '/ventes/index') {
@@ -208,6 +210,11 @@ exports.createOrUpdate = async (req, res) => {
       return redirectWithMessage(req, res, 'Tous les champs sont obligatoires.', 'danger');
     }
 
+    if (String(date_vente).slice(0, 10) > aujourdhui()) {
+      await t.rollback();
+      return redirectWithMessage(req, res, 'La date de vente ne peut pas être dans le futur.', 'danger');
+    }
+
     const { livreur, erreur: erreurLivreur } = livreurVente(type_vente, req.body.livreur);
     if (erreurLivreur) {
       await t.rollback();
@@ -221,16 +228,33 @@ exports.createOrUpdate = async (req, res) => {
     
 
     if (!id) {
+      // Vente échelonnée : montant reçu obligatoire (0 si rien payé) ; s'il couvre tout, la vente passe en « total »
+      let typePaiement = type_paiement;
+      let montantEncaisse = montantTotal;
+      if (type_paiement === 'echellonner') {
+        const recu = montantRecu(montantTotal, montant_paye);
+        if (recu.erreur) {
+          await t.rollback();
+          return redirectWithMessage(req, res, recu.erreur, 'danger');
+        }
+        typePaiement = recu.type_paiement;
+        montantEncaisse = recu.montant;
+      }
+
+      // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+      const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: date_vente, montant: montantEncaisse, transaction: t });
+      if (refus) {
+        await t.rollback();
+        return redirectWithMessage(req, res, refus, 'danger');
+      }
+
       const vente = await Vente.create(
-        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur, user: req.session.user.id },
+        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: typePaiement, date_vente, livreur, user: req.session.user.id },
         { transaction: t }
       );
 
-      if (type_paiement === 'total') {
-        await Paiement.create({ id_vente: vente.id, montant: montantTotal, date: date_vente }, { transaction: t });
-      } else if (type_paiement === 'echellonner' && montant_paye > 0) {
-        await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente }, { transaction: t });
-      }
+      // Toujours un paiement, même à 0 F pour une vente échelonnée sans première tranche (comptée parmi les redevables)
+      await Paiement.create({ id_vente: vente.id, montant: montantEncaisse, date: date_vente, id_user: req.session.user.id }, { transaction: t });
 
       await enregistrerSortieSachet({
         quantite: vente.quantite,
@@ -288,15 +312,23 @@ exports.createOrUpdateCaissier = async (req, res) => {
     
 
     if (!id) {
+      // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+      const montantEncaisse = type_paiement === 'total' ? montantTotal : (Number(montant_paye) || 0);
+      const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: date_vente, montant: montantEncaisse, transaction: t });
+      if (refus) {
+        await t.rollback();
+        return redirectWithMessageCaissier(req, res, refus, 'danger');
+      }
+
       const vente = await Vente.create(
         { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur, user: req.session.user.id },
         { transaction: t }
       );
 
       if (type_paiement === 'total') {
-        await Paiement.create({ id_vente: vente.id, montant: montantTotal, date: date_vente }, { transaction: t });
+        await Paiement.create({ id_vente: vente.id, montant: montantTotal, date: date_vente, id_user: req.session.user.id }, { transaction: t });
       } else if (type_paiement === 'echellonner' && montant_paye > 0) {
-        await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente }, { transaction: t });
+        await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente, id_user: req.session.user.id }, { transaction: t });
       }
 
       await enregistrerSortieSachet({
@@ -470,9 +502,15 @@ exports.ajouterVersement = async (req, res) => {
       return redirectWithMessage(req, res, `Le montant dépasse le reste à payer (${reste})`, 'warning', '/ventes/index');
     }
 
+    const refus = await verifierJourneeNonCloturee({ user: req.session.user, date, montant, transaction: t });
+    if (refus) {
+      await t.rollback();
+      return redirectWithMessage(req, res, refus, 'danger', '/ventes/index');
+    }
+
     //  Création du paiement avec champ observation
     await Paiement.create(
-      { id_vente, montant, date, observation }, // <-- champ ajouté ici
+      { id_vente, montant, date, observation, id_user: req.session.user.id }, // id_user : qui a encaissé ce versement
       { transaction: t }
     );
 
@@ -497,7 +535,7 @@ exports.ajouterVersement = async (req, res) => {
  // type_paiement = 'echelonne'
   const ventes = await Vente.findAll({ where: { id_client, type_paiement: 'echellonner' 
     // <-- le filtre important ici
-     }, include: Paiement, order: [['createdAt', 'DESC']] });
+     }, include: { model: Paiement, include: { model: User, as: 'encaisseur', attributes: ['nom'] } }, order: [['createdAt', 'DESC']] });
      let client=await Client.findByPk(id_client);
       res.render('ventes/versements_client', { ventes, cl: client, message: req.flash('message')[0] || null, pageTitle: 'Versements du client' });
      } catch (err) { console.error(err); 

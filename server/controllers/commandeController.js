@@ -2,6 +2,8 @@ const db = require('../models');
 const {Commande, sequelize, Vente, Paiement} = db;
 const Client = db.Client;
 const { enregistrerSortieSachet } = require('./stockSachetController');
+const { verifierJourneeNonCloturee } = require('../services/caisse');
+const { montantRecu, datePaiement } = require('../services/premierPaiement');
 const { ID_CLIENT_ANONYME } = require('../config/constantes');
 
 //  Fonction utilitaire pour rediriger avec message flash
@@ -173,6 +175,10 @@ exports.valider = async (req, res) => {
     return redirectWithMessage(req, res, 'Le nom du livreur est obligatoire pour valider la commande.', 'danger');
   }
 
+  // Date de paiement (= date de la vente) : obligatoire, au plus aujourd'hui
+  const { date: date_vente, erreur: erreurDate } = datePaiement(req.body.date_paiement);
+  if (erreurDate) return redirectWithMessage(req, res, erreurDate, 'danger');
+
   const t = await sequelize.transaction();
 
   try {
@@ -186,8 +192,21 @@ exports.valider = async (req, res) => {
     const prix_unitaire = commande.prix_unitaire;
     const montantTotal = quantite * prix_unitaire;
     const id_client = commande.id_client;
-    const date_vente = commande.date_commande;
     const user = req.session?.user?.id;
+
+    // Montant reçu obligatoire (0 si rien payé) ; s'il couvre tout, la vente est réglée (« total »)
+    const recu = montantRecu(montantTotal, req.body.montant_recu);
+    if (recu.erreur) {
+      await t.rollback();
+      return redirectWithMessage(req, res, recu.erreur, 'danger');
+    }
+
+    // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+    const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: date_vente, montant: recu.montant, transaction: t });
+    if (refus) {
+      await t.rollback();
+      return redirectWithMessage(req, res, refus, 'danger');
+    }
 
     // Client Anonyme : on garde son numéro dans l'observation de la vente (le livreur a sa propre colonne)
     const observation = Number(id_client) === ID_CLIENT_ANONYME && commande.telephone
@@ -197,10 +216,11 @@ exports.valider = async (req, res) => {
     await commande.update({ statut: 'livrée', livreur, observation_livraison }, { transaction: t });
 
     const vente = await Vente.create(
-      { type_vente: 'livrer', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: 'echellonner', date_vente, user, observation, livreur },
+      { type_vente: 'livrer', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: recu.type_paiement, date_vente, user, observation, livreur },
       { transaction: t });
 
-    await Paiement.create({ id_vente: vente.id, montant: 0, date: date_vente }, { transaction: t });
+    // Toujours un paiement, même à 0 F (la vente reste comptée parmi les redevables)
+    await Paiement.create({ id_vente: vente.id, montant: recu.montant, date: date_vente, id_user: user }, { transaction: t });
 
     await enregistrerSortieSachet({
       quantite,

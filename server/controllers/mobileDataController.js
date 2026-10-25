@@ -221,6 +221,7 @@ exports.createVente = async (req, res) => {
         id_vente:    vente.id,
         montant:     paye,
         date:        date_vente || aujourdhui(),
+        id_user,
         observation: null
       }, { transaction: t });
     }
@@ -319,6 +320,7 @@ exports.createPaiement = async (req, res) => {
       id_vente: vente.id,
       montant:  Number(montant),
       date:     aujourdhui(),
+      id_user,
       observation: observation || null
     });
 

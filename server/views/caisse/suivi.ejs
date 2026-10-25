@@ -1,0 +1,122 @@
+<%- include('../partials/header') %>
+<%# Suivi : pour chaque journée clôturée, chez qui est l'argent, les écarts et l'historique des remises (services/caisse.js : suivi). %>
+<% const fmt = n => new Intl.NumberFormat('fr-FR').format(n); %>
+<% const fmtDate = d => String(d).slice(0, 10).split('-').reverse().join('/'); %>
+<% const fmtHeure = d => new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); %>
+<% const STATUTS = { en_attente: ['warning text-dark', 'en attente'], recue: ['success', 'reçue'], refusee: ['danger', 'refusée'], annulee: ['secondary', 'annulée'] }; %>
+
+<div class="container-fluid">
+  <%- include('../partials/alerts') %>
+
+  <!-- ── Filtre ────────────────────────────────────────────────────────── -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+      <form method="GET" action="/caisse/suivi" class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label mb-1">Du</label>
+          <input type="date" name="du" class="form-control" value="<%= filtre.du %>" min="<%= dateDebut %>">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label mb-1">Au</label>
+          <input type="date" name="au" class="form-control" value="<%= filtre.au %>" min="<%= dateDebut %>">
+        </div>
+        <% if (caissiers.length) { %>
+          <div class="col-md-3">
+            <label class="form-label mb-1">Caissier</label>
+            <select name="caissier" class="form-select">
+              <option value="">Tous</option>
+              <% caissiers.forEach(c => { %>
+                <option value="<%= c.id %>" <%= filtre.caissier === c.id ? 'selected' : '' %>><%= c.nom %></option>
+              <% }) %>
+            </select>
+          </div>
+        <% } %>
+        <div class="col-md-3">
+          <button class="btn btn-primary"><i class="ri-filter-3-line me-1"></i>Filtrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Journées ──────────────────────────────────────────────────────── -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-secondary text-white">
+      <i class="ri-route-line me-2"></i><strong>Où est l’argent ?</strong>
+      <small>— du <%= fmtDate(filtre.du) %> au <%= fmtDate(filtre.au) %></small>
+    </div>
+    <div class="card-body">
+      <% if (journees.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune journée clôturée sur cette période.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle">
+            <thead class="table-secondary">
+              <tr>
+                <th>Date</th><th>Caissier</th><th>Encaissé (F)</th><th>Chez qui</th><th>Montant détenu (F)</th>
+                <th>Écarts</th><th>Historique des remises</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% journees.forEach(j => { %>
+                <% const enAttente = j.lignes.find(l => l.remise.statut === 'en_attente'); %>
+                <% const ecarts = j.lignes.filter(l => l.remise.statut === 'recue' && l.montant_remis < l.montant_attendu); %>
+                <tr>
+                  <td class="fw-semibold"><%= fmtDate(j.date) %></td>
+                  <td><%= j.caissier ? j.caissier.nom : '—' %></td>
+                  <td><%= fmt(j.montant_encaisse) %></td>
+                  <td>
+                    <strong><%= j.detenteur ? j.detenteur.nom : '—' %></strong>
+                    <% if (j.detenteur) { %><span class="text-muted small">(<%= j.detenteur.profil %>)</span><% } %>
+                    <% if (enAttente) { %>
+                      <div><span class="badge bg-warning text-dark">en attente → <%= enAttente.remise.destinataire ? enAttente.remise.destinataire.nom : '?' %></span></div>
+                    <% } %>
+                  </td>
+                  <td class="fw-semibold"><%= fmt(j.montant_detenu) %></td>
+                  <td>
+                    <% if (ecarts.length === 0) { %>
+                      <span class="text-muted">—</span>
+                    <% } %>
+                    <% ecarts.forEach(l => { %>
+                      <div class="small">
+                        <span class="text-danger fw-semibold">−<%= fmt(l.montant_attendu - l.montant_remis) %></span>
+                        par <%= l.remise.expediteur ? l.remise.expediteur.nom : '?' %> :
+                        <span class="fst-italic">« <%= l.commentaire_ecart %> »</span>
+                      </div>
+                    <% }) %>
+                  </td>
+                  <td>
+                    <% j.lignes.forEach(l => { %>
+                      <% const s = STATUTS[l.remise.statut]; %>
+                      <div class="small mb-1">
+                        <%= l.remise.expediteur ? l.remise.expediteur.nom : '?' %> → <%= l.remise.destinataire ? l.remise.destinataire.nom : '?' %> :
+                        <strong><%= fmt(l.montant_remis) %></strong>
+                        <span class="badge bg-<%= s[0] %>"><%= s[1] %></span>
+                        <span class="text-muted"><%= fmtHeure(l.remise.date_reponse || l.remise.createdAt) %></span>
+                        <% if (l.remise.statut === 'refusee') { %><span class="text-danger">« <%= l.remise.commentaire_refus %> »</span><% } %>
+                      </div>
+                    <% }) %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+            <tfoot class="table-light fw-semibold">
+              <tr>
+                <td colspan="2" class="text-end">Total</td>
+                <td><%= fmt(journees.reduce((t, j) => t + j.montant_encaisse, 0)) %></td>
+                <td></td>
+                <td><%= fmt(journees.reduce((t, j) => t + j.montant_detenu, 0)) %></td>
+                <td class="text-danger">
+                  <% const totalEcarts = journees.reduce((t, j) => t + (j.montant_encaisse - j.montant_detenu), 0); %>
+                  <%= totalEcarts > 0 ? '−' + fmt(totalEcarts) : '—' %>
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

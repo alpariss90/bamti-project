@@ -473,3 +473,172 @@ JOIN (
   GROUP BY `mois`, `annee`
 ) `ss` ON `s`.`mois` = `ss`.`mois` AND `s`.`annee` = `ss`.`annee`
 JOIN `personnels` `p` ON `p`.`id` = `s`.`id_personnel`;
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ── Paiements : qui a encaissé (colonne id_user) ──
+-- ORDRE : 1. exécuter l'ÉTAPE 1 AVANT de déployer le code (sinon chaque création de paiement échoue)
+--         2. déployer le code
+--         3. ÉTAPE 2 (historique) : lancer d'abord les SELECT de contrôle, puis les UPDATE
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ÉTAPE 1 : nouvelle colonne (vide = encaisseur inconnu, pour les anciens versements)
+ALTER TABLE `paiements`
+  ADD COLUMN `id_user` int(11) DEFAULT NULL AFTER `id_vente`,
+  ADD INDEX `idx_paiements_user_date` (`id_user`, `date`);
+
+-- ÉTAPE 2 : historique, uniquement les cas sûrs
+
+-- 2a. Paiements créés en même temps que la vente (moins de 5 s d'écart) : encaissés par le vendeur
+-- Contrôle (nombre de lignes qui seront remplies) :
+SELECT COUNT(*) AS paiements_avec_la_vente
+FROM `paiements` p
+JOIN `ventes` v ON v.`id` = p.`id_vente`
+WHERE p.`id_user` IS NULL
+  AND ABS(TIMESTAMPDIFF(SECOND, v.`createdAt`, p.`createdAt`)) <= 5;
+
+UPDATE `paiements` p
+JOIN `ventes` v ON v.`id` = p.`id_vente`
+SET p.`id_user` = v.`user`
+WHERE p.`id_user` IS NULL
+  AND ABS(TIMESTAMPDIFF(SECOND, v.`createdAt`, p.`createdAt`)) <= 5;
+
+-- 2b. Ventes des revendeurs : le revendeur encaisse toujours lui-même ses ventes
+-- Contrôle :
+SELECT COUNT(*) AS paiements_revendeurs
+FROM `paiements` p
+JOIN `ventes` v ON v.`id` = p.`id_vente`
+JOIN `users` u ON u.`id` = v.`user`
+WHERE p.`id_user` IS NULL
+  AND u.`profil` = 'revendeur';
+
+UPDATE `paiements` p
+JOIN `ventes` v ON v.`id` = p.`id_vente`
+JOIN `users` u ON u.`id` = v.`user`
+SET p.`id_user` = v.`user`
+WHERE p.`id_user` IS NULL
+  AND u.`profil` = 'revendeur';
+
+-- Bilan : paiements dont l'encaisseur reste inconnu (anciens versements ultérieurs)
+SELECT
+  SUM(`id_user` IS NOT NULL) AS encaisseur_connu,
+  SUM(`id_user` IS NULL)     AS encaisseur_inconnu
+FROM `paiements`;
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ── Clôture de caisse : suivi de l'argent cash d'une journée jusqu'à l'admin ──
+-- À exécuter AVANT de déployer le code (après la colonne paiements.id_user ci-dessus)
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Une ligne par personne (caissier / gestionnaire) et par date clôturée
+CREATE TABLE IF NOT EXISTS `caisse_journees` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_user` int(11) NOT NULL,                 -- qui a encaissé
+  `date` date NOT NULL,                       -- jour clôturé
+  `montant_encaisse` double NOT NULL,         -- total encaissé ce jour, figé à la clôture
+  `id_detenteur` int(11) NOT NULL,            -- chez qui est l'argent actuellement
+  `montant_detenu` double NOT NULL,           -- combien il en détient
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_caisse_journee_user_date` (`id_user`, `date`),
+  KEY `idx_caisse_journee_detenteur` (`id_detenteur`),
+  KEY `idx_caisse_journee_date` (`date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Un envoi d'argent d'une personne à une autre (peut regrouper plusieurs journées)
+CREATE TABLE IF NOT EXISTS `caisse_remises` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_expediteur` int(11) NOT NULL,
+  `id_destinataire` int(11) NOT NULL,
+  `statut` enum('en_attente','recue','refusee','annulee') NOT NULL DEFAULT 'en_attente',
+  `commentaire_refus` text DEFAULT NULL,
+  `date_reponse` datetime DEFAULT NULL,       -- reçue, refusée ou annulée le
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_caisse_remise_destinataire` (`id_destinataire`, `statut`),
+  KEY `idx_caisse_remise_expediteur` (`id_expediteur`, `statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Une ligne par journée dans une remise
+CREATE TABLE IF NOT EXISTS `caisse_remise_lignes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_remise` int(11) NOT NULL,
+  `id_journee` int(11) NOT NULL,
+  `montant_attendu` double NOT NULL,          -- ce que l'expéditeur détenait pour cette journée
+  `montant_remis` double NOT NULL,            -- ce qu'il remet (au plus montant_attendu)
+  `commentaire_ecart` text DEFAULT NULL,      -- obligatoire si montant_remis < montant_attendu
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_caisse_ligne_remise` (`id_remise`),
+  KEY `idx_caisse_ligne_journee` (`id_journee`),
+  CONSTRAINT `fk_caisse_ligne_remise` FOREIGN KEY (`id_remise`) REFERENCES `caisse_remises` (`id`),
+  CONSTRAINT `fk_caisse_ligne_journee` FOREIGN KEY (`id_journee`) REFERENCES `caisse_journees` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ── MÉMO : clôture de caisse (fonctionnement, réglages, déploiement) ──
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- BUT : savoir à tout moment chez qui se trouve l'argent cash encaissé par un caissier un jour donné,
+--       de main en main jusqu'à l'admin, avec les écarts (manquants) et leurs explications.
+--
+-- PRÉREQUIS : la colonne paiements.id_user (section « Paiements : qui a encaissé » plus haut).
+--   Chaque paiement enregistre qui l'a encaissé ; le montant d'une journée = somme des paiements
+--   de cet utilisateur à cette date.
+--
+-- DÉPLOIEMENT (dans cet ordre) :
+--   1. Exécuter la section « Paiements : qui a encaissé » (étape 1, puis étape 2 après les SELECT de contrôle)
+--   2. Exécuter la section « Clôture de caisse » (3 tables caisse_*)
+--   3. Vérifier DATE_DEBUT (voir RÉGLAGES), puis déployer le code et redémarrer
+--   Sans les étapes 1 et 2, les pages de ventes et le menu tombent en erreur.
+--
+-- RÉGLAGES : fichier server/config/caisse.js
+--   - DATE_DEBUT    : premier jour qu'on peut clôturer (mis à '2026-10-21', mise en production le 20/10/2026).
+--                     Les jours d'avant sont ignorés : pas de clôture, pas de blocage, rien dans le suivi.
+--                     Pour tester en local avant cette date : mettre une date passée, puis REMETTRE '2026-10-21'.
+--   - DESTINATAIRES : à qui chaque profil peut remettre (caissier -> gestionnaire/admin, gestionnaire -> gestionnaire/admin).
+--   Droits d'accès : server/config/permissions.js (caisse, caisse.cloturer, caisse.recevoir).
+--
+-- PROCESSUS :
+--   1. Clôture (caissier, gestionnaire ; jamais l'admin) — menu Caisse > Ma caisse
+--      En fin de journée : « Clôturer » une date -> l'appli affiche le montant encaissé ;
+--      on saisit le montant remis (au plus l'encaissé), le destinataire, et un commentaire
+--      SEULEMENT s'il y a un écart (alors obligatoire). Une seule clôture par personne et par date.
+--   2. Remise en attente : l'argent reste chez l'expéditeur tant que le destinataire n'a pas cliqué « Reçu ».
+--      L'expéditeur peut ANNULER tant que ce n'est pas reçu.
+--   3. Réception — menu Caisse > À recevoir (gestionnaire, admin)
+--      « Reçu »    : l'argent passe chez le destinataire ; l'expéditeur ne peut plus rien faire.
+--      « Refuser » : motif obligatoire ; l'argent reste chez l'expéditeur, qui retrouve la journée
+--                    dans « Argent que je détiens » (pré-remplie) pour corriger et renvoyer.
+--   4. Remises suivantes : le gestionnaire remet à un autre gestionnaire ou à l'admin, même principe.
+--      Remise groupée possible (plusieurs journées), avec un montant par journée et un commentaire par écart.
+--   5. L'admin est le dernier maillon : il reçoit, il ne remet pas.
+--   6. Suivi — menu Caisse > Suivi : par période et par caissier, chez qui est l'argent, combien,
+--      les écarts (qui, combien, pourquoi) et l'historique des remises.
+--      Caissier : ses journées ; gestionnaire : les siennes + celles qu'il détient ou qui sont passées par lui ; admin : tout.
+--
+-- BLOCAGE : une fois une date clôturée, son encaisseur (caissier/gestionnaire) ne peut plus enregistrer
+--   de paiement à cette date (vente, versement, réservation). Pas de blocage pour l'admin ni pour les paiements à 0 F.
+--   => le caissier doit clôturer en toute fin de journée.
+--
+-- HORS CIRCUIT : recettes des revendeurs (circuit à part), dépenses (le caissier n'en fait pas).
+--
+-- À SAVOIR : le montant encaissé d'une journée est figé à la clôture ; si une vente de ce jour est
+--   supprimée ou annulée ensuite, la journée garde le montant d'origine.
+--
+-- CODE : règles dans server/services/caisse.js ; écrans dans server/views/caisse/ ;
+--   contrôleur server/controllers/caisseController.js ; routes server/routes/caisse.js.
+--
+-- REQUÊTES UTILES :
+--   Chez qui est l'argent d'une date :
+--     SELECT j.date, c.nom AS caissier, j.montant_encaisse, d.nom AS chez, j.montant_detenu
+--     FROM caisse_journees j JOIN users c ON c.id = j.id_user JOIN users d ON d.id = j.id_detenteur
+--     WHERE j.date = '2026-10-21';
+--   Remises en attente :
+--     SELECT r.id, e.nom AS de, d.nom AS a, r.createdAt
+--     FROM caisse_remises r JOIN users e ON e.id = r.id_expediteur JOIN users d ON d.id = r.id_destinataire
+--     WHERE r.statut = 'en_attente';

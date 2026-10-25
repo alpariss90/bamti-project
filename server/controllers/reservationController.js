@@ -1,6 +1,7 @@
 const db = require('../models');
 const { Reservation, Vente, Paiement, sequelize } = db;
 const { Op } = require('sequelize');
+const { verifierJourneeNonCloturee } = require('../services/caisse');
 const { aujourdhui: dateDuJourNiamey } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 
 function today() {
@@ -60,6 +61,10 @@ exports.create = async (req, res) => {
   const dateVente = today();
   const userId = req.session.user.id;
 
+  // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+  const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: dateVente, montant });
+  if (refus) return redirectMsg(req, res, 'danger', refus);
+
   const t = await sequelize.transaction();
   try {
     // 1. Créer la vente
@@ -80,6 +85,7 @@ exports.create = async (req, res) => {
       montant,
       date: dateVente,
       id_vente: vente.id,
+      id_user: userId,
       observation: 'reservation',
     }, { transaction: t });
 

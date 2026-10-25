@@ -149,7 +149,13 @@
 
                       <% if (peut('tickets.gerer') && ticket.statut != 'NON LIVRE') { %>
                       <li>
-                        <a class="dropdown-item text-success" href="#" onclick='showSnackbarvv(<%= index + 1 %>, "<%= ticket.Client ? ticket.Client.nom : "" %>", <%= ticket.id %>)'>
+                        <a class="dropdown-item text-success" href="#"
+                           data-id="<%= ticket.id %>"
+                           data-numero="<%= index + 1 %>"
+                           data-client="<%= ticket.Client ? ticket.Client.nom : '' %>"
+                           data-quantite="<%= ticket.quantite %>"
+                           data-total="<%= ticket.quantite * prixUnitaireTicket %>"
+                           onclick="ouvrirVenteTicket(this); return false;">
                           <i class="bi bi-check"></i> Effectuer vente
                         </a>
                       </li>
@@ -192,12 +198,35 @@
   </form>
 </div>
 
-<div id="snackbarvv" class="snackbar shadow">
-  <span id="snackbar-messagevv">Confirmer la vente ?</span>
-  <form id="snackbarFormvv" method="POST" class="d-inline">
-    <button type="submit" class="btn btn-success btn-sm ms-3">Oui, valider</button>
-    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbarvv()">Annuler</button>
-  </form>
+<!-- Fenêtre « Effectuer vente » : date de paiement et montant reçu (obligatoires) -->
+<div class="modal fade" id="venteTicketModal" tabindex="-1" aria-labelledby="venteTicketModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="venteTicketForm" method="POST" class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white" id="venteTicketModalLabel"><i class="bi bi-cart-check me-2"></i>Effectuer la vente</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3" id="venteTicketResume"></p>
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <label for="ticket_date_paiement" class="form-label">Date de paiement <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="ticket_date_paiement" name="date_paiement" required>
+            <div class="form-text">Date de la vente et du paiement (au plus aujourd’hui).</div>
+          </div>
+          <div class="col-sm-6">
+            <label for="ticket_montant_recu" class="form-label">Montant reçu <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="ticket_montant_recu" name="montant_recu" min="0" step="any" required placeholder="0 si rien payé">
+            <div class="form-text" id="ticketMontantAide"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Effectuer la vente</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Snackbar styles -->
@@ -273,10 +302,8 @@ if (cancelBtn) {
   const snackbar = document.getElementById('snackbar');
   const snackbarMessage = document.getElementById('snackbar-message');
   const snackbarForm = document.getElementById('snackbarForm');
-  const snackbarFormvv = document.getElementById('snackbarFormvv');
 
    const snackbarv = document.getElementById('snackbarv');
-    const snackbarvv = document.getElementById('snackbarvv');
   const snackbarMessagev = document.getElementById('snackbar-messagev');
   const snackbarFormv = document.getElementById('snackbarFormv');
 
@@ -286,10 +313,33 @@ if (cancelBtn) {
     snackbar.classList.add('show');
   }
 
-  function showSnackbarvv(id, clientName, idticket) {
-    snackbarMessage.innerHTML = `Effectuer la vente du ticket `+id+` du client "<strong>${clientName}</strong>" ?`;
-    snackbarFormvv.action = `/tickets/vente/${idticket}`;
-    snackbarvv.classList.add('show');
+  // Ouvre la fenêtre « Effectuer vente » d'un ticket (données lues sur le lien)
+  function ouvrirVenteTicket(lien) {
+    const { id, numero, client, quantite } = lien.dataset;
+    const form = document.getElementById('venteTicketForm');
+    form.reset();
+    form.action = `/tickets/vente/${id}`;
+
+    const resume = document.getElementById('venteTicketResume');
+    resume.textContent = '';
+    resume.append(`Ticket n° ${numero} — `);
+    const nom = document.createElement('strong');
+    nom.textContent = client || 'Client';
+    resume.append(nom, ` — ${quantite} sachet(s)`);
+
+    // Date de paiement : aujourd'hui par défaut, jamais dans le futur ; montant reçu : au plus le total (0 si rien payé)
+    const aujourdhui = new Date().toLocaleDateString('en-CA');
+    const datePaiement = document.getElementById('ticket_date_paiement');
+    datePaiement.max = aujourdhui;
+    datePaiement.value = aujourdhui;
+    const total = Number(lien.dataset.total) || 0;
+    document.getElementById('ticket_montant_recu').max = total;
+    document.getElementById('ticketMontantAide').textContent =
+      `Total : ${new Intl.NumberFormat('fr-FR').format(total)} F (tout payé = vente réglée, 0 = rien payé).`;
+
+    const modalEl = document.getElementById('venteTicketModal');
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    modalEl.addEventListener('shown.bs.modal', () => document.getElementById('ticket_montant_recu').focus(), { once: true });
   }
 
 
@@ -305,10 +355,6 @@ if (cancelBtn) {
 
   function hideSnackbarv() {
     snackbarv.classList.remove('show');
-  }
-
-    function hideSnackbarv() {
-    snackbarvv.classList.remove('show');
   }
 
   // Filtre de table
