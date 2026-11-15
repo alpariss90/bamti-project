@@ -19,8 +19,9 @@
             <div>
               <p class="info-title">Récupérer mes données</p>
               <p class="info-desc">
-                Compare le serveur avec votre stockage local et importe les clients,
-                ventes et paiements manquants. Utile après un changement de device.
+                Recharge vos clients, ventes et paiements depuis le serveur, sans doublon,
+                avec leur état (envoyée / validée). Ce qui n’est pas encore envoyé reste sur le téléphone.
+                Utile après un changement de téléphone.
               </p>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { reactive, toRaw } from 'vue';
 import { mobileDataService } from '@/services/mobileDataService';
 import { localDataStorage } from '@/services/localDataStorage';
+import { genererUuid } from '@/services/uuid';
 import type {
   LocalClient,
   LocalPaiement,
@@ -8,6 +9,7 @@ import type {
   PendingClientPayload,
   PendingPaiementPayload,
   PendingVentePayload,
+  SyncPayload,
 } from '@/types/data';
 
 interface DataState {
@@ -45,6 +47,65 @@ async function loadFromLocal(): Promise<void> {
   state.pendingClients = await localDataStorage.getPendingClients();
   state.pendingVentes = await localDataStorage.getPendingVentes();
   state.pendingPaiements = await localDataStorage.getPendingPaiements();
+
+  if (migrerVersUuid()) {
+    await persistBusinessData();
+    await persistPendingData();
+  }
+}
+
+// Données saisies avec une ancienne version de l'application (sans uuid) :
+// on donne un uuid à tout ce qui attend encore d'être envoyé. Les copies déjà envoyées
+// seront remplacées par celles du serveur au prochain restoreFromServer.
+// Retourne true si quelque chose a changé.
+function migrerVersUuid(): boolean {
+  let modifie = false;
+
+  for (const pending of state.pendingClients) {
+    const local = state.clients.find((client) => client.id === pending.id_local);
+    const uuid = pending.uuid || local?.uuid || genererUuid();
+    if (pending.uuid !== uuid) { pending.uuid = uuid; modifie = true; }
+    if (local && local.uuid !== uuid) { local.uuid = uuid; modifie = true; }
+  }
+
+  for (const pending of state.pendingVentes) {
+    const local = state.ventes.find((vente) => vente.id === pending.id_local);
+    const uuid = pending.uuid || local?.uuid || genererUuid();
+    if (pending.uuid !== uuid) { pending.uuid = uuid; modifie = true; }
+    if (local && local.uuid !== uuid) { local.uuid = uuid; modifie = true; }
+    if (local && !local.statut) { local.statut = 'telephone'; modifie = true; }
+
+    if (pending.client_uuid === undefined) {
+      const client = state.clients.find((item) => item.id === pending.id_client_local);
+      pending.client_uuid = client?.uuid || null;
+      if (local) local.client_uuid = pending.client_uuid;
+      modifie = true;
+    }
+  }
+
+  // Versements à 0 F créés par l'ancienne version : rien à envoyer
+  const avant = state.pendingPaiements.length;
+  state.pendingPaiements = state.pendingPaiements.filter((pending) => Number(pending.montant) > 0);
+  if (state.pendingPaiements.length !== avant) modifie = true;
+
+  for (const pending of state.pendingPaiements) {
+    const local = state.paiements.find((paiement) => paiement.id === pending.id_local);
+    const uuid = pending.uuid || local?.uuid || genererUuid();
+    if (pending.uuid !== uuid) { pending.uuid = uuid; modifie = true; }
+    if (local && local.uuid !== uuid) { local.uuid = uuid; modifie = true; }
+    if (local && !local.statut) { local.statut = 'telephone'; modifie = true; }
+
+    if (!pending.vente_uuid) {
+      const vente = state.ventes.find((item) => item.id === pending.id_vente_local);
+      if (vente?.uuid) {
+        pending.vente_uuid = vente.uuid;
+        if (local) local.vente_uuid = vente.uuid;
+        modifie = true;
+      }
+    }
+  }
+
+  return modifie;
 }
 
 async function persistBusinessData(): Promise<void> {
@@ -59,6 +120,66 @@ async function persistPendingData(): Promise<void> {
   await localDataStorage.savePendingPaiements(state.pendingPaiements.map(toRaw));
 }
 
+// Recharge depuis le serveur : les éléments déjà envoyés sont remplacés par la copie du serveur
+// (un seul exemplaire, avec son état « envoyée » ou « validée ») ; seuls les éléments encore
+// en attente d'envoi restent tels quels sur le téléphone. La correspondance se fait par uuid.
+async function rechargerDepuisServeur(token: string): Promise<{ clients: number; ventes: number; paiements: number }> {
+  const response = await mobileDataService.restore(token);
+  // Toujours repartir du stockage local (ex. : à la connexion, la mémoire est encore vide) :
+  // sinon la file d'attente serait écrasée et les ventes non envoyées perdues.
+  await loadFromLocal();
+  const serveur = response.data;
+
+  // Ce que le téléphone connaissait déjà (pour compter les nouveautés)
+  const clesConnues = new Set([
+    ...state.clients.map((c) => c.uuid || `client:${c.id}`),
+    ...state.ventes.map((v) => v.uuid || ''),
+    ...state.paiements.map((p) => p.uuid || ''),
+  ]);
+
+  // Éléments en attente que le serveur a déjà (réponse perdue lors d'un envoi précédent) : retirés de la file
+  const uuidsServeur = new Set(
+    [...serveur.clients, ...serveur.ventes, ...serveur.paiements].map((e) => e.uuid).filter(Boolean)
+  );
+  state.pendingClients = state.pendingClients.filter((p) => !p.uuid || !uuidsServeur.has(p.uuid));
+  state.pendingVentes = state.pendingVentes.filter((p) => !p.uuid || !uuidsServeur.has(p.uuid));
+  state.pendingPaiements = state.pendingPaiements.filter((p) => !p.uuid || !uuidsServeur.has(p.uuid));
+
+  const enAttente = new Set(
+    [...state.pendingClients, ...state.pendingVentes, ...state.pendingPaiements].map((p) => p.uuid)
+  );
+
+  const clientsLocaux = state.clients.filter((c) => c.uuid && enAttente.has(c.uuid));
+  const ventesLocales = state.ventes.filter((v) => v.uuid && enAttente.has(v.uuid));
+  const paiementsLocaux = state.paiements.filter((p) => p.uuid && enAttente.has(p.uuid));
+
+  const clients = [...clientsLocaux, ...serveur.clients];
+  const ventes = [...ventesLocales, ...serveur.ventes];
+
+  // Les éléments locaux pointent vers leur client / leur vente par uuid : on remet le bon id
+  for (const vente of ventesLocales) {
+    const client = vente.client_uuid ? clients.find((c) => c.uuid === vente.client_uuid) : null;
+    if (client) vente.id_client = client.id;
+  }
+  for (const paiement of paiementsLocaux) {
+    const vente = paiement.vente_uuid ? ventes.find((v) => v.uuid === paiement.vente_uuid) : null;
+    if (vente) paiement.id_vente = vente.id;
+  }
+
+  state.clients = clients;
+  state.ventes = ventes;
+  state.paiements = [...paiementsLocaux, ...serveur.paiements];
+
+  await persistBusinessData();
+  await persistPendingData();
+
+  return {
+    clients: serveur.clients.filter((c) => !clesConnues.has(c.uuid || `client:${c.id}`)).length,
+    ventes: serveur.ventes.filter((v) => !clesConnues.has(v.uuid || '')).length,
+    paiements: serveur.paiements.filter((p) => !clesConnues.has(p.uuid || '')).length,
+  };
+}
+
 export const dataStore = {
   state,
 
@@ -67,36 +188,12 @@ export const dataStore = {
   },
 
   async restoreFromServer(token: string): Promise<{ clients: number; ventes: number; paiements: number }> {
-    const response = await mobileDataService.restore(token);
-    const { clients: serverClients, ventes: serverVentes, paiements: serverPaiements } = response.data;
-
-    const localClientIds = new Set(state.clients.map((c) => c.id));
-    const localVenteIds  = new Set(state.ventes.map((v) => v.id));
-    const localPaiIds    = new Set(state.paiements.map((p) => p.id));
-
-    const newClients   = serverClients.filter((c) => !localClientIds.has(c.id));
-    const newVentes    = serverVentes.filter((v) => !localVenteIds.has(v.id));
-    const newPaiements = serverPaiements.filter((p) => !localPaiIds.has(p.id));
-
-    state.clients   = [...newClients,   ...state.clients];
-    state.ventes    = [...newVentes,    ...state.ventes];
-    state.paiements = [...newPaiements, ...state.paiements];
-
-    await persistBusinessData();
-
-    return { clients: newClients.length, ventes: newVentes.length, paiements: newPaiements.length };
+    return rechargerDepuisServeur(token);
   },
 
+  // Chargement à l'ouverture de l'accueil : même fusion par uuid que restoreFromServer
   async syncInitialData(token: string): Promise<void> {
-    const response = await mobileDataService.bootstrap(token);
-    const localClients = (await localDataStorage.getClients()).filter((item) => item.id < 0);
-    const localVentes = (await localDataStorage.getVentes()).filter((item) => item.id < 0);
-    const localPaiements = (await localDataStorage.getPaiements()).filter((item) => item.id < 0);
-
-    await localDataStorage.saveClients([...response.data.clients, ...localClients]);
-    await localDataStorage.saveVentes([...response.data.ventes, ...localVentes]);
-    await localDataStorage.savePaiements([...response.data.paiements, ...localPaiements]);
-    await loadFromLocal();
+    await rechargerDepuisServeur(token);
   },
 
   async addClientOffline(payload: {
@@ -107,6 +204,7 @@ export const dataStore = {
   }): Promise<LocalClient> {
     const client: LocalClient = {
       id: nextLocalId(),
+      uuid: genererUuid(),
       nom: payload.nom.trim(),
       prenom: payload.prenom.trim(),
       telephone: payload.telephone?.trim() || null,
@@ -118,6 +216,7 @@ export const dataStore = {
       ...state.pendingClients,
       {
         id_local: client.id,
+        uuid: client.uuid as string,
         nom: client.nom,
         prenom: client.prenom,
         telephone: client.telephone,
@@ -152,8 +251,14 @@ export const dataStore = {
       throw new Error('Le montant verse ne peut pas depasser le montant total de la vente.');
     }
 
+    // Client saisi sur un téléphone : désigné par son uuid ; client du guichet : par son id
+    const clientUuid = payload.client.uuid || null;
+
     const vente: LocalVente = {
       id: venteId,
+      uuid: genererUuid(),
+      client_uuid: clientUuid,
+      statut: 'telephone',
       type_vente: payload.type_vente,
       quantite: Number(payload.quantite),
       observation: payload.observation?.trim() || null,
@@ -167,25 +272,15 @@ export const dataStore = {
       updatedAt: now,
     };
 
-    const paiement: LocalPaiement = {
-      id: nextLocalId(),
-      montant: montantVerse,
-      date: payload.date_vente,
-      id_vente: venteId,
-      observation: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
     state.ventes = [vente, ...state.ventes];
-    state.paiements = [paiement, ...state.paiements];
-
     state.pendingVentes = [
       ...state.pendingVentes,
       {
         id_local: vente.id,
+        uuid: vente.uuid as string,
         id_client_local: payload.client.id,
         id_client: payload.client.id > 0 ? payload.client.id : undefined,
+        client_uuid: clientUuid,
         type_vente: payload.type_vente,
         quantite: vente.quantite,
         prix_unitaire: vente.prix_unitaire,
@@ -194,17 +289,36 @@ export const dataStore = {
         observation: vente.observation,
       },
     ];
-    state.pendingPaiements = [
-      ...state.pendingPaiements,
-      {
-        id_local: paiement.id,
-        id_vente_local: vente.id,
-        id_vente: vente.id > 0 ? vente.id : undefined,
-        montant: paiement.montant,
-        date: paiement.date,
-        observation: paiement.observation,
-      },
-    ];
+
+    // Versement à la vente (aucun versement à 0 F)
+    if (montantVerse > 0) {
+      const paiement: LocalPaiement = {
+        id: nextLocalId(),
+        uuid: genererUuid(),
+        vente_uuid: vente.uuid,
+        statut: 'telephone',
+        montant: montantVerse,
+        date: payload.date_vente,
+        id_vente: venteId,
+        observation: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      state.paiements = [paiement, ...state.paiements];
+      state.pendingPaiements = [
+        ...state.pendingPaiements,
+        {
+          id_local: paiement.id,
+          uuid: paiement.uuid as string,
+          id_vente_local: vente.id,
+          vente_uuid: vente.uuid,
+          montant: paiement.montant,
+          date: paiement.date,
+          observation: paiement.observation,
+        },
+      ];
+    }
 
     await persistBusinessData();
     await persistPendingData();
@@ -219,6 +333,9 @@ export const dataStore = {
     const vente = state.ventes.find((item) => item.id === payload.venteId);
     if (!vente) {
       throw new Error('Vente introuvable.');
+    }
+    if (!vente.uuid) {
+      throw new Error('Cette vente date d\'avant la mise a jour de l\'application : faites « Mise a jour » (avec internet) puis reessayez.');
     }
 
     const montant = Number(payload.montant);
@@ -235,6 +352,9 @@ export const dataStore = {
     const now = new Date().toISOString();
     const paiement: LocalPaiement = {
       id: nextLocalId(),
+      uuid: genererUuid(),
+      vente_uuid: vente.uuid,
+      statut: 'telephone',
       montant,
       date: payload.date,
       id_vente: vente.id,
@@ -248,8 +368,10 @@ export const dataStore = {
       ...state.pendingPaiements,
       {
         id_local: paiement.id,
+        uuid: paiement.uuid as string,
         id_vente_local: vente.id,
         id_vente: vente.id > 0 ? vente.id : undefined,
+        vente_uuid: vente.uuid,
         montant: paiement.montant,
         date: paiement.date,
         observation: paiement.observation,
@@ -260,6 +382,8 @@ export const dataStore = {
     await persistPendingData();
   },
 
+  // Envoie la file d'attente au serveur. Chaque élément porte son uuid : un renvoi ne crée pas de doublon.
+  // Les éléments acceptés sortent de la file ; les refusés y restent avec le motif dans errors.
   async syncPendingData(token: string): Promise<{ synced: number; errors: string[] }> {
     if (!state.pendingClients.length && !state.pendingVentes.length && !state.pendingPaiements.length) {
       return { synced: 0, errors: [] };
@@ -279,75 +403,69 @@ export const dataStore = {
       );
     }
 
-    const clientsToSync = [...state.pendingClients];
-    const ventesToSync = [...state.pendingVentes];
-    const paiementsToSync = [...state.pendingPaiements];
+    // Versement saisi avec l'ancienne version sur une vente inconnue : impossible à rattacher
+    const paiementsSansVente = state.pendingPaiements.filter((paiement) => !paiement.vente_uuid);
 
-    for (const paiement of paiementsToSync) {
-      const hasMappedVente = ventesToSync.some((vente) => vente.id_local === paiement.id_vente_local);
-      if (hasMappedVente || paiement.id_vente || paiement.id_vente_local > 0) {
-        continue;
-      }
-
-      const localVente = state.ventes.find((vente) => vente.id === paiement.id_vente_local);
-      if (!localVente) {
-        continue;
-      }
-
-      const ventePayload: PendingVentePayload = {
-        id_local: localVente.id,
-        id_client_local: localVente.id_client,
-        id_client: localVente.id_client > 0 ? localVente.id_client : undefined,
-        type_vente: localVente.type_vente,
-        quantite: localVente.quantite,
-        prix_unitaire: localVente.prix_unitaire,
-        type_paiement: localVente.type_paiement,
-        date_vente: localVente.date_vente,
-        observation: localVente.observation,
-      };
-
-      ventesToSync.push(ventePayload);
-
-      if (localVente.id_client < 0) {
-        const hasClient = clientsToSync.some((client) => client.id_local === localVente.id_client);
-        if (!hasClient) {
-          const localClient = state.clients.find((client) => client.id === localVente.id_client);
-          if (localClient) {
-            clientsToSync.push({
-              id_local: localClient.id,
-              nom: localClient.nom,
-              prenom: localClient.prenom,
-              telephone: localClient.telephone,
-              adresse: localClient.adresse,
-            });
-          }
-        }
-      }
-    }
-
-    const response = await mobileDataService.sync(token, {
-      clients: clientsToSync,
-      ventes: ventesToSync,
-      paiements: paiementsToSync,
-    });
-
-    const errors = response.resultats.erreurs || [];
-    if (!errors.length) {
-      await localDataStorage.clearPendingData();
-      state.pendingClients = [];
-      state.pendingVentes = [];
-      state.pendingPaiements = [];
-    } else {
-      state.pendingClients = clientsToSync;
-      state.pendingVentes = ventesToSync;
-      state.pendingPaiements = paiementsToSync;
-      await persistPendingData();
-    }
-
-    return {
-      synced: response.resultats.clients + response.resultats.ventes + response.resultats.paiements,
-      errors,
+    const payload: SyncPayload = {
+      clients: state.pendingClients.map((client) => ({
+        uuid: client.uuid as string,
+        nom: client.nom,
+        prenom: client.prenom,
+        telephone: client.telephone,
+        adresse: client.adresse,
+      })),
+      ventes: state.pendingVentes.map((vente) => ({
+        uuid: vente.uuid as string,
+        ...(vente.client_uuid ? { client_uuid: vente.client_uuid } : { id_client: vente.id_client }),
+        type_vente: vente.type_vente,
+        quantite: vente.quantite,
+        prix_unitaire: vente.prix_unitaire,
+        type_paiement: vente.type_paiement,
+        date_vente: vente.date_vente,
+        observation: vente.observation,
+      })),
+      paiements: state.pendingPaiements
+        .filter((paiement) => paiement.vente_uuid)
+        .map((paiement) => ({
+          uuid: paiement.uuid as string,
+          vente_uuid: paiement.vente_uuid as string,
+          montant: paiement.montant,
+          date: paiement.date,
+          observation: paiement.observation,
+        })),
     };
+
+    const response = await mobileDataService.sync(token, payload);
+    const { acceptes } = response.resultats;
+    const uuidsAcceptes = new Set([...acceptes.clients, ...acceptes.ventes, ...acceptes.paiements]);
+
+    state.pendingClients = state.pendingClients.filter((p) => !p.uuid || !uuidsAcceptes.has(p.uuid));
+    state.pendingVentes = state.pendingVentes.filter((p) => !p.uuid || !uuidsAcceptes.has(p.uuid));
+    state.pendingPaiements = state.pendingPaiements.filter((p) => !p.uuid || !uuidsAcceptes.has(p.uuid));
+    for (const vente of state.ventes) {
+      if (vente.uuid && uuidsAcceptes.has(vente.uuid) && vente.statut === 'telephone') vente.statut = 'envoyee';
+    }
+    for (const paiement of state.paiements) {
+      if (paiement.uuid && uuidsAcceptes.has(paiement.uuid) && paiement.statut === 'telephone') paiement.statut = 'envoyee';
+    }
+    await persistBusinessData();
+    await persistPendingData();
+
+    // Remplace les copies envoyées par celles du serveur (un seul exemplaire de chaque vente)
+    try {
+      await rechargerDepuisServeur(token);
+    } catch (_error) {
+      // Les données locales restent correctes ; la prochaine mise à jour s'en chargera.
+    }
+
+    const errors = [
+      ...(response.resultats.erreurs || []),
+      ...paiementsSansVente.map(
+        (paiement) => `Versement de ${paiement.montant} F du ${paiement.date} : vente introuvable, a ressaisir.`
+      ),
+    ];
+
+    return { synced: uuidsAcceptes.size, errors };
   },
 
   getPendingCount(): number {

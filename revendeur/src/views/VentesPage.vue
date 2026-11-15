@@ -35,6 +35,9 @@
                     <ion-icon :icon="calendarOutline" class="icon-sm" />
                     {{ formatDate(vente.date_vente) }}
                   </p>
+                  <span v-if="vente.statut" :class="['statut-envoi', 'statut-' + vente.statut]">
+                    {{ libelleStatut(vente.statut) }}
+                  </span>
                 </div>
               </div>
               <span :class="['badge', remainingAmount(vente.id, vente.montant) === 0 ? 'badge-ok' : 'badge-due']">
@@ -99,6 +102,7 @@
 </template>
 
 <script setup lang="ts">
+import { libelleStatut } from '@/services/statutEnvoi';
 import {
   IonButton,
   IonButtons,
@@ -356,5 +360,30 @@ function formatDate(dateValue: string): string {
   font-size: 56px;
   margin-bottom: 12px;
   opacity: 0.4;
+}
+
+/* État d'envoi : sur le téléphone / envoyée / validée */
+.statut-envoi {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 10px;
+  margin-top: 3px;
+}
+
+.statut-telephone {
+  background: rgba(146, 148, 156, 0.18);
+  color: #5f6168;
+}
+
+.statut-envoyee {
+  background: rgba(56, 128, 255, 0.15);
+  color: #3171e0;
+}
+
+.statut-validee {
+  background: rgba(45, 175, 109, 0.15);
+  color: #2daf6d;
 }
 </style>

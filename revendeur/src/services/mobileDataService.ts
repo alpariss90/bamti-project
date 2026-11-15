@@ -1,16 +1,5 @@
 import { apiRequest } from '@/services/http';
-import type { BootstrapResponse, SyncPayload, RecetteResponse } from '@/types/data';
-
-interface SyncResponse {
-  success: boolean;
-  message: string;
-  resultats: {
-    clients: number;
-    ventes: number;
-    paiements: number;
-    erreurs: string[];
-  };
-}
+import type { BootstrapResponse, SyncPayload, SyncResponse, RecetteResponse } from '@/types/data';
 
 export const mobileDataService = {
   bootstrap(token: string): Promise<BootstrapResponse> {
