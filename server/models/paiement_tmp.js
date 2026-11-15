@@ -5,6 +5,12 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    // Identifiant unique donné par le téléphone revendeur (anti-doublon) ; vide pour une saisie au guichet
+    uuid: {
+      type: DataTypes.CHAR(36),
+      allowNull: true,
+      unique: true
+    },
     montant: {
       type: DataTypes.FLOAT,
       allowNull: false

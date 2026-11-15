@@ -790,3 +790,114 @@ FROM (
 
 
 *******fin **************/
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ── Application revendeur : identifiant unique (uuid) par client, vente et paiement ──
+-- (2026-11-15) Corrige : versements faits après la validation jamais intégrés,
+--   ventes / versements identiques le même jour comptés une seule fois,
+--   ventes affichées en double sur le téléphone.
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- PRINCIPE : le téléphone donne un uuid à chaque client, vente et paiement au moment de la saisie.
+--   Cet uuid suit l'opération partout (téléphone → tables _tmp → tables officielles) et sert à
+--   reconnaître un renvoi (anti-doublon). Un envoi sans uuid (ancienne version) est refusé.
+--   ventes_tmp.id_vente_officielle relie la vente en attente à la vente officielle créée à la validation,
+--   ce qui permet d'intégrer un versement arrivé APRÈS la validation de sa vente.
+
+-- ÉTAPE 1 : colonnes (à exécuter AVANT de déployer le code serveur)
+ALTER TABLE `clients_tmp`
+  ADD COLUMN `uuid` char(36) DEFAULT NULL AFTER `id`,
+  ADD UNIQUE KEY `uq_clients_tmp_uuid` (`uuid`);
+
+ALTER TABLE `ventes_tmp`
+  ADD COLUMN `uuid` char(36) DEFAULT NULL AFTER `id`,
+  ADD COLUMN `id_vente_officielle` int(11) DEFAULT NULL AFTER `is_sync`,
+  ADD UNIQUE KEY `uq_ventes_tmp_uuid` (`uuid`),
+  ADD KEY `idx_ventes_tmp_officielle` (`id_vente_officielle`);
+
+ALTER TABLE `paiements_tmp`
+  ADD COLUMN `uuid` char(36) DEFAULT NULL AFTER `id`,
+  ADD UNIQUE KEY `uq_paiements_tmp_uuid` (`uuid`);
+
+-- Tables officielles : vide pour les ventes / paiements saisis au guichet
+ALTER TABLE `ventes`
+  ADD COLUMN `uuid` char(36) DEFAULT NULL AFTER `id`,
+  ADD UNIQUE KEY `uq_ventes_uuid` (`uuid`);
+
+ALTER TABLE `paiements`
+  ADD COLUMN `uuid` char(36) DEFAULT NULL AFTER `id`,
+  ADD UNIQUE KEY `uq_paiements_uuid` (`uuid`);
+
+-- ÉTAPE 2 : donner un uuid aux lignes déjà présentes dans les tables d'attente
+-- (pour que les téléphones les reconnaissent après la mise à jour)
+UPDATE `clients_tmp`   SET `uuid` = UUID() WHERE `uuid` IS NULL;
+UPDATE `ventes_tmp`    SET `uuid` = UUID() WHERE `uuid` IS NULL;
+UPDATE `paiements_tmp` SET `uuid` = UUID() WHERE `uuid` IS NULL;
+
+-- ÉTAPE 3 : contrôles (lecture seule)
+-- 3a. Versements bloqués : en attente alors que leur vente est déjà validée.
+--     Les ventes validées avant cette mise à jour n'ont pas de id_vente_officielle :
+--     ces versements resteront « en attente » (données de test, à traiter à la main si besoin).
+SELECT pt.id, pt.montant, pt.date, vt.id AS id_vente_tmp, vt.user, vt.date_vente
+FROM `paiements_tmp` pt
+JOIN `ventes_tmp` vt ON vt.id = pt.id_vente
+WHERE pt.is_sync = 0 AND vt.is_sync = 1;
+
+-- 3b. Éléments encore en attente de validation, par revendeur et par date
+SELECT vt.user, vt.date_vente, COUNT(*) AS ventes_en_attente
+FROM `ventes_tmp` vt
+WHERE vt.is_sync = 0
+GROUP BY vt.user, vt.date_vente
+ORDER BY vt.date_vente;
+
+-- ── PROCÉDURE DE DÉPLOIEMENT (dans cet ordre) ──
+--  1. Prévenir les revendeurs : chacun appuie sur « Synchroniser » avec l'ANCIENNE application
+--     jusqu'à ce qu'il n'y ait plus rien en attente sur son téléphone.
+--     (Après le déploiement du serveur, l'ancienne application ne peut plus rien envoyer.)
+--  2. Sauvegarder la base (mysqldump bamti_gestion > sauvegarde_avant_uuid.sql).
+--  3. Exécuter l'ÉTAPE 1 puis l'ÉTAPE 2 ci-dessus.
+--     Contrôle : depuis server/, npm test (base bamti_test, voir tests/LISEZMOI.md)
+--     → doit afficher « Tests: ... passed » sans « failed ».
+--  4. Déployer le code serveur (server/) et redémarrer l'application (pm2 restart ...).
+--  5. Construire la nouvelle application revendeur (dans revendeur/ : npm run build ; npx cap sync android ;
+--     générer l'APK depuis Android Studio) et l'installer sur chaque téléphone revendeur.
+--  6. Sur chaque téléphone : se connecter (avec internet). Au premier lancement, l'application
+--     recharge ses ventes depuis le serveur : les doublons affichés disparaissent.
+--  7. Dans le web, Revendeurs → Synchroniser : valider comme d'habitude (revendeur + date).
+--     Le tableau « En attente de validation » montre ce qui reste à valider.
+--  8. Lancer les contrôles de l'ÉTAPE 3.
+--
+-- RETOUR ARRIÈRE (si besoin, après avoir remis l'ancien code) :
+--   ALTER TABLE `clients_tmp`   DROP INDEX `uq_clients_tmp_uuid`,   DROP COLUMN `uuid`;
+--   ALTER TABLE `ventes_tmp`    DROP INDEX `uq_ventes_tmp_uuid`, DROP INDEX `idx_ventes_tmp_officielle`,
+--                               DROP COLUMN `uuid`, DROP COLUMN `id_vente_officielle`;
+--   ALTER TABLE `paiements_tmp` DROP INDEX `uq_paiements_tmp_uuid`, DROP COLUMN `uuid`;
+--   ALTER TABLE `ventes`        DROP INDEX `uq_ventes_uuid`,        DROP COLUMN `uuid`;
+--   ALTER TABLE `paiements`     DROP INDEX `uq_paiements_uuid`,     DROP COLUMN `uuid`;
+
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ── Base de test bamti_test (tests automatiques : npm test, voir server/tests/LISEZMOI.md) ──
+-- (2026-11-15) Copie VIDE de la structure de bamti_gestion. Les tests la vident à chaque lancement.
+-- Ne jamais la créer sur le serveur de production : elle ne sert qu'en local.
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- CRÉATION / RÉINITIALISATION (Git Bash, dossier C:\xampp8\mysql\bin) :
+--   ./mysql -uroot -e "DROP DATABASE IF EXISTS bamti_test; CREATE DATABASE bamti_test CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+--   T=$(./mysql -uroot -N -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA='bamti_gestion' AND TABLE_TYPE='BASE TABLE'" | tr -d '\r' | tr '\n' ' ')
+--   ./mysqldump -uroot --no-data --skip-lock-tables --skip-triggers bamti_gestion $T | ./mysql -uroot bamti_test
+--   Puis recréer les vues (même définition que dans bamti_gestion), par exemple :
+--   for v in paiement_retard situation_detail_depense situation_general tendant_client_10 vpersonnel_avance vsalaires; do
+--     d=$(./mysql -uroot -N -e "SELECT VIEW_DEFINITION FROM information_schema.VIEWS WHERE TABLE_SCHEMA='bamti_gestion' AND TABLE_NAME='$v'")
+--     echo "CREATE OR REPLACE VIEW \`$v\` AS ${d//bamti_gestion/bamti_test};" | ./mysql -uroot bamti_test
+--   done
+--
+-- MISE À JOUR : chaque nouveau SQL de ce fichier (ALTER / CREATE) s'exécute AUSSI sur bamti_test.
+--
+-- PROBLÈMES TROUVÉS PAR LES TESTS (2026-11-15) :
+--   - La vue situation_detail_vente (utilisée par le tableau de bord, controllers/dashboardController.js)
+--     n'existe ni dans la base locale ni dans ce fichier → le tableau de bord échoue en local.
+--     À récupérer depuis la production : SHOW CREATE VIEW situation_detail_vente;  puis l'ajouter ici.
+--   - La vue situation_depense_vente_30 est cassée (elle utilise situation_detail_vente).
