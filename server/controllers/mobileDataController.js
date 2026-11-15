@@ -236,7 +236,9 @@ exports.createVente = async (req, res) => {
 };
 
 // ─── PUT /api/mobile/ventes/:id ──────────────────────────────────────────────
-// Modifier une vente — uniquement le même jour
+// Modifier une vente — désactivé : une vente n'est jamais modifiée ni supprimée.
+// Aucun appel depuis l'application revendeur. Route commentée dans routes/api/mobile.js.
+/*
 exports.updateVente = async (req, res) => {
   const { id } = req.params;
   const id_user = req.apiUser.id;
@@ -265,9 +267,12 @@ exports.updateVente = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });
   }
 };
+*/
 
 // ─── DELETE /api/mobile/ventes/:id ───────────────────────────────────────────
-// Supprimer une vente — uniquement le même jour
+// Supprimer une vente — désactivé : une vente n'est jamais modifiée ni supprimée.
+// Aucun appel depuis l'application revendeur. Route commentée dans routes/api/mobile.js.
+/*
 exports.deleteVente = async (req, res) => {
   const { id } = req.params;
   const id_user = req.apiUser.id;
@@ -290,6 +295,7 @@ exports.deleteVente = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });
   }
 };
+*/
 
 // ─── POST /api/mobile/paiements ──────────────────────────────────────────────
 // Ajouter un paiement sur une vente (redevable)

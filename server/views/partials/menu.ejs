@@ -76,9 +76,9 @@
   <% if (typeof stockSachet !== 'undefined' && stockSachet !== null) { %>
     <!-- Stock de sachets : visible par tous les profils (calculé dans middleware/sessionUser.js) -->
     <li class="nav-item menu-stock">
-      <div class="nav-link" style="cursor: default;" title="Stock sachets">
+      <div class="nav-link" style="cursor: default;" title="Stock d'eau">
         <i class="ri-drop-fill"></i>
-        <span>Stock sachets : <%= new Intl.NumberFormat('fr-FR').format(stockSachet) %> sachets</span>
+        <span>Stock d'eau : <%= new Intl.NumberFormat('fr-FR').format(stockSachet) %> sachets</span>
       </div>
     </li>
   <% } %>

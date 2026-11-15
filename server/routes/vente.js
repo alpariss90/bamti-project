@@ -11,8 +11,9 @@ router.post('/createOrUpdate', venteController.createOrUpdate);
 
 router.post('/createOrUpdateCaissier', venteController.createOrUpdateCaissier);
 
-// Supprimer une vente
-router.delete('/delete/:id', venteController.delete);
+// Supprimer une vente — désactivé : une vente n'est jamais supprimée, seulement annulée (/annuler/:id).
+// Route appelée par aucune vue ; la suppression ne restituait pas le stock d'eau.
+// router.delete('/delete/:id', venteController.delete);
 
 // Ajouter un versement
 router.post('/AjouterVersement', venteController.ajouterVersement);

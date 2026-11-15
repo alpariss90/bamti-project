@@ -24,10 +24,10 @@ router.get('/redevables',         authJwt, ctrl.getRedevables);
 // ── Ventes ─────────────────────────────────────────────────────────────────────
 // Créer une vente
 router.post('/ventes',            authJwt, ctrl.createVente);
-// Modifier une vente (même jour seulement)
-router.put('/ventes/:id',         authJwt, ctrl.updateVente);
-// Supprimer une vente (même jour seulement)
-router.delete('/ventes/:id',      authJwt, ctrl.deleteVente);
+// Modifier / supprimer une vente — désactivé : une vente n'est jamais modifiée ni supprimée,
+// et l'application revendeur n'appelle pas ces routes.
+// router.put('/ventes/:id',         authJwt, ctrl.updateVente);
+// router.delete('/ventes/:id',      authJwt, ctrl.deleteVente);
 
 // ── Paiements ──────────────────────────────────────────────────────────────────
 // Ajouter un paiement sur une vente existante

@@ -40,6 +40,9 @@ const UserLogModel = require('./user_log')(sequelize, DataTypes);
 const CaisseJourneeModel = require('./caisse_journee')(sequelize, DataTypes);
 const CaisseRemiseModel = require('./caisse_remise')(sequelize, DataTypes);
 const CaisseRemiseLigneModel = require('./caisse_remise_ligne')(sequelize, DataTypes);
+const BonEnlevementModel = require('./bon_enlevement')(sequelize, DataTypes);
+const MouvementStockModel = require('./mouvement_stock')(sequelize, DataTypes);
+const InventaireModel = require('./inventaire')(sequelize, DataTypes);
 //relations entre les tables
 ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
@@ -108,6 +111,13 @@ CaisseRemiseModel.hasMany(CaisseRemiseLigneModel, { foreignKey: 'id_remise', as:
 CaisseRemiseLigneModel.belongsTo(CaisseRemiseModel, { foreignKey: 'id_remise', as: 'remise' });
 CaisseRemiseLigneModel.belongsTo(CaisseJourneeModel, { foreignKey: 'id_journee', as: 'journee' });
 
+// Stock d'eau réel : bons d'enlèvement -> mouvements physiques (services/stockEau.js)
+BonEnlevementModel.hasMany(MouvementStockModel, { foreignKey: 'id_bon', as: 'mouvements', constraints: false });
+MouvementStockModel.belongsTo(BonEnlevementModel, { foreignKey: 'id_bon', as: 'bon', constraints: false });
+BonEnlevementModel.belongsTo(ClientModel, { foreignKey: 'id_client', as: 'client', constraints: false });
+MouvementStockModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'auteur', constraints: false });
+InventaireModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'auteur', constraints: false });
+
 
 // Synchronisation automatique
 /*sequelize.sync({ alter: true }) 
@@ -155,4 +165,7 @@ module.exports = {
   CaisseRemise: CaisseRemiseModel,
   CaisseRemiseLigne: CaisseRemiseLigneModel,
   UserLog: UserLogModel,
+  BonEnlevement: BonEnlevementModel,
+  MouvementStock: MouvementStockModel,
+  Inventaire: InventaireModel,
 };

@@ -267,6 +267,9 @@ exports.createOrUpdate = async (req, res) => {
       await t.commit();
       return redirectWithMessage(req, res, 'Vente ajoutée avec succès.', 'success');
     } else {
+      // Modification désactivée : une vente n'est jamais modifiée, seulement annulée.
+      // Aucune vue ne renseigne le champ "id" ; la modification n'ajustait pas le stock d'eau.
+      /*
       const vente = await Vente.findByPk(id);
       if (!vente) {
         await t.rollback();
@@ -277,6 +280,9 @@ exports.createOrUpdate = async (req, res) => {
       await t.commit();
 
       return redirectWithMessage(req, res, 'Vente mise à jour avec succès.', 'warning');
+      */
+      await t.rollback();
+      return redirectWithMessage(req, res, 'La modification d’une vente n’est pas autorisée. Utilisez l’annulation.', 'danger');
     }
   } catch (err) {
     console.error(err);
@@ -342,6 +348,9 @@ exports.createOrUpdateCaissier = async (req, res) => {
       await t.commit();
       return redirectWithMessageCaissier(req, res, 'Vente ajoutée avec succès.', 'success');
     } else {
+      // Modification désactivée : une vente n'est jamais modifiée, seulement annulée.
+      // Aucune vue ne renseigne le champ "id" ; la modification n'ajustait pas le stock d'eau.
+      /*
       const vente = await Vente.findByPk(id);
       if (!vente) {
         await t.rollback();
@@ -352,6 +361,9 @@ exports.createOrUpdateCaissier = async (req, res) => {
       await t.commit();
 
       return redirectWithMessageCaissier(req, res, 'Vente mise à jour avec succès.', 'warning');
+      */
+      await t.rollback();
+      return redirectWithMessageCaissier(req, res, 'La modification d’une vente n’est pas autorisée. Utilisez l’annulation.', 'danger');
     }
   } catch (err) {
     console.error(err);
@@ -360,7 +372,9 @@ exports.createOrUpdateCaissier = async (req, res) => {
   }
 };
 
-// Supprimer une vente
+// Supprimer une vente — désactivé : une vente n'est jamais supprimée, seulement annulée (voir exports.annuler).
+// La suppression ne restituait pas le stock d'eau. Route commentée dans routes/vente.js.
+/*
 exports.delete = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -382,6 +396,7 @@ exports.delete = async (req, res) => {
     return redirectWithMessage(req, res, 'Erreur lors de la suppression de la vente.', 'danger');
   }
 };
+*/
 
 
 exports.annuler = async (req, res) => {
@@ -553,12 +568,15 @@ function convertToFR(dateISO) {
   return `${jour}/${mois}/${annee}`;
 }
 
+// Seuls ces profils apparaissent dans le select "Caissier" du filtre des ventes
+const PROFILS_CAISSIER_FILTRE = ['admin', 'caissier', 'gestionnaire'];
+
 exports.ventesFiltrees = async (req, res) => {
   try {
     // Si aucun filtre soumis, afficher le formulaire vide
     if (!req.query.date_debut) {
       const clients = await Client.findAll();
-      const users   = await User.findAll();
+      const users   = await User.findAll({ where: { profil: PROFILS_CAISSIER_FILTRE } });
       return res.render('ventes/filtre', {
         clients, users,
         ventes: [],
@@ -650,7 +668,7 @@ exports.ventesFiltrees = async (req, res) => {
       const user = users[0]?.User || (await User.findByPk(id_user));
       if (user) users.push(user);
     } else {
-      users = await User.findAll();
+      users = await User.findAll({ where: { profil: PROFILS_CAISSIER_FILTRE } });
     }
 
     res.render('ventes/filtre', {

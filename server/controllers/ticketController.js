@@ -182,7 +182,7 @@ exports.vente = async (req, res) => {
     await ticket.update({ statut: 'VENTE EFFECTUEE' }, { transaction: t });
 
     const vente = await Vente.create(
-      { type_vente: 'livrer', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: recu.type_paiement, date_vente, user, livreur },
+      { type_vente: 'usine', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: recu.type_paiement, date_vente, user, livreur },
       { transaction: t });
 
     // Toujours un paiement, même à 0 F (la vente reste comptée parmi les redevables)

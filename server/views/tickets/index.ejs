@@ -76,7 +76,12 @@
 
   <!-- Liste des tickets -->
   <div id="ticketListContainer" class="mt-4">
-    <h5 class="mb-3 fw-bold">Liste des tickets</h5>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0 fw-bold">Liste des tickets</h5>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#historiqueTicketsModal">
+        <i class="bi bi-clock-history"></i> Historique
+      </button>
+    </div>
 
     <% if (tickets && tickets.length > 0) { %>
       <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
@@ -177,6 +182,67 @@
     <% } else { %>
       <div class="alert alert-info">Aucune ticket enregistrée.</div>
     <% } %>
+  </div>
+</div>
+
+<!-- Modal Historique : tickets dont la vente est effectuée (retirés de la liste principale) -->
+<% const ticketsVendus = (tickets || []).filter(t => t.statut == 'VENTE EFFECTUEE'); %>
+<div class="modal fade" id="historiqueTicketsModal" tabindex="-1" aria-labelledby="historiqueTicketsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title" id="historiqueTicketsModalLabel"><i class="bi bi-clock-history"></i> Historique des tickets (vente effectuée)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <% if (ticketsVendus.length > 0) { %>
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <input type="text" id="historiqueRecherche" class="form-control" style="max-width:420px"
+              placeholder="Rechercher : client, chauffeur, marque, date (ex : 31/10/2026)...">
+            <span class="text-muted small"><span id="historiqueCompteur"><%= ticketsVendus.length %></span> / <%= ticketsVendus.length %> ticket(s)</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-hover table-bordered align-middle mb-0" id="historiqueTable">
+              <thead class="table-secondary">
+                <tr>
+                  <th>#</th>
+                  <th>Client</th>
+                  <th>Quantité</th>
+                  <th>Nom chauffeur</th>
+                  <th>Marque voiture</th>
+                  <th>Date création</th>
+                  <th>Date livraison</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% ticketsVendus.forEach((ticket, index) => { %>
+                  <tr>
+                    <td><%= index + 1 %></td>
+                    <td class="h-recherche"><%= ticket.Client ? ticket.Client.nom + ' ' + ticket.Client.prenom : '-' %></td>
+                    <td><%= ticket.quantite %></td>
+                    <td class="h-recherche"><%= ticket.nom_chauffeur %></td>
+                    <td class="h-recherche"><%= ticket.marque_voiture %></td>
+                    <td class="h-recherche"><%= new Date(ticket.createdAt).toLocaleDateString('fr-FR') %></td>
+                    <td class="h-recherche"><%= ticket.date_livraison ? new Date(ticket.date_livraison).toLocaleDateString('fr-FR') : '-' %></td>
+                  </tr>
+                <% }) %>
+                <tr id="historiqueAucunResultat" style="display:none">
+                  <td colspan="7" class="text-center text-muted">Aucun ticket ne correspond à la recherche.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="alert alert-info mb-0">Aucun ticket avec vente effectuée pour le moment.</div>
+        <% } %>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -356,6 +422,36 @@ if (cancelBtn) {
   function hideSnackbarv() {
     snackbarv.classList.remove('show');
   }
+
+  // Recherche dans l'historique : client, chauffeur, marque, date création ou date livraison
+  document.addEventListener('DOMContentLoaded', () => {
+    const recherche = document.getElementById('historiqueRecherche');
+    if (!recherche) return;
+
+    const lignes = Array.from(document.querySelectorAll('#historiqueTable tbody tr'))
+      .filter(tr => tr.id !== 'historiqueAucunResultat');
+    const compteur = document.getElementById('historiqueCompteur');
+    const aucunResultat = document.getElementById('historiqueAucunResultat');
+
+    recherche.addEventListener('input', () => {
+      const filtre = recherche.value.trim().toLowerCase();
+      let nbVisibles = 0;
+      lignes.forEach(tr => {
+        const texte = Array.from(tr.querySelectorAll('.h-recherche')).map(td => td.textContent).join(' ').toLowerCase();
+        const visible = texte.includes(filtre);
+        tr.style.display = visible ? '' : 'none';
+        if (visible) nbVisibles++;
+      });
+      compteur.textContent = nbVisibles;
+      aucunResultat.style.display = nbVisibles === 0 ? '' : 'none';
+    });
+
+    // Recherche remise à zéro à chaque ouverture du modal
+    document.getElementById('historiqueTicketsModal').addEventListener('show.bs.modal', () => {
+      recherche.value = '';
+      recherche.dispatchEvent(new Event('input'));
+    });
+  });
 
   // Filtre de table
   document.addEventListener('DOMContentLoaded', () => {

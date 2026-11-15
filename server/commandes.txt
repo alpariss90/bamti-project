@@ -500,7 +500,7 @@ UPDATE `paiements` p
 JOIN `ventes` v ON v.`id` = p.`id_vente`
 SET p.`id_user` = v.`user`
 WHERE p.`id_user` IS NULL
-  AND ABS(TIMESTAMPDIFF(SECOND, v.`createdAt`, p.`createdAt`)) <= 5;
+  AND ABS(TIMESTAMPDIFF(SECOND, v.`createdAt`, p.`createdAt`)) <=30 ;
 
 -- 2b. Ventes des revendeurs : le revendeur encaisse toujours lui-même ses ventes
 -- Contrôle :
@@ -642,3 +642,151 @@ CREATE TABLE IF NOT EXISTS `caisse_remise_lignes` (
 --     SELECT r.id, e.nom AS de, d.nom AS a, r.createdAt
 --     FROM caisse_remises r JOIN users e ON e.id = r.id_expediteur JOIN users d ON d.id = r.id_destinataire
 --     WHERE r.statut = 'en_attente';
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- ── Stock d'eau réel : bons d'enlèvement et mouvements physiques (Étape 0) ──
+-- À exécuter AVANT de déployer le code. Les tables existantes ne sont pas modifiées.
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- PRINCIPE : la vente ne touche plus au stock. Chaque source (vente, commande, réservation,
+--   ticket, carte) crée un bon d'enlèvement ; seul le scan du bon à l'usine fait sortir des sachets.
+--
+-- STOCK PHYSIQUE  = Σ stock_sachet_entrees (production) − Σ stock_sachet_sorties (ancien système)
+--                   + Σ mouvements_stock.quantite (signée : − sortie, + retour)
+-- STOCK ENGAGÉ    = Σ (quantite_due − quantite_enlevee) des bons ouverts ou partiels
+-- STOCK DISPONIBLE = physique − engagé
+-- Règles et calculs : server/services/stockEau.js
+
+-- Un bon par source : ce que le bénéficiaire a le droit de retirer à l'usine
+CREATE TABLE IF NOT EXISTS `bons_enlevement` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `code` varchar(10) NOT NULL,                -- 10 chiffres tirés au hasard (contenu du QR, imprimé en clair)
+  `origine_type` enum('vente','commande','reservation','ticket','carte_famille','carte_prepaye') NOT NULL,
+  `origine_id` int(11) DEFAULT NULL,          -- id dans la table d'origine (référence libre, sans clé étrangère)
+  `id_client` int(11) DEFAULT NULL,
+  `id_carte` int(11) DEFAULT NULL,            -- rempli à l'Étape 4 (cartes)
+  `beneficiaire` varchar(150) DEFAULT NULL,   -- nom affiché au scan (client, réservation, membre de la famille)
+  `quantite_due` int(11) NOT NULL,
+  `quantite_enlevee` int(11) NOT NULL DEFAULT 0,  -- diminue en cas de retour
+  `statut` enum('ouvert','partiel','solde','annule') NOT NULL DEFAULT 'ouvert',
+  `date_bon` date NOT NULL,
+  `id_user` int(11) DEFAULT NULL,             -- qui a créé le bon
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_bon_code` (`code`),
+  KEY `idx_bon_origine` (`origine_type`, `origine_id`),
+  KEY `idx_bon_statut` (`statut`),
+  KEY `idx_bon_client` (`id_client`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tout mouvement physique de sachets (hors production, qui reste dans stock_sachet_entrees)
+CREATE TABLE IF NOT EXISTS `mouvements_stock` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uuid` char(36) NOT NULL,                   -- identifiant unique (créé par le téléphone hors ligne) : anti-doublon
+  `type` enum('enlevement','retour','perte','ajustement') NOT NULL,
+  `quantite` int(11) NOT NULL,                -- effet sur le stock : négatif = sortie, positif = entrée
+  `id_bon` int(11) DEFAULT NULL,
+  `id_tournee` int(11) DEFAULT NULL,          -- rempli à l'Étape 3 (tournées)
+  `id_inventaire` int(11) DEFAULT NULL,       -- pour les ajustements d'inventaire
+  `id_user` int(11) NOT NULL,                 -- qui a fait le mouvement
+  `source` enum('web','mobile') NOT NULL DEFAULT 'web',
+  `date_operation` datetime NOT NULL,         -- moment réel (heure du scan sur le téléphone) ; createdAt = arrivée au serveur
+  `anomalie` tinyint(1) NOT NULL DEFAULT 0,   -- accepté mais à vérifier (ex. bon dépassé lors d'une synchro hors ligne)
+  `motif` varchar(255) DEFAULT NULL,          -- obligatoire pour une perte
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_mouvement_uuid` (`uuid`),
+  KEY `idx_mouvement_bon` (`id_bon`),
+  KEY `idx_mouvement_type_date` (`type`, `date_operation`),
+  KEY `idx_mouvement_anomalie` (`anomalie`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Comptages physiques : l'écart avec le stock calculé devient un mouvement « ajustement »
+CREATE TABLE IF NOT EXISTS `inventaires` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `date_inventaire` date NOT NULL,
+  `stock_compte` int(11) NOT NULL,            -- sachets comptés à la main
+  `stock_calcule` int(11) NOT NULL,           -- stock physique selon le logiciel au moment du comptage
+  `ecart` int(11) NOT NULL,                   -- compté − calculé
+  `observation` text DEFAULT NULL,
+  `id_user` int(11) NOT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_inventaire_date` (`date_inventaire`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+
+/*********** requete verification encaissement vente d'un user***********/
+SELECT
+  ROUND(SUM(CASE WHEN v.date_vente = '2026-11-02' THEN p.montant ELSE 0 END), 2) AS encaisse_ventes_du_jour,
+  ROUND(SUM(CASE WHEN v.date_vente <  '2026-11-02' THEN p.montant ELSE 0 END), 2) AS encaisse_anciennes_ventes,
+  ROUND(SUM(CASE WHEN v.id IS NULL OR v.date_vente > '2026-11-02' THEN p.montant ELSE 0 END), 2) AS autres,
+  ROUND(SUM(p.montant), 2) AS caisse_totale
+FROM paiements p
+LEFT JOIN ventes v ON v.id = p.id_vente
+WHERE p.id_user = 12
+  AND p.date = '2026-11-02';
+
+
+  SELECT COUNT(*) AS nb_ventes,
+       SUM(quantite) AS quantite,
+       ROUND(SUM(montant), 2) AS montant_ventes
+FROM ventes
+WHERE user = 12
+  AND date_vente = '2026-11-02';
+
+
+SELECT p.id, p.id_vente, v.date_vente, v.montant AS montant_vente, p.montant AS encaisse
+FROM paiements p
+JOIN ventes v ON v.id = p.id_vente
+WHERE p.id_user = 12
+  AND p.date = '2026-11-02'
+  AND v.date_vente < '2026-11-02'
+ORDER BY v.date_vente;
+
+
+
+
+/********Détail par vente : montant de la vente, encaissé hier par le 12, payé au total (toutes dates et tous encaisseurs confondus) et reste à payer.*/
+
+SELECT
+  v.id,
+  v.type_paiement,
+  v.montant                                   AS montant_vente,
+  ROUND(COALESCE(SUM(CASE WHEN p.date = v.date_vente AND p.id_user = 12
+                          THEN p.montant END), 0), 2) AS encaisse_hier_par_12,
+  ROUND(COALESCE(SUM(p.montant), 0), 2)       AS paye_total,
+  ROUND(v.montant - COALESCE(SUM(p.montant), 0), 2) AS reste_a_payer
+FROM ventes v
+LEFT JOIN paiements p ON p.id_vente = v.id
+WHERE v.user = 12
+  AND v.date_vente = '2026-11-02'
+GROUP BY v.id, v.type_paiement, v.montant
+ORDER BY reste_a_payer DESC, v.id;
+
+
+
+SELECT
+  COUNT(*)                                   AS nb_ventes,
+  ROUND(SUM(t.montant_vente), 2)             AS montant_ventes,
+  ROUND(SUM(t.encaisse_hier), 2)             AS encaisse_hier,
+  ROUND(SUM(t.montant_vente - t.paye_total), 2) AS reste_a_payer,
+  SUM(t.montant_vente - t.paye_total > 0.01) AS nb_ventes_non_soldees
+FROM (
+  SELECT v.id, v.montant AS montant_vente,
+         COALESCE(SUM(CASE WHEN p.date = v.date_vente AND p.id_user = 12 THEN p.montant END), 0) AS encaisse_hier,
+         COALESCE(SUM(p.montant), 0) AS paye_total
+  FROM ventes v
+  LEFT JOIN paiements p ON p.id_vente = v.id
+  WHERE v.user = 12 AND v.date_vente = '2026-11-02'
+  GROUP BY v.id, v.montant
+) t;
+
+
+
+*******fin **************/

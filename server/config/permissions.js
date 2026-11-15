@@ -53,5 +53,11 @@ module.exports = {
   // Recevoir (ou refuser) les remises d'argent
   'caisse.recevoir':          ['admin', 'gestionnaire'],
   // Alerte de stock critique (matériel + matière) affichée à la connexion
-  'alerte_stock':             ['admin', 'gestionnaire']
+  'alerte_stock':             ['admin', 'gestionnaire'],
+  // Stock d'eau réel : remettre les sachets d'un bon (scan à l'usine) et enregistrer les retours
+  'stock.scanner':            ['gestionnaire', 'magasinier'],
+  // Saisir un comptage physique (l'écart devient un ajustement du stock)
+  'stock.inventaire':         ['admin', 'gestionnaire'],
+  // Saisir des sachets perdus ou abîmés
+  'stock.perte':              ['admin', 'gestionnaire']
 };
