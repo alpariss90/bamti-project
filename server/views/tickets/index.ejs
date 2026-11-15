@@ -8,7 +8,7 @@
     </div>
 
     <div class="card-body">
-      <% if (currentUser && currentUser.profil === 'admin') { %>
+      <% if (peut('tickets.gerer')) { %>
       <!-- Formulaire -->
       <form id="ticketForm" action="/tickets/createOrUpdate" method="POST" class="row g-2 align-items-end">
         <input type="hidden" name="id" id="ticketId">
@@ -76,7 +76,12 @@
 
   <!-- Liste des tickets -->
   <div id="ticketListContainer" class="mt-4">
-    <h5 class="mb-3 fw-bold">Liste des tickets</h5>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0 fw-bold">Liste des tickets</h5>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#historiqueTicketsModal">
+        <i class="bi bi-clock-history"></i> Historique
+      </button>
+    </div>
 
     <% if (tickets && tickets.length > 0) { %>
       <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
@@ -139,7 +144,7 @@
                        
                       </li>
                       <% }%>
-<% if (currentUser && currentUser.profil === 'admin' && ticket.statut == 'NON LIVRE') { %>
+<% if (peut('tickets.gerer') && ticket.statut == 'NON LIVRE') { %>
                       <li>
                         <a class="dropdown-item text-danger" href="#" onclick='showSnackbar(<%= ticket.id %>, "<%= ticket.Client ? ticket.Client.nom : "" %>")'>
                           <i class="bi bi-trash"></i> Supprimer
@@ -147,9 +152,15 @@
                       </li>
                       <% }%>
 
-                      <% if (currentUser && currentUser.profil === 'admin' && ticket.statut != 'NON LIVRE') { %>
+                      <% if (peut('tickets.gerer') && ticket.statut != 'NON LIVRE') { %>
                       <li>
-                        <a class="dropdown-item text-success" href="#" onclick='showSnackbarvv(<%= index + 1 %>, "<%= ticket.Client ? ticket.Client.nom : "" %>", <%= ticket.id %>)'>
+                        <a class="dropdown-item text-success" href="#"
+                           data-id="<%= ticket.id %>"
+                           data-numero="<%= index + 1 %>"
+                           data-client="<%= ticket.Client ? ticket.Client.nom : '' %>"
+                           data-quantite="<%= ticket.quantite %>"
+                           data-total="<%= ticket.quantite * prixUnitaireTicket %>"
+                           onclick="ouvrirVenteTicket(this); return false;">
                           <i class="bi bi-check"></i> Effectuer vente
                         </a>
                       </li>
@@ -174,6 +185,67 @@
   </div>
 </div>
 
+<!-- Modal Historique : tickets dont la vente est effectuée (retirés de la liste principale) -->
+<% const ticketsVendus = (tickets || []).filter(t => t.statut == 'VENTE EFFECTUEE'); %>
+<div class="modal fade" id="historiqueTicketsModal" tabindex="-1" aria-labelledby="historiqueTicketsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title" id="historiqueTicketsModalLabel"><i class="bi bi-clock-history"></i> Historique des tickets (vente effectuée)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <% if (ticketsVendus.length > 0) { %>
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <input type="text" id="historiqueRecherche" class="form-control" style="max-width:420px"
+              placeholder="Rechercher : client, chauffeur, marque, date (ex : 31/10/2026)...">
+            <span class="text-muted small"><span id="historiqueCompteur"><%= ticketsVendus.length %></span> / <%= ticketsVendus.length %> ticket(s)</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-hover table-bordered align-middle mb-0" id="historiqueTable">
+              <thead class="table-secondary">
+                <tr>
+                  <th>#</th>
+                  <th>Client</th>
+                  <th>Quantité</th>
+                  <th>Nom chauffeur</th>
+                  <th>Marque voiture</th>
+                  <th>Date création</th>
+                  <th>Date livraison</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% ticketsVendus.forEach((ticket, index) => { %>
+                  <tr>
+                    <td><%= index + 1 %></td>
+                    <td class="h-recherche"><%= ticket.Client ? ticket.Client.nom + ' ' + ticket.Client.prenom : '-' %></td>
+                    <td><%= ticket.quantite %></td>
+                    <td class="h-recherche"><%= ticket.nom_chauffeur %></td>
+                    <td class="h-recherche"><%= ticket.marque_voiture %></td>
+                    <td class="h-recherche"><%= new Date(ticket.createdAt).toLocaleDateString('fr-FR') %></td>
+                    <td class="h-recherche"><%= ticket.date_livraison ? new Date(ticket.date_livraison).toLocaleDateString('fr-FR') : '-' %></td>
+                  </tr>
+                <% }) %>
+                <tr id="historiqueAucunResultat" style="display:none">
+                  <td colspan="7" class="text-center text-muted">Aucun ticket ne correspond à la recherche.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="alert alert-info mb-0">Aucun ticket avec vente effectuée pour le moment.</div>
+        <% } %>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Snackbar de suppression -->
 <div id="snackbar" class="snackbar shadow">
   <span id="snackbar-message">Confirmer la suppression ?</span>
@@ -192,12 +264,35 @@
   </form>
 </div>
 
-<div id="snackbarvv" class="snackbar shadow">
-  <span id="snackbar-messagevv">Confirmer la vente ?</span>
-  <form id="snackbarFormvv" method="POST" class="d-inline">
-    <button type="submit" class="btn btn-success btn-sm ms-3">Oui, valider</button>
-    <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="hideSnackbarvv()">Annuler</button>
-  </form>
+<!-- Fenêtre « Effectuer vente » : date de paiement et montant reçu (obligatoires) -->
+<div class="modal fade" id="venteTicketModal" tabindex="-1" aria-labelledby="venteTicketModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="venteTicketForm" method="POST" class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title text-white" id="venteTicketModalLabel"><i class="bi bi-cart-check me-2"></i>Effectuer la vente</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3" id="venteTicketResume"></p>
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <label for="ticket_date_paiement" class="form-label">Date de paiement <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="ticket_date_paiement" name="date_paiement" required>
+            <div class="form-text">Date de la vente et du paiement (au plus aujourd’hui).</div>
+          </div>
+          <div class="col-sm-6">
+            <label for="ticket_montant_recu" class="form-label">Montant reçu <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="ticket_montant_recu" name="montant_recu" min="0" step="any" required placeholder="0 si rien payé">
+            <div class="form-text" id="ticketMontantAide"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Effectuer la vente</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Snackbar styles -->
@@ -273,10 +368,8 @@ if (cancelBtn) {
   const snackbar = document.getElementById('snackbar');
   const snackbarMessage = document.getElementById('snackbar-message');
   const snackbarForm = document.getElementById('snackbarForm');
-  const snackbarFormvv = document.getElementById('snackbarFormvv');
 
    const snackbarv = document.getElementById('snackbarv');
-    const snackbarvv = document.getElementById('snackbarvv');
   const snackbarMessagev = document.getElementById('snackbar-messagev');
   const snackbarFormv = document.getElementById('snackbarFormv');
 
@@ -286,10 +379,33 @@ if (cancelBtn) {
     snackbar.classList.add('show');
   }
 
-  function showSnackbarvv(id, clientName, idticket) {
-    snackbarMessage.innerHTML = `Effectuer la vente du ticket `+id+` du client "<strong>${clientName}</strong>" ?`;
-    snackbarFormvv.action = `/tickets/vente/${idticket}`;
-    snackbarvv.classList.add('show');
+  // Ouvre la fenêtre « Effectuer vente » d'un ticket (données lues sur le lien)
+  function ouvrirVenteTicket(lien) {
+    const { id, numero, client, quantite } = lien.dataset;
+    const form = document.getElementById('venteTicketForm');
+    form.reset();
+    form.action = `/tickets/vente/${id}`;
+
+    const resume = document.getElementById('venteTicketResume');
+    resume.textContent = '';
+    resume.append(`Ticket n° ${numero} — `);
+    const nom = document.createElement('strong');
+    nom.textContent = client || 'Client';
+    resume.append(nom, ` — ${quantite} sachet(s)`);
+
+    // Date de paiement : aujourd'hui par défaut, jamais dans le futur ; montant reçu : au plus le total (0 si rien payé)
+    const aujourdhui = new Date().toLocaleDateString('en-CA');
+    const datePaiement = document.getElementById('ticket_date_paiement');
+    datePaiement.max = aujourdhui;
+    datePaiement.value = aujourdhui;
+    const total = Number(lien.dataset.total) || 0;
+    document.getElementById('ticket_montant_recu').max = total;
+    document.getElementById('ticketMontantAide').textContent =
+      `Total : ${new Intl.NumberFormat('fr-FR').format(total)} F (tout payé = vente réglée, 0 = rien payé).`;
+
+    const modalEl = document.getElementById('venteTicketModal');
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    modalEl.addEventListener('shown.bs.modal', () => document.getElementById('ticket_montant_recu').focus(), { once: true });
   }
 
 
@@ -307,9 +423,35 @@ if (cancelBtn) {
     snackbarv.classList.remove('show');
   }
 
-    function hideSnackbarv() {
-    snackbarvv.classList.remove('show');
-  }
+  // Recherche dans l'historique : client, chauffeur, marque, date création ou date livraison
+  document.addEventListener('DOMContentLoaded', () => {
+    const recherche = document.getElementById('historiqueRecherche');
+    if (!recherche) return;
+
+    const lignes = Array.from(document.querySelectorAll('#historiqueTable tbody tr'))
+      .filter(tr => tr.id !== 'historiqueAucunResultat');
+    const compteur = document.getElementById('historiqueCompteur');
+    const aucunResultat = document.getElementById('historiqueAucunResultat');
+
+    recherche.addEventListener('input', () => {
+      const filtre = recherche.value.trim().toLowerCase();
+      let nbVisibles = 0;
+      lignes.forEach(tr => {
+        const texte = Array.from(tr.querySelectorAll('.h-recherche')).map(td => td.textContent).join(' ').toLowerCase();
+        const visible = texte.includes(filtre);
+        tr.style.display = visible ? '' : 'none';
+        if (visible) nbVisibles++;
+      });
+      compteur.textContent = nbVisibles;
+      aucunResultat.style.display = nbVisibles === 0 ? '' : 'none';
+    });
+
+    // Recherche remise à zéro à chaque ouverture du modal
+    document.getElementById('historiqueTicketsModal').addEventListener('show.bs.modal', () => {
+      recherche.value = '';
+      recherche.dispatchEvent(new Event('input'));
+    });
+  });
 
   // Filtre de table
   document.addEventListener('DOMContentLoaded', () => {

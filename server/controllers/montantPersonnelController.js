@@ -37,10 +37,16 @@ exports.list = async (req, res) => {
 
 //  Modifier ou définir un salaire
 exports.updateSalaire = async (req, res) => {
-  const { id_personnel, salaire } = req.body;
+  const { id_personnel } = req.body;
+  // Retire les éventuels séparateurs de milliers (espaces) envoyés par le formulaire
+  const salaire = String(req.body.salaire || '').replace(/\s/g, '');
 
   if (!id_personnel || !salaire) {
     return redirectWithMessage(req, res, 'Veuillez remplir tous les champs.', 'danger');
+  }
+
+  if (!/^\d+$/.test(salaire)) {
+    return redirectWithMessage(req, res, 'Le salaire doit être un montant entier en FCFA.', 'danger');
   }
 
   try {

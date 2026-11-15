@@ -5,6 +5,12 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    // Identifiant unique donné par le téléphone revendeur (anti-doublon) ; vide pour une saisie au guichet
+    uuid: {
+      type: DataTypes.CHAR(36),
+      allowNull: true,
+      unique: true
+    },
     montant: {
       type: DataTypes.FLOAT,
       allowNull: false
@@ -16,6 +22,11 @@ module.exports = (sequelize, DataTypes) => {
     id_vente: {
       type: DataTypes.INTEGER,
       allowNull: false
+    },
+    // Utilisateur qui a encaissé (vide pour les anciens versements dont on ne sait pas qui les a saisis)
+    id_user: {
+      type: DataTypes.INTEGER,
+      allowNull: true
     },
     observation:{
       type: DataTypes.STRING,

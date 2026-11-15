@@ -3,8 +3,9 @@
  * Toutes les routes sont protégées par authJwt (profil revendeur).
  */
 const db = require('../models');
-const { Client, Vente, Paiement, Revendeur, ClientTmp, VenteTmp, PaiementTmp, sequelize } = db;
+const { Client, Vente, Paiement, Revendeur, ClientTmp, VenteTmp, PaiementTmp, ClientClientTmp, sequelize } = db;
 const { Op } = require('sequelize');
+const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,49 +21,109 @@ function isSameDay(date) {
   return d >= today && d < tomorrow;
 }
 
+// ─── Synchronisation par uuid ─────────────────────────────────────────────────
+// Le téléphone donne un uuid à chaque client, vente et paiement à la saisie.
+// Il sert à reconnaître un renvoi (anti-doublon) et suit l'opération jusqu'aux tables officielles.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MESSAGE_MAJ_APP = 'Votre application est trop ancienne : mettez-la à jour avant de synchroniser.';
+const TOLERANCE = 0.01; // écart toléré sur les montants (FLOAT)
+
+const arrondi = (n) => Math.round(Number(n) * 100) / 100;
+const estUuid = (valeur) => UUID_REGEX.test(String(valeur || ''));
+
+// Données du revendeur pour le téléphone : clients, ventes et paiements avec leur uuid et leur état
+// ('envoyee' = reçue par le serveur, 'validee' = intégrée dans les comptes par l'admin).
+// Les ventes viennent des tables d'attente (_tmp), qui contiennent tout ce que le revendeur a envoyé.
+async function donneesRevendeur(id_user) {
+  const clientsOfficiels = await Client.findAll({
+    where: { deletedAt: null },
+    attributes: ['id', 'nom', 'prenom', 'telephone', 'adresse'],
+    order: [['nom', 'ASC'], ['prenom', 'ASC']],
+    raw: true,
+  });
+
+  const ventesTmp = await VenteTmp.findAll({
+    where: { user: id_user },
+    include: [{
+      model: PaiementTmp,
+      as: 'Paiements',
+      attributes: ['id', 'uuid', 'montant', 'date', 'id_vente', 'observation', 'is_sync', 'createdAt', 'updatedAt'],
+    }],
+    order: [['date_vente', 'DESC'], ['id', 'DESC']],
+  });
+
+  // Clients saisis sur un téléphone (id > 10000 dans clients_tmp) : après validation,
+  // client_client_tmp les relie au client officiel, qui garde l'uuid du téléphone.
+  const liens = await ClientClientTmp.findAll({ attributes: ['id_client_tmp', 'id_client'], raw: true });
+  const officielParTmp = new Map(liens.map((l) => [l.id_client_tmp, l.id_client]));
+  const idsClientsTmp = [...new Set([
+    ...liens.map((l) => l.id_client_tmp),
+    ...ventesTmp.map((v) => v.id_client).filter((id) => id > 10000),
+  ])];
+  const clientsTmp = idsClientsTmp.length
+    ? await ClientTmp.findAll({
+        where: { id: idsClientsTmp },
+        attributes: ['id', 'uuid', 'nom', 'prenom', 'telephone', 'adresse'],
+        raw: true,
+      })
+    : [];
+  const uuidParOfficiel = new Map();
+  for (const ct of clientsTmp) {
+    const idOfficiel = officielParTmp.get(ct.id);
+    if (idOfficiel && ct.uuid) uuidParOfficiel.set(idOfficiel, ct.uuid);
+  }
+
+  // id du client vu par le téléphone : officiel si validé, sinon celui de clients_tmp
+  const idClientPourTelephone = (idTmp) => (idTmp > 10000 ? officielParTmp.get(idTmp) || idTmp : idTmp);
+
+  const clientsEnAttente = clientsTmp
+    .filter((ct) => !officielParTmp.has(ct.id) && ventesTmp.some((v) => v.id_client === ct.id))
+    .map((ct) => ({ ...ct, uuid: ct.uuid || null }));
+
+  const clients = [
+    ...clientsOfficiels.map((c) => ({ ...c, uuid: uuidParOfficiel.get(c.id) || null })),
+    ...clientsEnAttente,
+  ];
+
+  const ventes = ventesTmp.map((v) => ({
+    id: v.id,
+    uuid: v.uuid,
+    type_vente: v.type_vente,
+    quantite: v.quantite,
+    observation: v.observation,
+    type_paiement: v.type_paiement,
+    montant: v.montant,
+    prix_unitaire: v.prix_unitaire,
+    date_vente: v.date_vente,
+    id_client: idClientPourTelephone(v.id_client),
+    user: v.user,
+    statut: v.is_sync ? 'validee' : 'envoyee',
+    createdAt: v.createdAt,
+    updatedAt: v.updatedAt,
+  }));
+
+  const paiements = ventesTmp.flatMap((v) => (v.Paiements || []).map((p) => ({
+    id: p.id,
+    uuid: p.uuid,
+    montant: p.montant,
+    date: p.date,
+    id_vente: v.id,
+    vente_uuid: v.uuid,
+    observation: p.observation,
+    statut: p.is_sync ? 'validee' : 'envoyee',
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  })));
+
+  return { clients, ventes, paiements };
+}
+
 // ─── GET /api/mobile/bootstrap ────────────────────────────────────────────────
-// Charge initiale offline: clients + ventes du revendeur connecté + paiements lies
+// Charge initiale : mêmes données que /restore (le téléphone fusionne par uuid)
 exports.bootstrap = async (req, res) => {
   try {
-    const id_user = req.apiUser.id;
-
-    const clients = await Client.findAll({
-      where: { deletedAt: null },
-      attributes: ['id', 'nom', 'prenom', 'telephone', 'adresse'],
-      order: [['nom', 'ASC'], ['prenom', 'ASC']],
-    });
-
-    const ventes = await Vente.findAll({
-      where: { user: id_user },
-      include: [
-        { model: Paiement, attributes: ['id', 'montant', 'date', 'id_vente', 'observation', 'createdAt', 'updatedAt'] },
-      ],
-      order: [['date_vente', 'DESC'], ['id', 'DESC']],
-    });
-
-    const paiements = ventes.flatMap((vente) => vente.Paiements || []);
-
-    return res.json({
-      success: true,
-      data: {
-        clients,
-        ventes: ventes.map((vente) => ({
-          id: vente.id,
-          type_vente: vente.type_vente,
-          quantite: vente.quantite,
-          observation: vente.observation,
-          type_paiement: vente.type_paiement,
-          montant: vente.montant,
-          prix_unitaire: vente.prix_unitaire,
-          date_vente: vente.date_vente,
-          id_client: vente.id_client,
-          user: vente.user,
-          createdAt: vente.createdAt,
-          updatedAt: vente.updatedAt,
-        })),
-        paiements,
-      },
-    });
+    const data = await donneesRevendeur(req.apiUser.id);
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('[Mobile] bootstrap :', err);
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });
@@ -208,7 +269,7 @@ exports.createVente = async (req, res) => {
       prix_unitaire: Number(prix_unitaire),
       montant,
       type_paiement: paye >= montant ? 'total' : 'echellonner',
-      date_vente:    date_vente || new Date().toISOString().split('T')[0],
+      date_vente:    date_vente || aujourdhui(),
       id_client:     Number(id_client),
       user:          id_user,
       observation:   observation || null
@@ -219,7 +280,8 @@ exports.createVente = async (req, res) => {
       await Paiement.create({
         id_vente:    vente.id,
         montant:     paye,
-        date:        date_vente || new Date().toISOString().split('T')[0],
+        date:        date_vente || aujourdhui(),
+        id_user,
         observation: null
       }, { transaction: t });
     }
@@ -234,7 +296,9 @@ exports.createVente = async (req, res) => {
 };
 
 // ─── PUT /api/mobile/ventes/:id ──────────────────────────────────────────────
-// Modifier une vente — uniquement le même jour
+// Modifier une vente — désactivé : une vente n'est jamais modifiée ni supprimée.
+// Aucun appel depuis l'application revendeur. Route commentée dans routes/api/mobile.js.
+/*
 exports.updateVente = async (req, res) => {
   const { id } = req.params;
   const id_user = req.apiUser.id;
@@ -263,9 +327,12 @@ exports.updateVente = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });
   }
 };
+*/
 
 // ─── DELETE /api/mobile/ventes/:id ───────────────────────────────────────────
-// Supprimer une vente — uniquement le même jour
+// Supprimer une vente — désactivé : une vente n'est jamais modifiée ni supprimée.
+// Aucun appel depuis l'application revendeur. Route commentée dans routes/api/mobile.js.
+/*
 exports.deleteVente = async (req, res) => {
   const { id } = req.params;
   const id_user = req.apiUser.id;
@@ -288,6 +355,7 @@ exports.deleteVente = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });
   }
 };
+*/
 
 // ─── POST /api/mobile/paiements ──────────────────────────────────────────────
 // Ajouter un paiement sur une vente (redevable)
@@ -317,7 +385,8 @@ exports.createPaiement = async (req, res) => {
     const paiement = await Paiement.create({
       id_vente: vente.id,
       montant:  Number(montant),
-      date:     new Date().toISOString().split('T')[0],
+      date:     aujourdhui(),
+      id_user,
       observation: observation || null
     });
 
@@ -335,13 +404,33 @@ exports.createPaiement = async (req, res) => {
 };
 
 // ─── POST /api/mobile/sync ───────────────────────────────────────────────────
-// Reçoit les données offline du revendeur et les enregistre en tables temporaires
+// Reçoit les données offline du revendeur et les enregistre en tables temporaires.
+// Chaque élément porte un uuid : un élément déjà reçu n'est pas recréé (renvoi après coupure réseau),
+// deux ventes identiques avec des uuid différents sont bien deux ventes.
+// Un paiement désigne sa vente par vente_uuid. Envoi sans uuid (ancienne application) : refusé.
+// Réponse : resultats.acceptes = uuid reçus (nouveaux ou déjà reçus), le téléphone les retire de sa file.
 exports.sync = async (req, res) => {
   const { clients = [], ventes = [], paiements = [] } = req.body;
   const id_user = req.apiUser.id;
-  const t = await sequelize.transaction();
 
-  const resultats = { clients: 0, ventes: 0, paiements: 0, erreurs: [] };
+  if (![clients, ventes, paiements].every(Array.isArray)) {
+    return res.status(400).json({ success: false, message: 'Données de synchronisation invalides.' });
+  }
+  const sansUuid = [...clients, ...ventes, ...paiements].some((e) => !estUuid(e?.uuid))
+    || paiements.some((p) => !estUuid(p.vente_uuid))
+    || ventes.some((v) => v.client_uuid && !estUuid(v.client_uuid));
+  if (sansUuid) {
+    return res.status(426).json({ success: false, message: MESSAGE_MAJ_APP });
+  }
+
+  const resultats = {
+    clients: 0, ventes: 0, paiements: 0, // nouveaux éléments enregistrés
+    deja_recus: 0,
+    acceptes: { clients: [], ventes: [], paiements: [] },
+    erreurs: [],
+  };
+
+  const t = await sequelize.transaction();
 
   try {
     let nextOfflineClientTmpId = null;
@@ -358,7 +447,7 @@ exports.sync = async (req, res) => {
       return nextOfflineClientTmpId;
     };
 
-    // Helpers: conserver les IDs MySQL dans les tables tmp quand la source existe deja.
+    // Client officiel : copie dans clients_tmp avec le même id (≤ 10000)
     const ensureClientTmpFromServer = async (clientId) => {
       if (!clientId) return null;
       let tmpClient = await ClientTmp.findByPk(clientId, { transaction: t });
@@ -377,164 +466,109 @@ exports.sync = async (req, res) => {
         },
         { transaction: t }
       );
-      resultats.clients++;
       return tmpClient;
     };
 
-    const ensureVenteTmpFromServer = async (venteId) => {
-      if (!venteId) return null;
-      let tmpVente = await VenteTmp.findByPk(venteId, { transaction: t });
-      if (tmpVente) return tmpVente;
-
-      const sourceVente = await Vente.findByPk(venteId, { transaction: t });
-      if (!sourceVente) return null;
-
-      const mappedClientTmp = await ensureClientTmpFromServer(sourceVente.id_client);
-      if (!mappedClientTmp) return null;
-
-      tmpVente = await VenteTmp.create(
-        {
-          id: sourceVente.id,
-          type_vente: sourceVente.type_vente,
-          quantite: sourceVente.quantite,
-          prix_unitaire: sourceVente.prix_unitaire,
-          montant: sourceVente.montant,
-          id_client: mappedClientTmp.id,
-          type_paiement: sourceVente.type_paiement,
-          date_vente: sourceVente.date_vente,
-          user: sourceVente.user,
-          observation: sourceVente.observation || null,
-        },
-        { transaction: t }
-      );
-      resultats.ventes++;
-      return tmpVente;
-    };
-
     // ── 1. Clients vers clients_tmp ──
-    const clientIdMap = {}; // id_local -> id_tmp
-    const serverClientTmpMap = {}; // id_client serveur -> id_tmp
-
     for (const c of clients) {
       try {
-        let tmpClient = await ClientTmp.findOne({
-          where: {
+        const existant = await ClientTmp.findOne({ where: { uuid: c.uuid }, transaction: t });
+        if (existant) {
+          resultats.deja_recus++;
+        } else {
+          if (!c.nom || !c.prenom) throw new Error('nom et prénom obligatoires');
+          await ClientTmp.create({
+            id: await getNextOfflineClientTmpId(),
+            uuid: c.uuid,
             nom: c.nom,
             prenom: c.prenom,
             telephone: c.telephone || null,
             adresse: c.adresse || null,
-          },
-          transaction: t,
-        });
-        if (!tmpClient) {
-          const tmpId = await getNextOfflineClientTmpId();
-          tmpClient = await ClientTmp.create(
-            { id: tmpId, nom: c.nom, prenom: c.prenom, telephone: c.telephone || null, adresse: c.adresse || null },
-            { transaction: t }
-          );
+          }, { transaction: t });
           resultats.clients++;
         }
-        if (c.id_local !== undefined && c.id_local !== null) {
-          clientIdMap[c.id_local] = tmpClient.id;
-        }
+        resultats.acceptes.clients.push(c.uuid);
       } catch (e) {
-        resultats.erreurs.push(`Client ${c.nom}: ${e.message}`);
+        resultats.erreurs.push(`Client ${c.nom || ''} ${c.prenom || ''} : ${e.message}`);
       }
     }
 
     // ── 2. Ventes vers ventes_tmp ──
-    const venteIdMap = {}; // id_local -> id_tmp
-
     for (const v of ventes) {
       try {
-        let id_client_tmp = clientIdMap[v.id_client_local] || v.id_client_tmp || null;
-        if (!id_client_tmp && v.id_client) {
-          if (!serverClientTmpMap[v.id_client]) {
-            const tmpClient = await ensureClientTmpFromServer(v.id_client);
-            if (tmpClient) {
-              serverClientTmpMap[v.id_client] = tmpClient.id;
-            }
-          }
-          id_client_tmp = serverClientTmpMap[v.id_client] || null;
-        }
-        if (!id_client_tmp) {
-          resultats.erreurs.push(`Vente local#${v.id_local}: client introuvable`);
+        const existante = await VenteTmp.findOne({ where: { uuid: v.uuid }, transaction: t });
+        if (existante) {
+          if (existante.user !== id_user) throw new Error('identifiant déjà utilisé par un autre revendeur');
+          resultats.deja_recus++;
+          resultats.acceptes.ventes.push(v.uuid);
           continue;
         }
-        const montant = v.quantite * v.prix_unitaire;
 
-        let venteTmp = await VenteTmp.findOne({
-          where: {
-            type_vente: v.type_vente || 'usine',
-            quantite: v.quantite,
-            prix_unitaire: v.prix_unitaire,
-            montant,
-            id_client: id_client_tmp,
-            type_paiement: v.type_paiement || 'total',
-            date_vente: v.date_vente || new Date(),
-            user: id_user,
-            observation: v.observation || null,
-          },
-          transaction: t,
-        });
+        const quantite = Number(v.quantite);
+        const prix = Number(v.prix_unitaire);
+        if (!Number.isInteger(quantite) || quantite <= 0) throw new Error('quantité invalide');
+        if (!(prix > 0)) throw new Error('prix invalide');
+        if (!v.date_vente) throw new Error('date manquante');
 
-        if (!venteTmp) {
-          venteTmp = await VenteTmp.create({
-            type_vente:    v.type_vente    || 'usine',
-            quantite:      v.quantite,
-            prix_unitaire: v.prix_unitaire,
-            montant,
-            id_client:     id_client_tmp,
-            type_paiement: v.type_paiement || 'total',
-            date_vente:    v.date_vente    || new Date(),
-            user:          id_user,
-            observation:   v.observation   || null
-          }, { transaction: t });
-          resultats.ventes++;
+        // Client : par son uuid (client saisi sur un téléphone) sinon par son id (client officiel)
+        let clientTmp = null;
+        if (v.client_uuid) {
+          clientTmp = await ClientTmp.findOne({ where: { uuid: v.client_uuid }, transaction: t });
+        } else if (v.id_client) {
+          clientTmp = await ensureClientTmpFromServer(Number(v.id_client));
         }
+        if (!clientTmp) throw new Error('client introuvable');
 
-        venteIdMap[v.id_local] = venteTmp.id;
+        await VenteTmp.create({
+          uuid:          v.uuid,
+          type_vente:    v.type_vente === 'livrer' ? 'livrer' : 'usine',
+          quantite,
+          prix_unitaire: prix,
+          montant:       arrondi(quantite * prix),
+          id_client:     clientTmp.id,
+          type_paiement: v.type_paiement === 'echellonner' ? 'echellonner' : 'total',
+          date_vente:    v.date_vente,
+          user:          id_user,
+          observation:   v.observation || null
+        }, { transaction: t });
+        resultats.ventes++;
+        resultats.acceptes.ventes.push(v.uuid);
       } catch (e) {
-        resultats.erreurs.push(`Vente local#${v.id_local}: ${e.message}`);
+        resultats.erreurs.push(`Vente du ${v.date_vente || '?'} (${v.quantite || '?'} sachets) : ${e.message}`);
       }
     }
 
     // ── 3. Paiements vers paiements_tmp ──
     for (const p of paiements) {
       try {
-        let id_vente_tmp = venteIdMap[p.id_vente_local] || p.id_vente_tmp || null;
-        if (!id_vente_tmp && p.id_vente) {
-          const tmpVente = await ensureVenteTmpFromServer(p.id_vente);
-          if (tmpVente) {
-            id_vente_tmp = tmpVente.id;
-          }
-        }
-        if (!id_vente_tmp) {
-          resultats.erreurs.push(`Paiement: vente locale #${p.id_vente_local} non trouvée`);
+        const existant = await PaiementTmp.findOne({ where: { uuid: p.uuid }, transaction: t });
+        if (existant) {
+          resultats.deja_recus++;
+          resultats.acceptes.paiements.push(p.uuid);
           continue;
         }
 
-        const existingPaiement = await PaiementTmp.findOne({
-          where: {
-            id_vente: id_vente_tmp,
-            montant: p.montant,
-            date: p.date || new Date(),
-            observation: p.observation || null,
-          },
-          transaction: t,
-        });
+        const montant = arrondi(p.montant);
+        if (!(montant > 0)) throw new Error('montant invalide');
 
-        if (!existingPaiement) {
-          await PaiementTmp.create({
-            id_vente:    id_vente_tmp,
-            montant:     p.montant,
-            date:        p.date || new Date(),
-            observation: p.observation || null
-          }, { transaction: t });
-          resultats.paiements++;
-        }
+        const venteTmp = await VenteTmp.findOne({ where: { uuid: p.vente_uuid }, transaction: t });
+        if (!venteTmp || venteTmp.user !== id_user) throw new Error('vente introuvable');
+
+        const dejaPaye = (await PaiementTmp.sum('montant', { where: { id_vente: venteTmp.id }, transaction: t })) || 0;
+        const reste = arrondi(Number(venteTmp.montant) - dejaPaye);
+        if (montant > reste + TOLERANCE) throw new Error(`dépasse le reste à payer (${reste} F)`);
+
+        await PaiementTmp.create({
+          uuid:        p.uuid,
+          id_vente:    venteTmp.id,
+          montant,
+          date:        p.date || aujourdhui(),
+          observation: p.observation || null
+        }, { transaction: t });
+        resultats.paiements++;
+        resultats.acceptes.paiements.push(p.uuid);
       } catch (e) {
-        resultats.erreurs.push(`Paiement: ${e.message}`);
+        resultats.erreurs.push(`Versement de ${p.montant || '?'} F du ${p.date || '?'} : ${e.message}`);
       }
     }
 
@@ -628,59 +662,13 @@ function _buildRecetteData(ventes, gainParSachet) {
 }
 
 // ─── GET /api/mobile/restore ──────────────────────────────────────────────────
-// Récupère clients (table principale) + ventes_tmp + paiements_tmp du revendeur
-// Utilisé quand le revendeur change de device et veut récupérer ses données
+// Récupère clients + ventes + paiements du revendeur (avec uuid et état).
+// Utilisé à la connexion, par « Mise à jour » et après chaque synchronisation :
+// le téléphone remplace ses copies déjà envoyées par celles du serveur.
 exports.restore = async (req, res) => {
   try {
-    const id_user = req.apiUser.id;
-
-    const clients = await Client.findAll({
-      where: { deletedAt: null },
-      attributes: ['id', 'nom', 'prenom', 'telephone', 'adresse'],
-      order: [['nom', 'ASC'], ['prenom', 'ASC']],
-    });
-
-    const ventes = await VenteTmp.findAll({
-      where: { user: id_user },
-      include: [{
-        model: PaiementTmp,
-        as: 'Paiements',
-        attributes: ['id', 'montant', 'date', 'id_vente', 'observation', 'createdAt', 'updatedAt'],
-      }],
-      order: [['date_vente', 'DESC'], ['id', 'DESC']],
-    });
-
-    const paiements = ventes.flatMap((v) => v.Paiements || []).map((p) => ({
-      id: p.id,
-      montant: p.montant,
-      date: p.date,
-      id_vente: p.id_vente,
-      observation: p.observation,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    }));
-
-    return res.json({
-      success: true,
-      data: {
-        clients: clients.map((c) => c.toJSON()),
-        ventes: ventes.map((v) => ({
-          id: v.id,
-          type_vente: v.type_vente,
-          quantite: v.quantite,
-          observation: v.observation,
-          type_paiement: v.type_paiement,
-          montant: v.montant,
-          prix_unitaire: v.prix_unitaire,
-          date_vente: v.date_vente,
-          id_client: v.id_client,
-          user: v.user,
-          createdAt: v.createdAt,
-          updatedAt: v.updatedAt,
-        })),
-        paiements,
-      },
-    });
+    const data = await donneesRevendeur(req.apiUser.id);
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('[Mobile] restore :', err);
     return res.status(500).json({ success: false, message: 'Erreur serveur.' });

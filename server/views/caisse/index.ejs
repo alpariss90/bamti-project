@@ -1,0 +1,214 @@
+<%- include('../partials/header') %>
+<%#
+  Ma caisse : journées à clôturer, argent détenu (remise groupée), remises envoyées.
+  Règles : services/caisse.js — commentaire obligatoire seulement en cas d'écart (public/js/caisse.js l'affiche).
+%>
+<% const fmt = n => new Intl.NumberFormat('fr-FR').format(n); %>
+<% const fmtDate = d => String(d).slice(0, 10).split('-').reverse().join('/'); %>
+<% const fmtHeure = d => new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); %>
+<% const STATUTS = { en_attente: ['warning text-dark', 'En attente'], recue: ['success', 'Reçue'], refusee: ['danger', 'Refusée'], annulee: ['secondary', 'Annulée'] }; %>
+
+<div class="container-fluid">
+  <%- include('../partials/alerts') %>
+
+  <p class="text-muted mt-3 mb-2">
+    <i class="ri-information-line me-1"></i>
+    L’argent reste chez vous tant que le destinataire n’a pas cliqué sur « Reçu ». Clôture possible à partir du <%= fmtDate(dateDebut) %>.
+  </p>
+
+  <% if (peutRemettre && destinataires.length === 0) { %>
+    <div class="alert alert-warning">Aucun destinataire disponible (gestionnaire ou admin actif) : impossible de remettre l’argent pour l’instant.</div>
+  <% } %>
+
+  <!-- ── Journées à clôturer ───────────────────────────────────────────── -->
+  <% if (peutRemettre) { %>
+  <div class="card shadow-sm">
+    <div class="card-header bg-secondary text-white">
+      <i class="ri-lock-line me-2"></i><strong>Journées à clôturer</strong>
+    </div>
+    <div class="card-body">
+      <% if (aCloturer.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune journée à clôturer.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle mb-0">
+            <thead class="table-secondary">
+              <tr><th>Date</th><th>Encaissé (F)</th><th>Montant remis (F)</th><th>À qui</th><th>Commentaire (si écart)</th><th></th></tr>
+            </thead>
+            <tbody>
+              <% aCloturer.forEach((j, n) => { %>
+                <% const f = `cloture-${n}`; %>
+                <tr class="ligne-journee">
+                  <td class="fw-semibold"><%= fmtDate(j.date) %></td>
+                  <td class="fw-semibold"><%= fmt(j.montant) %></td>
+                  <td style="min-width:140px">
+                    <input type="number" name="montant" form="<%= f %>" class="form-control form-control-sm montant-remis"
+                           value="<%= j.montant %>" min="0" max="<%= j.montant %>" step="any" data-attendu="<%= j.montant %>" required>
+                  </td>
+                  <td style="min-width:180px">
+                    <select name="id_destinataire" form="<%= f %>" class="form-select form-select-sm" required>
+                      <option value="">— Choisir —</option>
+                      <% destinataires.forEach(d => { %><option value="<%= d.id %>"><%= d.nom %> (<%= d.profil %>)</option><% }) %>
+                    </select>
+                  </td>
+                  <td style="min-width:220px">
+                    <div class="zone-commentaire d-none">
+                      <div class="small text-danger mb-1 texte-ecart"></div>
+                      <textarea name="commentaire" form="<%= f %>" rows="2" class="form-control form-control-sm" placeholder="Expliquez l’écart"></textarea>
+                    </div>
+                    <span class="text-muted small sans-ecart">—</span>
+                  </td>
+                  <td>
+                    <form id="<%= f %>" method="POST" action="/caisse/cloturer"
+                          onsubmit="return confirm('Clôturer la journée du <%= fmtDate(j.date) %> ? Vous ne pourrez plus encaisser à cette date.')">
+                      <input type="hidden" name="date" value="<%= j.date %>">
+                      <button class="btn btn-sm btn-primary" <%= destinataires.length ? '' : 'disabled' %>><i class="ri-lock-line me-1"></i>Clôturer</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- ── Ce que je détiens ─────────────────────────────────────────────── -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between">
+      <span><i class="ri-safe-2-line me-2"></i><strong>Argent que je détiens</strong></span>
+      <span>Total : <strong><%= fmt(detenues.reduce((s, d) => s + d.journee.montant_detenu, 0)) %> F</strong></span>
+    </div>
+    <div class="card-body">
+      <% if (detenues.length === 0) { %>
+        <div class="alert alert-info mb-0">Vous ne détenez aucun argent de caisse.</div>
+      <% } else { %>
+        <form method="POST" action="/caisse/remettre" id="formRemise"
+              onsubmit="if (!this.querySelector('input[name=journees]:checked')) { alert('Cochez au moins une journée.'); return false; } return confirm('Envoyer la remise ?');">
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+              <thead class="table-secondary">
+                <tr>
+                  <% if (peutRemettre) { %><th style="width:40px"><input type="checkbox" class="form-check-input" id="toutCocher" title="Tout cocher"></th><% } %>
+                  <th>Date</th><th>Caissier</th><th>Encaissé (F)</th><th>Je détiens (F)</th>
+                  <% if (peutRemettre) { %><th>Montant remis (F)</th><th>Commentaire (si écart)</th><% } %>
+                </tr>
+              </thead>
+              <tbody>
+                <% detenues.forEach(({ journee: j, precedente: p }) => { %>
+                  <% const valeur = p ? p.montant_remis : j.montant_detenu; %>
+                  <tr class="ligne-journee">
+                    <% if (peutRemettre) { %>
+                      <td><input type="checkbox" class="form-check-input" name="journees" value="<%= j.id %>"></td>
+                    <% } %>
+                    <td class="fw-semibold"><%= fmtDate(j.date) %></td>
+                    <td><%= j.caissier ? j.caissier.nom : '—' %></td>
+                    <td><%= fmt(j.montant_encaisse) %></td>
+                    <td class="fw-semibold"><%= fmt(j.montant_detenu) %></td>
+                    <% if (peutRemettre) { %>
+                      <td style="min-width:140px">
+                        <input type="number" name="montant_<%= j.id %>" class="form-control form-control-sm montant-remis"
+                               value="<%= valeur %>" min="0" max="<%= j.montant_detenu %>" step="any" data-attendu="<%= j.montant_detenu %>">
+                        <% if (p) { %>
+                          <div class="small mt-1 <%= p.remise.statut === 'refusee' ? 'text-danger' : 'text-muted' %>">
+                            <% if (p.remise.statut === 'refusee') { %>
+                              Refusée par <%= p.remise.destinataire ? p.remise.destinataire.nom : '?' %> : « <%= p.remise.commentaire_refus %> »
+                            <% } else { %>
+                              Remise annulée, à renvoyer
+                            <% } %>
+                          </div>
+                        <% } %>
+                      </td>
+                      <td style="min-width:220px">
+                        <div class="zone-commentaire d-none">
+                          <div class="small text-danger mb-1 texte-ecart"></div>
+                          <textarea name="commentaire_<%= j.id %>" rows="2" class="form-control form-control-sm" placeholder="Expliquez l’écart"><%= p && p.commentaire_ecart ? p.commentaire_ecart : '' %></textarea>
+                        </div>
+                        <span class="text-muted small sans-ecart">—</span>
+                      </td>
+                    <% } %>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+
+          <% if (peutRemettre) { %>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label mb-1">Remettre à</label>
+                <select name="id_destinataire" class="form-select" required>
+                  <option value="">— Choisir —</option>
+                  <% destinataires.forEach(d => { %><option value="<%= d.id %>"><%= d.nom %> (<%= d.profil %>)</option><% }) %>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <button class="btn btn-primary" <%= destinataires.length ? '' : 'disabled' %>><i class="ri-send-plane-line me-1"></i>Remettre la sélection</button>
+              </div>
+            </div>
+          <% } %>
+        </form>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- ── Mes remises envoyées ──────────────────────────────────────────── -->
+  <% if (peutRemettre) { %>
+  <div class="card shadow-sm">
+    <div class="card-header bg-secondary text-white">
+      <i class="ri-send-plane-line me-2"></i><strong>Mes remises envoyées</strong> <small>(30 dernières)</small>
+    </div>
+    <div class="card-body">
+      <% if (envoyees.length === 0) { %>
+        <div class="alert alert-info mb-0">Aucune remise envoyée.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm align-middle mb-0">
+            <thead class="table-secondary">
+              <tr><th>Envoyée le</th><th>À</th><th>Journées</th><th>Total remis (F)</th><th>Statut</th><th></th></tr>
+            </thead>
+            <tbody>
+              <% envoyees.forEach(r => { %>
+                <% const s = STATUTS[r.statut]; %>
+                <tr>
+                  <td><%= fmtHeure(r.createdAt) %></td>
+                  <td><%= r.destinataire ? r.destinataire.nom : '—' %></td>
+                  <td>
+                    <% r.lignes.forEach(l => { %>
+                      <div>
+                        <%= fmtDate(l.journee.date) %> — <%= l.journee.caissier ? l.journee.caissier.nom : '' %> :
+                        <strong><%= fmt(l.montant_remis) %></strong>
+                        <% if (l.montant_remis < l.montant_attendu) { %>
+                          <span class="text-danger small">(écart <%= fmt(l.montant_attendu - l.montant_remis) %> : <%= l.commentaire_ecart %>)</span>
+                        <% } %>
+                      </div>
+                    <% }) %>
+                  </td>
+                  <td class="fw-semibold"><%= fmt(r.lignes.reduce((t, l) => t + l.montant_remis, 0)) %></td>
+                  <td>
+                    <span class="badge bg-<%= s[0] %>"><%= s[1] %></span>
+                    <% if (r.statut === 'refusee') { %><div class="small text-danger mt-1">« <%= r.commentaire_refus %> »</div><% } %>
+                    <% if (r.date_reponse) { %><div class="small text-muted"><%= fmtHeure(r.date_reponse) %></div><% } %>
+                  </td>
+                  <td>
+                    <% if (r.statut === 'en_attente') { %>
+                      <form method="POST" action="/caisse/remises/<%= r.id %>/annuler" onsubmit="return confirm('Annuler cette remise ?')">
+                        <button class="btn btn-sm btn-outline-danger"><i class="ri-close-line me-1"></i>Annuler</button>
+                      </form>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+  <% } %>
+</div>
+
+<script src="/js/caisse.js"></script>
+<%- include('../partials/footer') %>

@@ -100,9 +100,12 @@
           <thead class="table-secondary position-sticky top-0" style="z-index: 2;">
             <tr>
               <th>#</th>
+              <th>Date vente</th>
+              <th>Heure vente</th>
               <th>Client</th>
+              <th>Caissier</th>
               <th>Type vente</th>
-              <th>Quantité totale</th>
+              <th>Quantité</th>
               <th>Montant total</th>
               <th>Montant payé</th>
               <th>Reste à payer</th>
@@ -112,8 +115,11 @@
             <% ventes.forEach((vente, index) => { %>
               <tr>
                 <th scope="row"><%= index + 1 %></th>
+                <td data-order="<%= vente.date_vente.split('/').reverse().join('-') %> <%= vente.date_tri %>"><%= vente.date_vente %></td>
+                <td><%= vente.heure_vente %></td>
                 <td><%= vente.client ? vente.client.nom + ' ' + (vente.client.prenom || '') : '-' %></td>
-                <td><%= vente.type_ventes %></td>
+                <td><%= vente.caissier %></td>
+                <td><%= vente.type_vente %></td>
                 <td><%= vente.quantite %></td>
                 <td><%= vente.montantTotal.toFixed(2) %> F</td>
                 <td><%= vente.montantPayes.toFixed(2) %> F</td>
@@ -123,7 +129,7 @@
           </tbody>
           <tfoot class="table-secondary fw-bold">
             <tr>
-              <td colspan="3" class="text-center">Totaux généraux</td>
+              <td colspan="6" class="text-center">Totaux généraux</td>
               <td><%= ventes.reduce((sum, v) => sum + v.quantite, 0) %></td>
               <td><%= ventes.reduce((sum, v) => sum + v.montantTotal, 0).toFixed(2) %> F</td>
               <td><%= ventes.reduce((sum, v) => sum + v.montantPayes, 0).toFixed(2) %> F</td>

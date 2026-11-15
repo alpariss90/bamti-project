@@ -69,8 +69,32 @@
     <h5 class="mb-3 fw-bold">Liste du personnel</h5>
 
     <% if (personnels && personnels.length > 0) { %>
+      <%
+        // Calcul unique de la durée de service et du congé en cours, réutilisé par la liste et le modal
+        const auj = new Date(); auj.setHours(0, 0, 0, 0);
+        const infosPersonnel = personnels.map(personnel => {
+          const prisesPersonnel = (personnel.services || []).filter(s => s.type === 'prise');
+          const dernierePrise = prisesPersonnel.length ? prisesPersonnel[prisesPersonnel.length - 1] : null;
+          let dureeJours = null;
+          if (personnel.etat && dernierePrise) {
+            const dPrise = new Date(dernierePrise.date_service); dPrise.setHours(0, 0, 0, 0);
+            dureeJours = Math.floor((auj - dPrise) / 86400000);
+          }
+
+          const congeActif = (personnel.conges || []).find(c => {
+            const d = new Date(c.date_depart); d.setHours(0, 0, 0, 0);
+            const r = new Date(c.date_retour); r.setHours(0, 0, 0, 0);
+            return d <= auj && auj <= r;
+          });
+
+          return { dureeJours, congeActif };
+        });
+      %>
       <div class="table-responsive shadow-sm rounded" style="border: 1px solid #dee2e6;">
-        <div class="d-flex justify-content-end mb-0">
+        <div class="d-flex justify-content-end align-items-center gap-2 mb-0">
+          <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#listeCompleteModal">
+            <i class="bi bi-list-check"></i> Liste complète
+          </button>
           <span id="exportButtonsPersonnel"></span>
         </div>
 
@@ -90,23 +114,7 @@
           </thead>
           <tbody>
             <% personnels.forEach((personnel, index) => { %>
-              <%
-                const auj = new Date(); auj.setHours(0, 0, 0, 0);
-
-                const prisesPersonnel = (personnel.services || []).filter(s => s.type === 'prise');
-                const dernierePrise = prisesPersonnel.length ? prisesPersonnel[prisesPersonnel.length - 1] : null;
-                let dureeJours = null;
-                if (personnel.etat && dernierePrise) {
-                  const dPrise = new Date(dernierePrise.date_service); dPrise.setHours(0, 0, 0, 0);
-                  dureeJours = Math.floor((auj - dPrise) / 86400000);
-                }
-
-                const congeActif = (personnel.conges || []).find(c => {
-                  const d = new Date(c.date_depart); d.setHours(0, 0, 0, 0);
-                  const r = new Date(c.date_retour); r.setHours(0, 0, 0, 0);
-                  return d <= auj && auj <= r;
-                });
-              %>
+              <% const { dureeJours, congeActif } = infosPersonnel[index]; %>
               <tr>
                 <th scope="row"><%= index + 1 %></th>
                 <td><%= personnel.nom %></td>
@@ -174,6 +182,88 @@
           </tbody>
         </table>
 		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </div>
+
+      <!-- Modal Liste complète (sans pagination, sélection pour impression) -->
+      <%
+        const nbActifs = personnels.filter(p => p.etat).length;
+        const nbConges = personnels.filter((p, i) => p.etat && infosPersonnel[i].congeActif).length;
+      %>
+      <div class="modal fade" id="listeCompleteModal" tabindex="-1" aria-labelledby="listeCompleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+              <h5 class="modal-title" id="listeCompleteModalLabel"><i class="bi bi-people"></i> Liste complète du personnel</h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div class="d-flex flex-wrap gap-2">
+                  <span class="badge bg-secondary fs-6">Total : <%= personnels.length %></span>
+                  <span class="badge bg-success fs-6">Actifs : <%= nbActifs %></span>
+                  <span class="badge bg-danger fs-6">Inactifs : <%= personnels.length - nbActifs %></span>
+                  <span class="badge bg-info fs-6">En congé : <%= nbConges %></span>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <input type="text" id="listeCompleteRecherche" class="form-control form-control-sm" style="width:220px" placeholder="Rechercher nom ou téléphone...">
+                  <span class="text-muted small"><span id="listeCompleteCompteur">0</span> / <%= personnels.length %> sélectionné(s)</span>
+                  <button type="button" class="btn btn-sm btn-primary" onclick="imprimerListeComplete()">
+                    <i class="bi bi-printer"></i> Imprimer
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-sm table-hover table-bordered align-middle mb-0" id="listeCompleteTable">
+                  <thead class="table-secondary">
+                    <tr>
+                      <th style="width:36px" class="text-center">
+                        <input type="checkbox" class="form-check-input" id="listeCompleteToutCocher" title="Tout sélectionner">
+                      </th>
+                      <th>#</th>
+                      <th>Nom</th>
+                      <th>Prénom</th>
+                      <th>Téléphone</th>
+                      <th>Date prise de service</th>
+                      <th>Profil</th>
+                      <th>Durée de service</th>
+                      <th>État</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% personnels.forEach((personnel, index) => { %>
+                      <% const { dureeJours, congeActif } = infosPersonnel[index]; %>
+                      <tr style="cursor:pointer" data-etat="<%= !personnel.etat ? 'inactif' : (congeActif ? 'conge' : 'actif') %>">
+                        <td class="text-center"><input type="checkbox" class="form-check-input liste-complete-check"></td>
+                        <td><%= index + 1 %></td>
+                        <td><%= personnel.nom %></td>
+                        <td><%= personnel.prenom %></td>
+                        <td><%= personnel.telephone || '-' %></td>
+                        <td><%= personnel.date_prise_service ? new Date(personnel.date_prise_service).toLocaleDateString('fr-FR') : '-' %></td>
+                        <td><%= personnel.profil ? personnel.profil.libelle : '-' %></td>
+                        <td><%= dureeJours !== null ? dureeJours + ' jour' + (dureeJours > 1 ? 's' : '') : '-' %></td>
+                        <td>
+                          <% if (!personnel.etat) { %>
+                            <span class="badge bg-danger">Inactif</span>
+                          <% } else if (congeActif) { %>
+                            <span class="badge bg-info">En congé</span>
+                          <% } else { %>
+                            <span class="badge bg-success">Actif</span>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+          </div>
+        </div>
       </div>
     <% } else { %>
       <div class="alert alert-info">Aucun personnel enregistré.</div>
@@ -438,6 +528,128 @@
     document.getElementById('congeInfoMotif').textContent = conge.motif || '-';
 
     new bootstrap.Modal(document.getElementById('congeInfoModal')).show();
+  }
+
+  // Modal Liste complète : sélection, recherche et impression
+  const listeCompleteTable = document.getElementById('listeCompleteTable');
+  if (listeCompleteTable) {
+    const lignesListe = Array.from(listeCompleteTable.querySelectorAll('tbody tr'));
+    const toutCocher = document.getElementById('listeCompleteToutCocher');
+    const compteur = document.getElementById('listeCompleteCompteur');
+    const recherche = document.getElementById('listeCompleteRecherche');
+
+    const lignesVisibles = () => lignesListe.filter(tr => tr.style.display !== 'none');
+    const caseDe = tr => tr.querySelector('.liste-complete-check');
+
+    function majSelection() {
+      const nbCoches = lignesListe.filter(tr => caseDe(tr).checked).length;
+      compteur.textContent = nbCoches;
+      lignesListe.forEach(tr => tr.classList.toggle('table-primary', caseDe(tr).checked));
+
+      const visibles = lignesVisibles();
+      const nbVisiblesCoches = visibles.filter(tr => caseDe(tr).checked).length;
+      toutCocher.checked = visibles.length > 0 && nbVisiblesCoches === visibles.length;
+      toutCocher.indeterminate = nbVisiblesCoches > 0 && nbVisiblesCoches < visibles.length;
+    }
+
+    // Un clic n'importe où sur la ligne coche / décoche sa case
+    lignesListe.forEach(tr => {
+      tr.addEventListener('click', e => {
+        if (e.target.type !== 'checkbox') caseDe(tr).checked = !caseDe(tr).checked;
+        majSelection();
+      });
+    });
+
+    // "Tout sélectionner" agit uniquement sur les lignes visibles (après recherche)
+    toutCocher.addEventListener('change', () => {
+      lignesVisibles().forEach(tr => caseDe(tr).checked = toutCocher.checked);
+      majSelection();
+    });
+
+    recherche.addEventListener('input', () => {
+      const filtre = recherche.value.toLowerCase();
+      lignesListe.forEach(tr => {
+        const nom = (tr.cells[2].textContent + ' ' + tr.cells[3].textContent).toLowerCase();
+        const tel = tr.cells[4].textContent.toLowerCase();
+        tr.style.display = (nom.includes(filtre) || tel.includes(filtre)) ? '' : 'none';
+      });
+      majSelection();
+    });
+  }
+
+  function imprimerListeComplete() {
+    const selection = Array.from(document.querySelectorAll('#listeCompleteTable tbody tr'))
+      .filter(tr => tr.querySelector('.liste-complete-check').checked);
+
+    if (selection.length === 0) {
+      alert('Veuillez sélectionner au moins un membre du personnel à imprimer.');
+      return;
+    }
+
+    const lignesHTML = selection.map((tr, i) => {
+      const c = tr.cells;
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td class="nom">${escapeHtml(c[2].textContent.trim())}</td>
+        <td>${escapeHtml(c[3].textContent.trim())}</td>
+        <td>${escapeHtml(c[4].textContent.trim())}</td>
+        <td>${escapeHtml(c[5].textContent.trim())}</td>
+        <td>${escapeHtml(c[6].textContent.trim())}</td>
+        <td>${escapeHtml(c[7].textContent.trim())}</td>
+      </tr>`;
+    }).join('');
+
+    const maintenant = new Date();
+    const dateImp = maintenant.toLocaleDateString('fr-FR');
+    const heureImp = maintenant.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+    const w = window.open('', '_blank');
+    w.document.write(`
+      <html><head><title>Liste du personnel - BAMTI</title>
+      <style>
+        @page{size:A4 landscape;margin:14mm 12mm}
+        *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        body{font-family:'Segoe UI',Arial,sans-serif;margin:0;color:#333}
+        .entete{text-align:center;border-bottom:3px double #6c757d;padding-bottom:10px;margin-bottom:18px}
+        .entete h2{margin:0 0 4px;color:#495057;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+        .entete p{margin:0;font-size:13px;color:#555}
+        .titre{text-align:center;margin-bottom:16px}
+        .titre h3{display:inline-block;margin:0;padding:6px 28px;border:1.5px solid #495057;border-radius:4px;letter-spacing:2px;text-transform:uppercase;font-size:17px}
+        .titre small{display:block;margin-top:8px;color:#666;font-size:12px}
+        table{width:100%;border-collapse:collapse;font-size:12.5px}
+        thead{display:table-header-group}
+        th{background:#495057;color:#fff;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.5px}
+        th,td{border:1px solid #ced4da;padding:7px 8px;text-align:left}
+        tbody tr:nth-child(even){background:#f4f6f8}
+        tr{page-break-inside:avoid}
+        td.num{text-align:center;width:34px;color:#666}
+        td.nom{font-weight:600;text-transform:uppercase}
+        .visa{display:flex;justify-content:flex-end;margin-top:36px;page-break-inside:avoid}
+        .visa div{text-align:center;width:260px;font-size:13px}
+        .visa .ligne{margin-top:55px;border-top:1px solid #333}
+        footer{display:flex;justify-content:space-between;margin-top:30px;font-size:11px;color:#888;border-top:1px solid #ccc;padding-top:6px}
+      </style></head><body>
+      <div class="entete">
+        <h2>Entreprise BAMTI</h2>
+        <p>NIF: 64750/P | SONUCI KOUBIA | Tél : 99582158 / 90231123</p>
+      </div>
+      <div class="titre">
+        <h3>Liste du personnel</h3>
+        <small>Imprimée le ${dateImp} à ${heureImp} — ${selection.length} agent${selection.length > 1 ? 's' : ''}</small>
+      </div>
+      <table>
+        <thead>
+          <tr><th>N°</th><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>Prise de service</th><th>Profil</th><th>Durée de service</th></tr>
+        </thead>
+        <tbody>${lignesHTML}</tbody>
+      </table>
+      <div class="visa">
+        <div><strong>Visa de la Direction</strong><div class="ligne"></div></div>
+      </div>
+      <footer><span>© Entreprise BAMTI</span><span>Document généré le ${dateImp}</span></footer>
+      </body></html>`);
+    w.document.close();
+    w.print();
   }
 </script>
 <script>

@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const db = require('../models');
+const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 const StockSachetEntree = db.StockSachetEntree;
 const StockSachetSortie = db.StockSachetSortie;
 
@@ -32,7 +33,7 @@ async function enregistrerSortieSachet({ quantite, date, motif, id_vente, create
   return StockSachetSortie.create(
     {
       quantite,
-      date_sortie: date || new Date().toISOString().slice(0, 10),
+      date_sortie: date || aujourdhui(),
       motif: motif || null,
       id_vente: id_vente || null,
       createdBy: createdBy || null
@@ -51,7 +52,7 @@ async function enregistrerEntreeSachet({ quantite, date, observation, createdBy 
   return StockSachetEntree.create(
     {
       quantite,
-      date_production: date || new Date().toISOString().slice(0, 10),
+      date_production: date || aujourdhui(),
       observation: observation || null,
       createdBy: createdBy || null
     },

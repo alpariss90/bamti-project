@@ -38,8 +38,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DECIMAL(15,2),
       allowNull: false
     },
+    // credit, retenue, jours_non_payes : enregistrés en négatif ; gratification : en positif.
+    // retenue et jours_non_payes diminuent directement le salaire à la génération.
     type: {
-      type: DataTypes.ENUM('credit','gratification'),
+      type: DataTypes.ENUM('credit','gratification','retenue','jours_non_payes'),
       allowNull: false
     }
   }, {

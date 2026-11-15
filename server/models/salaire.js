@@ -22,9 +22,25 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: "une_personne_mois_date"
     },
+    // Salaire réellement dû = salaire_base − montant_retenue − montant_jours_non_payes
     montant_salaire: {
       type: DataTypes.DECIMAL(15,2),
       allowNull: false
+    },
+    // Détail du calcul (vide pour les paies générées avant leur ajout)
+    salaire_base: {
+      type: DataTypes.DECIMAL(15,2),
+      allowNull: true
+    },
+    montant_retenue: {
+      type: DataTypes.DECIMAL(15,2),
+      allowNull: false,
+      defaultValue: 0
+    },
+    montant_jours_non_payes: {
+      type: DataTypes.DECIMAL(15,2),
+      allowNull: false,
+      defaultValue: 0
     },
     montant_credit: {
       type: DataTypes.DECIMAL(15,2),

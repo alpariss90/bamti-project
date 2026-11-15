@@ -1,6 +1,8 @@
 const db = require('../models');
 const { Personnel, MontantPersonnel, PersonnelAvance, Salaire } = db;
 
+const TYPES_AVANCE = ['credit', 'gratification', 'retenue', 'jours_non_payes'];
+
 //  Fonction utilitaire pour message + redirection
 function redirectWithMessage(req, res, msg, type = 'success', path = '/personnel_avance/index') {
   req.flash('message', { text: msg, type });
@@ -45,7 +47,14 @@ exports.create = async (req, res) => {
       return redirectWithMessage(req, res, 'Tous les champs sont obligatoires.', 'danger');
     }
 
+    if (!TYPES_AVANCE.includes(type)) {
+      return redirectWithMessage(req, res, 'Type d’avance invalide.', 'danger');
+    }
+
     montant = parseFloat(montant);
+    if (isNaN(montant) || montant === 0) {
+      return redirectWithMessage(req, res, 'Le montant doit être différent de zéro.', 'danger');
+    }
     const personnel = await Personnel.findByPk(id_personnel);
 
     if (!personnel) {
@@ -55,8 +64,19 @@ exports.create = async (req, res) => {
       return redirectWithMessage(req, res, 'Impossible de créer une avance pour un personnel inactif.', 'warning');
     }
 
-    // Déterminer le montant final selon le type
-    const montantFinal = type === 'credit' ? -Math.abs(montant) : Math.abs(montant);
+    // Une fois le salaire du mois généré, une nouvelle avance ne serait jamais prise en compte
+    const salaireDejaEffectue = await Salaire.count({ where: { mois, annee } });
+    if (salaireDejaEffectue > 0) {
+      return redirectWithMessage(
+        req,
+        res,
+        `Le salaire de ${String(mois).padStart(2, '0')}/${annee} a déjà été effectué : impossible d’ajouter un crédit ou une gratification pour ce mois.`,
+        'danger'
+      );
+    }
+
+    // Déterminer le montant final selon le type : seule la gratification est positive
+    const montantFinal = type === 'gratification' ? Math.abs(montant) : -Math.abs(montant);
 
     // Créer l'avance
     await PersonnelAvance.create({ id_personnel, mois, annee, observation, montant: montantFinal, type, jour });

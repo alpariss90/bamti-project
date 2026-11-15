@@ -2,6 +2,9 @@ const db = require('../models');
 const {Commande, sequelize, Vente, Paiement} = db;
 const Client = db.Client;
 const { enregistrerSortieSachet } = require('./stockSachetController');
+const { verifierJourneeNonCloturee } = require('../services/caisse');
+const { montantRecu, datePaiement } = require('../services/premierPaiement');
+const { ID_CLIENT_ANONYME } = require('../config/constantes');
 
 //  Fonction utilitaire pour rediriger avec message flash
 function redirectWithMessage(req, res, msg, type = 'success', path = '/commandes/index') {
@@ -23,7 +26,7 @@ exports.list = async (req, res) => {
       include: [
         {
           model: Client,      
-          attributes: ['id', 'nom', 'prenom']  
+          attributes: ['id', 'nom', 'prenom', 'telephone']  
         }
       ],
       order: [['date_commande', 'DESC']] // tri par date
@@ -38,6 +41,7 @@ exports.list = async (req, res) => {
     res.render('commandes/index', {
       commandes,
       clients,
+      idClientAnonyme: ID_CLIENT_ANONYME,
       message: req.flash('message')[0] || null,
       pageTitle: 'Gestion des Commandes'
     });
@@ -46,6 +50,23 @@ exports.list = async (req, res) => {
     return redirectWithMessage(req, res, 'Erreur serveur lors du chargement des commandes.', 'danger');
   }
 };
+
+// Téléphone à enregistrer sur la commande :
+// saisi (obligatoire) pour le client Anonyme, copié depuis la fiche client sinon.
+// Renvoie { telephone } ou { erreur }.
+async function telephoneCommande(id_client, telephoneSaisi) {
+  if (Number(id_client) === ID_CLIENT_ANONYME) {
+    const telephone = String(telephoneSaisi || '').trim();
+    if ((telephone.match(/\d/g) || []).length < 8) {
+      return { erreur: 'Pour un client Anonyme, le téléphone est obligatoire (au moins 8 chiffres).' };
+    }
+    return { telephone: telephone.slice(0, 20) };
+  }
+
+  const client = await Client.findByPk(id_client, { attributes: ['telephone'] });
+  if (!client) return { erreur: 'Client introuvable.' };
+  return { telephone: client.telephone ? String(client.telephone).slice(0, 20) : null };
+}
 
 //  Créer ou modifier une commande
 exports.createOrUpdate = async (req, res) => {
@@ -59,19 +80,24 @@ exports.createOrUpdate = async (req, res) => {
 
 
   try {
+    const { telephone, erreur } = await telephoneCommande(id_client, req.body.telephone);
+    if (erreur) {
+      return redirectWithMessage(req, res, erreur, 'danger');
+    }
+
     if (id) {
-      //  Mise à jour
+      //  Mise à jour (le statut n'est jamais modifié ici : seule la validation le change)
       const commande = await Commande.findByPk(id);
       if (!commande) {
         return redirectWithMessage(req, res, 'Commande introuvable.', 'danger');
       }
 
-      await commande.update({ id_client, quantite, statut ,date_commande});
+      await commande.update({ id_client, quantite, date_commande, telephone });
       return redirectWithMessage(req, res, 'Commande mise à jour avec succès.', 'warning');
     } else {
       //  Création
-      statut='en attente';
-      await Commande.create({ id_client, quantite, statut, prix_unitaire, date_commande });
+      const statut = 'en attente';
+      await Commande.create({ id_client, quantite, statut, prix_unitaire, date_commande, telephone });
       return redirectWithMessage(req, res, 'Commande créée avec succès.', 'success');
     }
   } catch (err) {
@@ -113,7 +139,7 @@ exports.jour = async (req, res) => {
         date_commande: { [Op.gte]: aujourdhui, [Op.lt]: demain },
         statut: { [Op.ne]: 'livrée' }
       },
-      include: [{ model: Client, attributes: ['id', 'nom', 'prenom'] }],
+      include: [{ model: Client, attributes: ['id', 'nom', 'prenom', 'telephone'] }],
       order: [['date_commande', 'ASC']]
     });
 
@@ -122,7 +148,7 @@ exports.jour = async (req, res) => {
         date_commande: { [Op.lt]: aujourdhui },
         statut: 'en attente'
       },
-      include: [{ model: Client, attributes: ['id', 'nom', 'prenom'] }],
+      include: [{ model: Client, attributes: ['id', 'nom', 'prenom', 'telephone'] }],
       order: [['date_commande', 'ASC']]
     });
 
@@ -139,51 +165,78 @@ exports.jour = async (req, res) => {
   }
 };
 
-//  validation physique
+//  validation physique : la commande passe à « livrée » et une vente est créée
 exports.valider = async (req, res) => {
   const { id } = req.params;
-   const t = await sequelize.transaction();
+  const livreur = String(req.body.livreur || '').trim().slice(0, 100);
+  const observation_livraison = String(req.body.observation_livraison || '').trim().slice(0, 255) || null;
+
+  if (!livreur) {
+    return redirectWithMessage(req, res, 'Le nom du livreur est obligatoire pour valider la commande.', 'danger');
+  }
+
+  // Date de paiement (= date de la vente) : obligatoire, au plus aujourd'hui
+  const { date: date_vente, erreur: erreurDate } = datePaiement(req.body.date_paiement);
+  if (erreurDate) return redirectWithMessage(req, res, erreurDate, 'danger');
+
+  const t = await sequelize.transaction();
 
   try {
-    const commande = await Commande.findByPk(id);
+    const commande = await Commande.findByPk(id, { transaction: t });
     if (!commande) {
+      await t.rollback();
       return redirectWithMessage(req, res, 'Commande introuvable.', 'danger');
     }
-    statut='livrée';
-    type_vente='livrer';
-    const montantTotal = commande.quantite * commande.prix_unitaire;
-quantite=commande.quantite;
-prix_unitaire=commande.prix_unitaire;
-id_client=commande.id_client;
-type_paiement='echellonner';
-date_vente=commande.date_commande; 
-user=req.session?.user?.id;
 
-    await commande.update({ statut}, {transaction: t});
+    const quantite = commande.quantite;
+    const prix_unitaire = commande.prix_unitaire;
+    const montantTotal = quantite * prix_unitaire;
+    const id_client = commande.id_client;
+    const user = req.session?.user?.id;
 
+    // Montant reçu obligatoire (0 si rien payé) ; s'il couvre tout, la vente est réglée (« total »)
+    const recu = montantRecu(montantTotal, req.body.montant_recu);
+    if (recu.erreur) {
+      await t.rollback();
+      return redirectWithMessage(req, res, recu.erreur, 'danger');
+    }
 
-    
+    // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+    const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: date_vente, montant: recu.montant, transaction: t });
+    if (refus) {
+      await t.rollback();
+      return redirectWithMessage(req, res, refus, 'danger');
+    }
+
+    // Client Anonyme : on garde son numéro dans l'observation de la vente (le livreur a sa propre colonne)
+    const observation = Number(id_client) === ID_CLIENT_ANONYME && commande.telephone
+      ? `Tél : ${commande.telephone}`
+      : null;
+
+    await commande.update({ statut: 'livrée', livreur, observation_livraison }, { transaction: t });
 
     const vente = await Vente.create(
-        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, user },
-        { transaction: t });
+      { type_vente: 'livrer', quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: recu.type_paiement, date_vente, user, observation, livreur },
+      { transaction: t });
 
-         await Paiement.create({ id_vente: vente.id, montant: 0, date: date_vente }, { transaction: t });
+    // Toujours un paiement, même à 0 F (la vente reste comptée parmi les redevables)
+    await Paiement.create({ id_vente: vente.id, montant: recu.montant, date: date_vente, id_user: user }, { transaction: t });
 
-         await enregistrerSortieSachet({
-           quantite,
-           date: date_vente,
-           motif: `Commande #${commande.id} validée (vente #${vente.id})`,
-           id_vente: vente.id,
-           createdBy: req.session?.user?.login || null
-         }, t);
+    await enregistrerSortieSachet({
+      quantite,
+      date: date_vente,
+      motif: `Commande #${commande.id} validée (vente #${vente.id})`,
+      id_vente: vente.id,
+      createdBy: req.session?.user?.login || null
+    }, t);
 
-await t.commit();
+    await t.commit();
 
     return redirectWithMessagevente(req, res, `Commande #${id} validé et vente enregistré avec succès.`, 'success');
 
   } catch (err) {
-    console.error('Erreur lors de la suppression de la commande :', err);
-    return redirectWithMessage(req, res, 'Erreur lors de la suppression de la commande.', 'danger');
+    await t.rollback();
+    console.error('Erreur lors de la validation de la commande :', err);
+    return redirectWithMessage(req, res, 'Erreur lors de la validation de la commande.', 'danger');
   }
 };

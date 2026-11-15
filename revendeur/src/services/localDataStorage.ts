@@ -12,21 +12,21 @@ export const localDataStorage = {
   async saveClients(clients: LocalClient[]): Promise<void> {
     await db.transaction('rw', db.clients, async () => {
       await db.clients.clear();
-      if (clients.length) await db.clients.bulkAdd(clients);
+      if (clients.length) await db.clients.bulkPut(clients);
     });
   },
 
   async saveVentes(ventes: LocalVente[]): Promise<void> {
     await db.transaction('rw', db.ventes, async () => {
       await db.ventes.clear();
-      if (ventes.length) await db.ventes.bulkAdd(ventes);
+      if (ventes.length) await db.ventes.bulkPut(ventes);
     });
   },
 
   async savePaiements(paiements: LocalPaiement[]): Promise<void> {
     await db.transaction('rw', db.paiements, async () => {
       await db.paiements.clear();
-      if (paiements.length) await db.paiements.bulkAdd(paiements);
+      if (paiements.length) await db.paiements.bulkPut(paiements);
     });
   },
 
@@ -45,21 +45,21 @@ export const localDataStorage = {
   async savePendingClients(clients: PendingClientPayload[]): Promise<void> {
     await db.transaction('rw', db.pending_clients, async () => {
       await db.pending_clients.clear();
-      if (clients.length) await db.pending_clients.bulkAdd(clients);
+      if (clients.length) await db.pending_clients.bulkPut(clients);
     });
   },
 
   async savePendingVentes(ventes: PendingVentePayload[]): Promise<void> {
     await db.transaction('rw', db.pending_ventes, async () => {
       await db.pending_ventes.clear();
-      if (ventes.length) await db.pending_ventes.bulkAdd(ventes);
+      if (ventes.length) await db.pending_ventes.bulkPut(ventes);
     });
   },
 
   async savePendingPaiements(paiements: PendingPaiementPayload[]): Promise<void> {
     await db.transaction('rw', db.pending_paiements, async () => {
       await db.pending_paiements.clear();
-      if (paiements.length) await db.pending_paiements.bulkAdd(paiements);
+      if (paiements.length) await db.pending_paiements.bulkPut(paiements);
     });
   },
 

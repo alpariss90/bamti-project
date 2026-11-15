@@ -24,13 +24,22 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     profil: {
-      type: DataTypes.ENUM('admin', 'visualisation', 'caissier', 'magasinier', 'revendeur'),
+      type: DataTypes.ENUM('admin', 'visualisation', 'caissier', 'magasinier', 'revendeur', 'gestionnaire'),
       allowNull: false,
       defaultValue: 'admin'
     },
     isActive: {
       type: DataTypes.BOOLEAN,
       defaultValue: true
+    },
+    // Dernière requête reçue de l'utilisateur (sert à savoir qui est connecté)
+    derniere_activite: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    derniere_source: {
+      type: DataTypes.ENUM('web', 'mobile'),
+      allowNull: true
     },
     createdBy: {
       type: DataTypes.INTEGER,

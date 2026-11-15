@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const venteController = require('../controllers/venteController');
+const { autorise } = require('../middleware/autorise');
 
 // Liste des ventes
 router.get('/index', venteController.list);
@@ -10,8 +11,9 @@ router.post('/createOrUpdate', venteController.createOrUpdate);
 
 router.post('/createOrUpdateCaissier', venteController.createOrUpdateCaissier);
 
-// Supprimer une vente
-router.delete('/delete/:id', venteController.delete);
+// Supprimer une vente — désactivé : une vente n'est jamais supprimée, seulement annulée (/annuler/:id).
+// Route appelée par aucune vue ; la suppression ne restituait pas le stock d'eau.
+// router.delete('/delete/:id', venteController.delete);
 
 // Ajouter un versement
 router.post('/AjouterVersement', venteController.ajouterVersement);
@@ -31,7 +33,7 @@ router.get('/redevable/print', venteController.redevableprint);
 router.get('/index/caissier', venteController.caissier);
 
 
-router.post('/annuler/:id', venteController.annuler);
+router.post('/annuler/:id', autorise('ventes.annuler'), venteController.annuler);
 router.get('/annulees', venteController.annulees);
 
 

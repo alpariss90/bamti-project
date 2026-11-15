@@ -1,7 +1,10 @@
 const db = require('../models');
 const { Vente, User, Paiement, Client, sequelize } = db;
 const { Op } = require('sequelize');
+const { aujourdhui } = require('../services/rapport/periode'); // date du jour à Niamey ('AAAA-MM-JJ')
 const { enregistrerSortieSachet, enregistrerEntreeSachet } = require('./stockSachetController');
+const { verifierJourneeNonCloturee } = require('../services/caisse');
+const { montantRecu } = require('../services/premierPaiement');
 
 // Fonction utilitaire pour rediriger avec message
 function redirectWithMessage(req, res, msg, type = 'success', path = '/ventes/index') {
@@ -187,6 +190,15 @@ exports.redevableprint = async (req, res) => {
   } 
 };
 
+// Livreur d'une vente : obligatoire si livrée, toujours vide si usine.
+// Renvoie { livreur } ou { erreur }.
+function livreurVente(type_vente, livreurSaisi) {
+  if (type_vente !== 'livrer') return { livreur: null };
+  const livreur = String(livreurSaisi || '').trim().slice(0, 100);
+  if (!livreur) return { erreur: 'Le nom du livreur est obligatoire pour une vente livrée.' };
+  return { livreur };
+}
+
 // Créer ou mettre à jour une vente
 exports.createOrUpdate = async (req, res) => {
   const t = await sequelize.transaction();
@@ -198,6 +210,17 @@ exports.createOrUpdate = async (req, res) => {
       return redirectWithMessage(req, res, 'Tous les champs sont obligatoires.', 'danger');
     }
 
+    if (String(date_vente).slice(0, 10) > aujourdhui()) {
+      await t.rollback();
+      return redirectWithMessage(req, res, 'La date de vente ne peut pas être dans le futur.', 'danger');
+    }
+
+    const { livreur, erreur: erreurLivreur } = livreurVente(type_vente, req.body.livreur);
+    if (erreurLivreur) {
+      await t.rollback();
+      return redirectWithMessage(req, res, erreurLivreur, 'danger');
+    }
+
     const montantTotal = quantite * prix_unitaire;
 
     //console.log(res.locals.currentUser.id+"+++++++++++++++++++++++++++++++");
@@ -205,16 +228,33 @@ exports.createOrUpdate = async (req, res) => {
     
 
     if (!id) {
+      // Vente échelonnée : montant reçu obligatoire (0 si rien payé) ; s'il couvre tout, la vente passe en « total »
+      let typePaiement = type_paiement;
+      let montantEncaisse = montantTotal;
+      if (type_paiement === 'echellonner') {
+        const recu = montantRecu(montantTotal, montant_paye);
+        if (recu.erreur) {
+          await t.rollback();
+          return redirectWithMessage(req, res, recu.erreur, 'danger');
+        }
+        typePaiement = recu.type_paiement;
+        montantEncaisse = recu.montant;
+      }
+
+      // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+      const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: date_vente, montant: montantEncaisse, transaction: t });
+      if (refus) {
+        await t.rollback();
+        return redirectWithMessage(req, res, refus, 'danger');
+      }
+
       const vente = await Vente.create(
-        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, user: req.session.user.id },
+        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement: typePaiement, date_vente, livreur, user: req.session.user.id },
         { transaction: t }
       );
 
-      if (type_paiement === 'total') {
-        await Paiement.create({ id_vente: vente.id, montant: montantTotal, date: date_vente }, { transaction: t });
-      } else if (type_paiement === 'echellonner' && montant_paye > 0) {
-        await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente }, { transaction: t });
-      }
+      // Toujours un paiement, même à 0 F pour une vente échelonnée sans première tranche (comptée parmi les redevables)
+      await Paiement.create({ id_vente: vente.id, montant: montantEncaisse, date: date_vente, id_user: req.session.user.id }, { transaction: t });
 
       await enregistrerSortieSachet({
         quantite: vente.quantite,
@@ -227,16 +267,22 @@ exports.createOrUpdate = async (req, res) => {
       await t.commit();
       return redirectWithMessage(req, res, 'Vente ajoutée avec succès.', 'success');
     } else {
+      // Modification désactivée : une vente n'est jamais modifiée, seulement annulée.
+      // Aucune vue ne renseigne le champ "id" ; la modification n'ajustait pas le stock d'eau.
+      /*
       const vente = await Vente.findByPk(id);
       if (!vente) {
         await t.rollback();
         return redirectWithMessage(req, res, 'Vente introuvable.', 'danger');
       }
 
-      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente }, { transaction: t });
+      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur }, { transaction: t });
       await t.commit();
 
       return redirectWithMessage(req, res, 'Vente mise à jour avec succès.', 'warning');
+      */
+      await t.rollback();
+      return redirectWithMessage(req, res, 'La modification d’une vente n’est pas autorisée. Utilisez l’annulation.', 'danger');
     }
   } catch (err) {
     console.error(err);
@@ -257,6 +303,12 @@ exports.createOrUpdateCaissier = async (req, res) => {
       return redirectWithMessageCaissier(req, res, 'Tous les champs sont obligatoires.', 'danger');
     }
 
+    const { livreur, erreur: erreurLivreur } = livreurVente(type_vente, req.body.livreur);
+    if (erreurLivreur) {
+      await t.rollback();
+      return redirectWithMessageCaissier(req, res, erreurLivreur, 'danger');
+    }
+
     const montantTotal = quantite * prix_unitaire;
     const date_vente = new Date();
     date_vente.setHours(0, 0, 0, 0);
@@ -266,15 +318,23 @@ exports.createOrUpdateCaissier = async (req, res) => {
     
 
     if (!id) {
+      // Journée déjà clôturée par l'encaisseur : plus de paiement à cette date (sauf admin, voir services/caisse.js)
+      const montantEncaisse = type_paiement === 'total' ? montantTotal : (Number(montant_paye) || 0);
+      const refus = await verifierJourneeNonCloturee({ user: req.session.user, date: date_vente, montant: montantEncaisse, transaction: t });
+      if (refus) {
+        await t.rollback();
+        return redirectWithMessageCaissier(req, res, refus, 'danger');
+      }
+
       const vente = await Vente.create(
-        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, user: req.session.user.id },
+        { type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur, user: req.session.user.id },
         { transaction: t }
       );
 
       if (type_paiement === 'total') {
-        await Paiement.create({ id_vente: vente.id, montant: montantTotal, date: date_vente }, { transaction: t });
+        await Paiement.create({ id_vente: vente.id, montant: montantTotal, date: date_vente, id_user: req.session.user.id }, { transaction: t });
       } else if (type_paiement === 'echellonner' && montant_paye > 0) {
-        await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente }, { transaction: t });
+        await Paiement.create({ id_vente: vente.id, montant: montant_paye, date: date_vente, id_user: req.session.user.id }, { transaction: t });
       }
 
       await enregistrerSortieSachet({
@@ -288,16 +348,22 @@ exports.createOrUpdateCaissier = async (req, res) => {
       await t.commit();
       return redirectWithMessageCaissier(req, res, 'Vente ajoutée avec succès.', 'success');
     } else {
+      // Modification désactivée : une vente n'est jamais modifiée, seulement annulée.
+      // Aucune vue ne renseigne le champ "id" ; la modification n'ajustait pas le stock d'eau.
+      /*
       const vente = await Vente.findByPk(id);
       if (!vente) {
         await t.rollback();
         return redirectWithMessageCaissier(req, res, 'Vente introuvable.', 'danger');
       }
 
-      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente }, { transaction: t });
+      await vente.update({ type_vente, quantite, prix_unitaire, montant: montantTotal, id_client, type_paiement, date_vente, livreur }, { transaction: t });
       await t.commit();
 
       return redirectWithMessageCaissier(req, res, 'Vente mise à jour avec succès.', 'warning');
+      */
+      await t.rollback();
+      return redirectWithMessageCaissier(req, res, 'La modification d’une vente n’est pas autorisée. Utilisez l’annulation.', 'danger');
     }
   } catch (err) {
     console.error(err);
@@ -306,7 +372,9 @@ exports.createOrUpdateCaissier = async (req, res) => {
   }
 };
 
-// Supprimer une vente
+// Supprimer une vente — désactivé : une vente n'est jamais supprimée, seulement annulée (voir exports.annuler).
+// La suppression ne restituait pas le stock d'eau. Route commentée dans routes/vente.js.
+/*
 exports.delete = async (req, res) => {
   const t = await sequelize.transaction();
   try {
@@ -328,6 +396,7 @@ exports.delete = async (req, res) => {
     return redirectWithMessage(req, res, 'Erreur lors de la suppression de la vente.', 'danger');
   }
 };
+*/
 
 
 exports.annuler = async (req, res) => {
@@ -344,8 +413,8 @@ exports.annuler = async (req, res) => {
 
       const query = `
             INSERT INTO ventes_annuler 
-            (id, type_vente, quantite, observation, type_paiement, montant, prix_unitaire, date_vente, id_client, user, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            (id, type_vente, quantite, observation, type_paiement, montant, prix_unitaire, date_vente, id_client, user, livreur, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `;
         
         const observation = req.body.observation?.trim() || 'Annulée sans observation';
@@ -361,6 +430,7 @@ exports.annuler = async (req, res) => {
             vente.date_vente,
             vente.id_client,
             req.session.user.id,
+            vente.livreur || null,
         ];
 
         // Exécuter l'insertion
@@ -375,7 +445,7 @@ exports.annuler = async (req, res) => {
 
     await enregistrerEntreeSachet({
       quantite: vente.quantite,
-      date: new Date().toISOString().slice(0, 10),
+      date: aujourdhui(),
       observation: `Restitution suite à annulation de la vente #${vente.id}`,
       createdBy: req.session?.user?.login || null
     }, t);
@@ -447,9 +517,15 @@ exports.ajouterVersement = async (req, res) => {
       return redirectWithMessage(req, res, `Le montant dépasse le reste à payer (${reste})`, 'warning', '/ventes/index');
     }
 
+    const refus = await verifierJourneeNonCloturee({ user: req.session.user, date, montant, transaction: t });
+    if (refus) {
+      await t.rollback();
+      return redirectWithMessage(req, res, refus, 'danger', '/ventes/index');
+    }
+
     //  Création du paiement avec champ observation
     await Paiement.create(
-      { id_vente, montant, date, observation }, // <-- champ ajouté ici
+      { id_vente, montant, date, observation, id_user: req.session.user.id }, // id_user : qui a encaissé ce versement
       { transaction: t }
     );
 
@@ -474,7 +550,7 @@ exports.ajouterVersement = async (req, res) => {
  // type_paiement = 'echelonne'
   const ventes = await Vente.findAll({ where: { id_client, type_paiement: 'echellonner' 
     // <-- le filtre important ici
-     }, include: Paiement, order: [['createdAt', 'DESC']] });
+     }, include: { model: Paiement, include: { model: User, as: 'encaisseur', attributes: ['nom'] } }, order: [['createdAt', 'DESC']] });
      let client=await Client.findByPk(id_client);
       res.render('ventes/versements_client', { ventes, cl: client, message: req.flash('message')[0] || null, pageTitle: 'Versements du client' });
      } catch (err) { console.error(err); 
@@ -486,12 +562,21 @@ exports.ajouterVersement = async (req, res) => {
   return `${annee}-${mois}-${jour}`; // Format MySQL
 }
 
+// 'AAAA-MM-JJ' (DATEONLY) -> 'JJ/MM/AAAA'
+function convertToFR(dateISO) {
+  const [annee, mois, jour] = String(dateISO).split('-');
+  return `${jour}/${mois}/${annee}`;
+}
+
+// Seuls ces profils apparaissent dans le select "Caissier" du filtre des ventes
+const PROFILS_CAISSIER_FILTRE = ['admin', 'caissier', 'gestionnaire'];
+
 exports.ventesFiltrees = async (req, res) => {
   try {
     // Si aucun filtre soumis, afficher le formulaire vide
     if (!req.query.date_debut) {
       const clients = await Client.findAll();
-      const users   = await User.findAll();
+      const users   = await User.findAll({ where: { profil: PROFILS_CAISSIER_FILTRE } });
       return res.render('ventes/filtre', {
         clients, users,
         ventes: [],
@@ -533,46 +618,40 @@ exports.ventesFiltrees = async (req, res) => {
         { model: Paiement, as: 'Paiements' },
         { model: Client, as: 'Client', attributes: ['nom', 'prenom'] }
       ],
-      order: [['date_vente', 'DESC']]
+      order: [['date_vente', 'DESC'], ['createdAt', 'DESC']]
     });
 
-    // Regrouper les ventes par client
-    const ventesParClient = {};
+    // Caissiers indexés par id pour afficher qui a fait chaque vente
+    const tousUsers = await User.findAll({ attributes: ['id', 'login', 'nom'] });
+    const usersParId = {};
+    tousUsers.forEach(u => { usersParId[u.id] = u; });
 
-    ventes.forEach(v => {
-      const clientId = v.id_client;
-      if (!ventesParClient[clientId]) {
-        ventesParClient[clientId] = {
-          client: v.Client,
-          type_ventes: new Set(),
-          quantite: 0,
-          montantTotal: 0,
-          montantPayes: 0,
-          reste: 0
-        };
-      }
-
-      ventesParClient[clientId].type_ventes.add(v.type_vente);
-      ventesParClient[clientId].quantite += v.quantite;
+    // Une ligne par vente (heure = heure de saisie, date_vente n'ayant pas d'heure)
+    const lignesVentes = ventes.map(v => {
       const montantTotal = v.quantite * v.prix_unitaire || 0;
       const montantPayes = v.Paiements?.reduce((s, p) => s + p.montant, 0) || 0;
-      const reste = montantTotal - montantPayes;
+      const caissier = usersParId[v.user];
 
-      ventesParClient[clientId].montantTotal += montantTotal;
-      ventesParClient[clientId].montantPayes += montantPayes;
-      ventesParClient[clientId].reste += reste;
+      return {
+        client: v.Client,
+        date_vente: v.date_vente ? convertToFR(v.date_vente) : '-',
+        date_tri: v.createdAt ? new Date(v.createdAt).getTime() : 0,
+        heure_vente: v.createdAt
+          ? new Date(v.createdAt).toLocaleTimeString('fr-FR', { timeZone: 'Africa/Niamey', hour: '2-digit', minute: '2-digit' })
+          : '-',
+        caissier: caissier ? caissier.login : '-',
+        type_vente: v.type_vente,
+        quantite: v.quantite,
+        montantTotal,
+        montantPayes,
+        reste: montantTotal - montantPayes
+      };
     });
 
-    // Convertir en tableau pour EJS
-    const ventesAggregees = Object.values(ventesParClient).map(v => ({
-      ...v,
-      type_ventes: Array.from(v.type_ventes).join(', ') // plusieurs types de vente possibles
-    }));
-
     // Calculer totaux globaux
-    const montantTotalVentes = ventesAggregees.reduce((sum, v) => sum + v.montantTotal, 0);
-    const montantPaye = ventesAggregees.reduce((sum, v) => sum + v.montantPayes, 0);
-    const resteTotal = ventesAggregees.reduce((sum, v) => sum + v.reste, 0);
+    const montantTotalVentes = lignesVentes.reduce((sum, v) => sum + v.montantTotal, 0);
+    const montantPaye = lignesVentes.reduce((sum, v) => sum + v.montantPayes, 0);
+    const resteTotal = lignesVentes.reduce((sum, v) => sum + v.reste, 0);
 
     // Récupérer la liste des clients pour le filtre
     let clients = [];
@@ -589,16 +668,17 @@ exports.ventesFiltrees = async (req, res) => {
       const user = users[0]?.User || (await User.findByPk(id_user));
       if (user) users.push(user);
     } else {
-      users = await User.findAll();
+      users = await User.findAll({ where: { profil: PROFILS_CAISSIER_FILTRE } });
     }
 
     res.render('ventes/filtre', {
       clients, users,
-      ventes: ventesAggregees,
+      ventes: lignesVentes,
       montantTotalVentes,
       montantPaye,
       resteTotal,
       id_client: id_client || '',
+      id_user: id_user || '',
       type_vente: type_vente || '',
       date_debut: date_debut || '',
       date_fin: date_fin || '',

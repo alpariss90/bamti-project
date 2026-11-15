@@ -91,23 +91,39 @@
               <th>Date dépense</th>
               <th>Type de dépense</th>
               <th>Engin</th>
+              <th>Saisi par</th>
+              <th>Heure</th>
               <th>Montant (F)</th>
             </tr>
           </thead>
           <tbody>
+            <%
+              // Heure de saisie (fuseau Niamey) ; la date est ajoutée si la saisie n'a pas eu lieu le jour de la dépense
+              const heureSaisie = (d) => {
+                if (!d.createdAt) return '-';
+                const saisie = new Date(d.createdAt);
+                const jourSaisie = saisie.toLocaleDateString('en-CA', { timeZone: 'Africa/Niamey' });
+                const heure = saisie.toLocaleTimeString('fr-FR', { timeZone: 'Africa/Niamey', hour: '2-digit', minute: '2-digit' });
+                return jourSaisie === String(d.date_depense).slice(0, 10)
+                  ? heure
+                  : saisie.toLocaleDateString('fr-FR', { timeZone: 'Africa/Niamey' }) + ' ' + heure;
+              };
+            %>
             <% depenses.forEach((dep, index) => { %>
               <tr>
                 <td><%= index + 1 %></td>
                 <td><%= new Date(dep.date_depense).toLocaleDateString('fr-FR') %></td>
                 <td><%= dep.typeDepense?.libelle || '-' %></td>
                 <td><%= dep.engin?.libelle || '-' %></td>
+                <td><%= dep.createdBy || '-' %></td>
+                <td><%= heureSaisie(dep) %></td>
                 <td class="fw-semibold"><%= new Intl.NumberFormat('fr-FR').format(dep.montant_depense) %> FCFA</td>
               </tr>
             <% }) %>
           </tbody>
           <tfoot class="table-secondary fw-bold">
             <tr>
-              <td colspan="4" class="text-end">Montant total global</td>
+              <td colspan="6" class="text-end">Montant total global</td>
               <td><%= new Intl.NumberFormat('fr-FR').format(montantTotalGlobal.toFixed(2)) %> FCFA</td>
             </tr>
           </tfoot>

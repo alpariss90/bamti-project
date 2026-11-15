@@ -77,9 +77,16 @@
     <h5 class="mb-3 fw-bold">Liste des Mouvements</h5>
 
 
-<% if (rs && rs.length > 1){ %>
-    Quantite Stock du SACHET PURE WATER :<span style="color: green; font-size: x-large;"> <%=new Intl.NumberFormat('fr-FR').format(rs[0].dataValues.total_quantite)  %> KG</span> <br>
-    Quantite Stock d' EMBALLAGE :<span style="color: green; font-size: x-large;"> <%=new Intl.NumberFormat('fr-FR').format(rs[1].dataValues.total_quantite) %> KG</span>
+<% if (stocksMatiere && stocksMatiere.length > 0){ %>
+  <% stocksMatiere.forEach(s => { %>
+    Quantite Stock <%= s.libelle === 'EMBALLAGE' ? "d' EMBALLAGE" : 'du ' + s.libelle %> :<span style="color: <%= s.critique ? 'red' : 'green' %>; font-size: x-large;"> <%= new Intl.NumberFormat('fr-FR').format(s.stock) %> KG</span>
+    <% if (s.seuil !== null) { %>
+      <span class="small <%= s.critique ? 'text-danger fw-bold' : 'text-muted' %>">
+        <% if (s.critique) { %><i class="bi bi-exclamation-triangle-fill"></i> <% } %>(seuil critique : <%= new Intl.NumberFormat('fr-FR').format(s.seuil) %> KG)
+      </span>
+    <% } %>
+    <br>
+  <% }) %>
 <% } %>
 
     <% if (mvtMatieres && mvtMatieres.length > 0) { %>

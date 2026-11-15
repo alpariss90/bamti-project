@@ -40,6 +40,13 @@
           <h5 class="mb-0 text-white">Sauvegardes disponibles</h5>
         </div>
         <div class="card-body">
+          <% if (backups.length === 0) { %>
+            <!-- Message à la place du tableau s'il est vide : DataTables refuse les colspan -->
+            <div class="text-center text-muted py-4">
+              <i class="ri-inbox-line fs-3 d-block mb-2"></i>
+              Aucune sauvegarde trouvée.
+            </div>
+          <% } else { %>
           <div class="table-responsive">
             <table class="table table-hover table-bordered align-middle" id="dtable">
               <thead class="table-secondary">
@@ -49,14 +56,6 @@
                 </tr>
               </thead>
               <tbody>
-                <% if (backups.length === 0) { %>
-                  <tr>
-                    <td colspan="2" class="text-center text-muted py-4">
-                      <i class="ri-inbox-line fs-3 d-block mb-2"></i>
-                      Aucune sauvegarde trouvée.
-                    </td>
-                  </tr>
-                <% } else { %>
                   <% backups.forEach(backup => { %>
                     <tr>
                       <td>
@@ -71,10 +70,10 @@
                       </td>
                     </tr>
                   <% }) %>
-                <% } %>
               </tbody>
             </table>
           </div>
+          <% } %>
         </div>
       </div>
     </div>

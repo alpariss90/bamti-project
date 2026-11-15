@@ -17,7 +17,10 @@
         </div>
       <% } %>
 
-      <!-- Tableau des personnels -->
+      <!-- Tableau des personnels (message à la place du tableau s'il est vide : DataTables refuse les colspan) -->
+      <% if (personnels.length === 0) { %>
+        <div class="alert alert-light border text-center text-muted">Aucun personnel trouvé.</div>
+      <% } else { %>
       <div class="table-wrapper shadow-sm rounded" style="border: 1px solid #dee2e6;">
         <div class="d-flex justify-content-end mb-2">
          <!-- <input type="text" id="searchInput" class="form-control form-control-sm w-auto" placeholder="Rechercher ..."> -->
@@ -35,11 +38,6 @@
             </tr>
           </thead>
           <tbody>
-            <% if (personnels.length === 0) { %>
-              <tr>
-                <td colspan="6" class="text-center text-muted">Aucun personnel trouvé.</td>
-              </tr>
-            <% } else { %>
               <% personnels.forEach((p, i) => { %>
                 <tr>
                   <th scope="row"><%= i + 1 %></th>
@@ -82,11 +80,11 @@
                   </td>
                 </tr>
               <% }); %>
-            <% } %>
           </tbody>
         </table>
 		   <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
       </div>
+      <% } %>
 
     </div>
   </div>
@@ -109,7 +107,7 @@
 
           <div class="mb-3">
             <label for="salaire" class="form-label">Salaire (FCFA)</label>
-            <input type="number" step="0.01" min="0" class="form-control" id="salaire" name="salaire" required>
+            <input type="text" inputmode="numeric" autocomplete="off" class="form-control" id="salaire" name="salaire" placeholder="Ex : 150 000" required>
           </div>
         </div>
 
@@ -128,6 +126,34 @@
 <!-- JS Interactif -->
 <script>
   const modalSalaire = document.getElementById('modalSalaire');
+  const salaireInput = modalSalaire.querySelector('#salaire');
+
+  // Formate un montant FCFA avec un espace comme séparateur de milliers (pas de décimales)
+  function formatMontant(digits) {
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  // Formatage pendant la saisie en conservant la position du curseur
+  salaireInput.addEventListener('input', () => {
+    const caret = salaireInput.selectionStart;
+    const digitsAvantCurseur = salaireInput.value.slice(0, caret).replace(/\D/g, '').length;
+    const digits = salaireInput.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+    const formatted = formatMontant(digits);
+    salaireInput.value = formatted;
+
+    let pos = 0, count = 0;
+    while (pos < formatted.length && count < digitsAvantCurseur) {
+      if (/\d/.test(formatted[pos])) count++;
+      pos++;
+    }
+    salaireInput.setSelectionRange(pos, pos);
+  });
+
+  // Retire les séparateurs avant l'envoi au serveur
+  modalSalaire.querySelector('form').addEventListener('submit', () => {
+    salaireInput.value = salaireInput.value.replace(/\D/g, '');
+  });
+
   modalSalaire.addEventListener('show.bs.modal', event => {
     const button = event.relatedTarget;
     const id = button.getAttribute('data-id');
@@ -137,7 +163,8 @@
 
     modalSalaire.querySelector('#id_personnel').value = id;
     modalSalaire.querySelector('#nom_prenom').value = `${nom} ${prenom}`;
-    modalSalaire.querySelector('#salaire').value = salaire || '';
+    // La valeur en base peut être décimale (ex : "150000.00") : on l'arrondit avant formatage
+    salaireInput.value = salaire ? formatMontant(String(Math.round(parseFloat(salaire)))) : '';
 
     // Change le titre selon si on modifie ou définit un salaire
     const modalTitle = modalSalaire.querySelector('.modal-title');

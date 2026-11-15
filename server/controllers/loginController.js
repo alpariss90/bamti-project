@@ -1,6 +1,8 @@
 const db = require('../models');
 const User = db.User;
 const bcrypt = require('bcrypt');
+const { journaliserConnexion } = require('../utils/journalConnexion');
+const { aLaPermission } = require('../middleware/autorise');
 
 // Fonction utilitaire de redirection avec message
 function redirectWithMessage(req, res, msg, type = 'danger', path = '/login') {
@@ -45,9 +47,11 @@ exports.login = async (req, res) => {
       profil: user.profil
     };
 
-    if (user.profil === 'admin') {
+    if (aLaPermission(user.profil, 'alerte_stock')) {
       req.session.showStockAlert = true;
     }
+
+    await journaliserConnexion(req, user.id, 'connexion');
 
     return res.redirect('/');
   } catch (err) {
@@ -57,7 +61,10 @@ exports.login = async (req, res) => {
 };
 
 // Déconnexion
-exports.logout = (req, res) => {
+exports.logout = async (req, res) => {
+  if (req.session?.user?.id) {
+    await journaliserConnexion(req, req.session.user.id, 'deconnexion');
+  }
   req.session.destroy(err => {
     if (err) console.error('Erreur déconnexion :', err);
     res.redirect('/login');

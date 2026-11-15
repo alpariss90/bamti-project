@@ -46,7 +46,7 @@
                   <td><%= fmt(r.prix_unitaire) %></td>
                   <td class="fw-semibold"><%= fmt(r.qte * r.prix_unitaire) %></td>
                   <td>
-                    <% const today = new Date().toISOString().split('T')[0]; %>
+                    <% const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Niamey' }).format(new Date()); %>
                     <% const dl = new Date(r.date_livraison).toISOString().split('T')[0]; %>
                     <% if (dl < today) { %>
                       <span class="text-danger fw-semibold"><%= fmtDate(r.date_livraison) %></span>

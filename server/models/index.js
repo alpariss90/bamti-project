@@ -35,11 +35,21 @@ const TicketModel = require('./ticket')(sequelize, DataTypes);
 const RevendeurModel = require('./revendeur')(sequelize, DataTypes);
 const ClientClientTmpModel = require('./client_client_tmp')(sequelize, DataTypes);
 const ReservationModel = require('./reservation')(sequelize, DataTypes);
+const RapportEnvoyeModel = require('./rapport_envoye')(sequelize, DataTypes);
+const UserLogModel = require('./user_log')(sequelize, DataTypes);
+const CaisseJourneeModel = require('./caisse_journee')(sequelize, DataTypes);
+const CaisseRemiseModel = require('./caisse_remise')(sequelize, DataTypes);
+const CaisseRemiseLigneModel = require('./caisse_remise_ligne')(sequelize, DataTypes);
+const BonEnlevementModel = require('./bon_enlevement')(sequelize, DataTypes);
+const MouvementStockModel = require('./mouvement_stock')(sequelize, DataTypes);
+const InventaireModel = require('./inventaire')(sequelize, DataTypes);
 //relations entre les tables
 ClientModel.hasMany(VenteModel, { foreignKey: 'id_client', onDelete: 'CASCADE' });
 VenteModel.belongsTo(ClientModel, { foreignKey: 'id_client' });
 VenteModel.hasMany(PaiementModel, { foreignKey: 'id_vente', onDelete: 'CASCADE' });
 PaiementModel.belongsTo(VenteModel, { foreignKey: 'id_vente' });
+// Qui a encaissé le paiement (vide pour les anciens versements)
+PaiementModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'encaisseur', constraints: false });
 ClientTmpModel.hasMany(VenteTmpModel, { foreignKey: 'id_client', as: 'Ventes', onDelete: 'CASCADE' });
 VenteTmpModel.belongsTo(ClientTmpModel, { foreignKey: 'id_client', as: 'Client' });
 VenteTmpModel.hasMany(PaiementTmpModel, { foreignKey: 'id_vente', as: 'Paiements', onDelete: 'CASCADE' });
@@ -87,6 +97,27 @@ ClientModel.hasMany(TicketModel, { foreignKey: 'id_client', onDelete: 'CASCADE' 
 RevendeurModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'user' });
 UserModel.hasOne(RevendeurModel, { foreignKey: 'id_user', as: 'revendeur' });
 
+// User <-> UserLog (historique des connexions)
+UserModel.hasMany(UserLogModel, { foreignKey: 'id_user', as: 'logs' });
+UserLogModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'user' });
+
+// Clôture de caisse : journée -> remises (via les lignes) -> utilisateurs
+CaisseJourneeModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'caissier', constraints: false });
+CaisseJourneeModel.belongsTo(UserModel, { foreignKey: 'id_detenteur', as: 'detenteur', constraints: false });
+CaisseJourneeModel.hasMany(CaisseRemiseLigneModel, { foreignKey: 'id_journee', as: 'lignes' });
+CaisseRemiseModel.belongsTo(UserModel, { foreignKey: 'id_expediteur', as: 'expediteur', constraints: false });
+CaisseRemiseModel.belongsTo(UserModel, { foreignKey: 'id_destinataire', as: 'destinataire', constraints: false });
+CaisseRemiseModel.hasMany(CaisseRemiseLigneModel, { foreignKey: 'id_remise', as: 'lignes' });
+CaisseRemiseLigneModel.belongsTo(CaisseRemiseModel, { foreignKey: 'id_remise', as: 'remise' });
+CaisseRemiseLigneModel.belongsTo(CaisseJourneeModel, { foreignKey: 'id_journee', as: 'journee' });
+
+// Stock d'eau réel : bons d'enlèvement -> mouvements physiques (services/stockEau.js)
+BonEnlevementModel.hasMany(MouvementStockModel, { foreignKey: 'id_bon', as: 'mouvements', constraints: false });
+MouvementStockModel.belongsTo(BonEnlevementModel, { foreignKey: 'id_bon', as: 'bon', constraints: false });
+BonEnlevementModel.belongsTo(ClientModel, { foreignKey: 'id_client', as: 'client', constraints: false });
+MouvementStockModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'auteur', constraints: false });
+InventaireModel.belongsTo(UserModel, { foreignKey: 'id_user', as: 'auteur', constraints: false });
+
 
 // Synchronisation automatique
 /*sequelize.sync({ alter: true }) 
@@ -129,4 +160,12 @@ module.exports = {
   Revendeur: RevendeurModel,
   ClientClientTmp: ClientClientTmpModel,
   Reservation: ReservationModel,
+  RapportEnvoye: RapportEnvoyeModel,
+  CaisseJournee: CaisseJourneeModel,
+  CaisseRemise: CaisseRemiseModel,
+  CaisseRemiseLigne: CaisseRemiseLigneModel,
+  UserLog: UserLogModel,
+  BonEnlevement: BonEnlevementModel,
+  MouvementStock: MouvementStockModel,
+  Inventaire: InventaireModel,
 };

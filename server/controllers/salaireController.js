@@ -1,62 +1,37 @@
 const db = require("../models");
 
-//  Fonction utilitaire de redirection avec message
-function redirectWithMessage(req, res, msg, path = "/salaire/index") {
-  req.flash("message", msg);
-  return res.redirect(path);
+const MOIS_FR = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+  'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+// Message affiché sur la page Salaire, en restant sur le mois choisi
+function redirectWithMessage(req, res, text, type, mois, annee, details) {
+  req.flash("message", { text, type, details });
+  const periode = mois && annee ? `?mois=${mois}&annee=${annee}` : '';
+  return res.redirect(`/salaire/index${periode}`);
 }
+
+const arrondi = n => Math.round((Number(n) || 0) * 100) / 100;
+const fcfa = n => new Intl.NumberFormat('fr-FR').format(n) + ' FCFA';
 
 exports.afficherSalaires = async (req, res) => {
   try {
-    const mois = new Date().getMonth() + 1; //parseInt(req.query.mois) || new Date().getMonth() + 1; // mois actuel par défaut
-    const annee = new Date().getFullYear(); //parseInt(req.query.annee) || new Date().getFullYear();  // année actuelle par défaut
+    const mois = parseInt(req.query.mois, 10) || new Date().getMonth() + 1; // mois actuel par défaut
+    const annee = parseInt(req.query.annee, 10) || new Date().getFullYear(); // année actuelle par défaut
 
-
-
-// WHERE vs.mois=:m and vs.annee=:a
-    // Requête SQL pour ce mois/année
- let result=[];
-if(req.query.mois){
-    [result] = await db.sequelize.query(
-      `SELECT 
-         *
-       FROM vsalaires vs WHERE vs.mois=:m and vs.annee=:a; 
-      `,
-      {
-        replacements: { m: req.query.mois, a: req.query.annee }
-      }
-    );
+    let result = [];
+    if (req.query.mois) {
+      [result] = await db.sequelize.query(
+        `SELECT * FROM vsalaires vs WHERE vs.mois = :m AND vs.annee = :a;`,
+        { replacements: { m: mois, a: annee } }
+      );
     }
-
-    console.log(result);
-    
-    
-/*
-    const salaires = result.map(s => ({
-      ...s,
-      salaire_base: parseFloat(s.salaire_base ?? 0),
-      total_credit: parseFloat(s.total_credit ?? 0),
-      total_gratification: parseFloat(s.total_gratification ?? 0),
-      montant_a_payer: parseFloat(s.montant_a_payer ?? s.salaire_base ?? 0)
-    }));
-
-    // Calcul des totaux
-    const totaux = { salaire_base: 0, total_credit: 0, total_gratification: 0, montant_a_payer: 0 };
-    salaires.forEach(s => {
-      totaux.salaire_base += s.salaire_base;
-      totaux.total_credit += s.total_credit;
-      totaux.total_gratification += s.total_gratification;
-      totaux.montant_a_payer += s.montant_a_payer;
-    });*/
 
     res.render("salaire/index", {
       pageTitle: "Gestion des salaires",
-      //salaires,
       selectedMois: mois,
       selectedAnnee: annee,
-      message: null,
+      message: req.flash("message")[0] || null,
       salaires: result || []
-      //totaux
     });
   } catch (error) {
     console.error(error);
@@ -154,117 +129,112 @@ exports.validerSalaires = async (req, res) => {
   }
 };
 
+// Génération de la paie d'un mois pour tout le personnel actif.
+// Salaire = base − retenues − jours non payés ; À payer = Salaire + crédits + gratifications.
+// Si un salaire ou un « à payer » est négatif, rien n'est généré (rollback) et les personnels en cause sont listés.
 exports.execute = async (req, res) => {
+  const { mois, annee, btn_salaire } = req.body;
+
+  if (!mois || mois === '0' || !annee || annee === '0') {
+    return redirectWithMessage(req, res, "Veuillez sélectionner un mois et une année.", 'danger');
+  }
+
+  if (btn_salaire !== "execute") {
+    return res.redirect(`/salaire/index?mois=${mois}&annee=${annee}`);
+  }
+
+  const periode = `${MOIS_FR[mois] || mois} ${annee}`;
   const t = await db.sequelize.transaction();
-console.log("1");
 
   try {
-    const { mois, annee, btn_salaire } = req.body;
-
-    if (!mois || mois === 0 || !annee || annee === 0) {
-      await t.rollback();
-      return res.status(400).send("Veuillez  sélectionné un mois et une année");
-      //return redirectWithMessage(req, res, 'Veuillez  sélectionné un mois et une année');
-    }
-
-    if(btn_salaire!="execute"){
-        return res.redirect("/salaire/index/?mois="+mois+"&annee="+annee);
-    }
-
-
-    console.log("2");
-    const now = new Date();
-    // Vérifier si le salaire existe pour ce mois/année
+    // Paie déjà générée pour ce mois ?
     const [exist] = await db.sequelize.query(
-      `SELECT id FROM salaires 
-         WHERE 
-            mois = :mois
-           AND annee = :annee`,
+      `SELECT id FROM salaires WHERE mois = :mois AND annee = :annee LIMIT 1`,
       { replacements: { mois, annee }, transaction: t }
     );
-console.log("3");
     if (exist.length > 0) {
-       console.log(
-        "//////////////////////////////////"
-      );
       await t.rollback();
-      return res
-        .status(400)
-        .send("Le salaire pour ce mois et l'année a été déja effectuer");
+      return redirectWithMessage(req, res, `Le salaire de ${periode} a déjà été effectué.`, 'warning', mois, annee);
     }
 
-    const [exist1] = await db.sequelize.query(
-      `select p.id from personnels p where p.etat=1 and p.id not in (select id_personnel from montant_personnel)`,
+    // Tout le personnel actif doit avoir un salaire de base
+    const [sansSalaire] = await db.sequelize.query(
+      `SELECT p.nom, p.prenom FROM personnels p
+       WHERE p.etat = 1 AND p.id NOT IN (SELECT id_personnel FROM montant_personnel)`,
+      { transaction: t }
+    );
+    if (sansSalaire.length > 0) {
+      await t.rollback();
+      const noms = sansSalaire.map(p => `${p.nom} ${p.prenom || ''}`.trim()).join(', ');
+      return redirectWithMessage(req, res,
+        `Ces personnels n'ont pas de salaire défini : ${noms}. Définissez leur salaire (Montant mis à jour) avant de générer la paie.`,
+        'danger', mois, annee);
+    }
+
+    // Personnel actif + salaire de base
+    const [personnels] = await db.sequelize.query(
+      `SELECT p.id, p.nom, p.prenom, m.salaire
+       FROM personnels p JOIN montant_personnel m ON m.id_personnel = p.id
+       WHERE p.etat = 1`,
+      { transaction: t }
+    );
+
+    // Avances du mois, totalisées par personnel et par type
+    const [avances] = await db.sequelize.query(
+      `SELECT id_personnel, type, SUM(montant) AS total
+       FROM personnel_avances
+       WHERE mois = :mois AND annee = :annee
+       GROUP BY id_personnel, type`,
       { replacements: { mois, annee }, transaction: t }
     );
+    const totalAvance = (id, type) => {
+      const ligne = avances.find(a => Number(a.id_personnel) === Number(id) && a.type === type);
+      return ligne ? Number(ligne.total) : 0;
+    };
 
-    if (exist1.length > 0) {
-      await t.rollback();
-      console.log(
-        "---------------------------------------------------------------------------------"
-      );
+    const now = new Date();
+    const lignes = [];
+    const erreurs = [];
 
-      return redirectWithMessage(
-        req,
-        res,
-        "Il existe des personnels qui n'ont pas de saliare defini, vueillez definir le salaire de tout le personnel d'abord"
-      );
-      //return res.status(400).send("Il existe des personnels qui n'ont pas de saliare defin, vueillez definir le salaire de tout le personnel d'abord");
+    for (const p of personnels) {
+      const salaire_base = arrondi(p.salaire);
+      const montant_retenue = arrondi(Math.abs(totalAvance(p.id, 'retenue')));
+      const montant_jours_non_payes = arrondi(Math.abs(totalAvance(p.id, 'jours_non_payes')));
+      const montant_credit = arrondi(totalAvance(p.id, 'credit'));              // négatif
+      const montant_gratification = arrondi(totalAvance(p.id, 'gratification')); // positif
+
+      const montant_salaire = arrondi(salaire_base - montant_retenue - montant_jours_non_payes);
+      const a_payer = arrondi(montant_salaire + montant_credit + montant_gratification);
+      const nom = `${p.nom} ${p.prenom || ''}`.trim();
+
+      if (montant_salaire < 0) {
+        erreurs.push(`${nom} : salaire négatif (${fcfa(montant_salaire)})`);
+      } else if (a_payer < 0) {
+        erreurs.push(`${nom} : montant à payer négatif (${fcfa(a_payer)})`);
+      }
+
+      lignes.push({
+        id_personnel: p.id, mois, annee,
+        salaire_base, montant_retenue, montant_jours_non_payes,
+        montant_salaire, montant_credit, montant_gratification,
+        createdAt: now, updatedAt: now
+      });
     }
 
+    if (erreurs.length > 0) {
+      await t.rollback();
+      return redirectWithMessage(req, res,
+        `Le salaire de ${periode} n'a pas été généré. Corrigez les avances de ce mois pour ces personnels, puis relancez :`,
+        'danger', mois, annee, erreurs);
+    }
 
-console.log("+++++++++++++++++++++++++++++");
-
-    await db.sequelize.query(
-      `
-          insert into salaires (id_personnel , mois, annee, montant_salaire, montant_credit, montant_gratification,createdAt, updatedAt)  
-          SELECT
-          p.id, :m as mois, :a as annee,  m.salaire, 0, 0, :c , :u 
-          FROM
-          personnels p join montant_personnel m on m.id_personnel=p.id where p.etat=1
-      `,
-      {
-        replacements: {
-          m: mois,
-          a: annee,
-          c: now,
-          u: now
-        },
-        transaction: t,
-      }
-    );
-
-
-    await db.sequelize.query(
-      `
-         update salaires s join vpersonnel_avance vp on vp.id_personnel=s.id_personnel set s.montant_credit=vp.montant where vp.type=:c and vp.mois=:m and vp.annee=:a
-      `,
-      {
-        replacements: {
-          c: 'credit', m : mois, a: annee
-        },
-        transaction: t,
-      }
-    );
-
-
-    await db.sequelize.query(
-      `
-          update salaires s join vpersonnel_avance vp on vp.id_personnel=s.id_personnel set s.montant_gratification=vp.montant where vp.type=:c and vp.mois=:m and vp.annee=:a
-      `,
-      {
-        replacements: {
-          c: 'gratification', m : mois, a: annee
-        },
-        transaction: t,
-      }
-    );
-
+    await db.Salaire.bulkCreate(lignes, { transaction: t });
     await t.commit();
-    res.redirect(`/salaire/index/?mois=${mois}&annee=${annee}`);
+
+    return redirectWithMessage(req, res, `Salaire de ${periode} généré pour ${lignes.length} personnel(s).`, 'success', mois, annee);
   } catch (error) {
     await t.rollback();
-    console.error(error);
-    res.status(500).send("Erreur lors de la validation des salaires.");
+    console.error('Erreur lors de la génération des salaires :', error);
+    return redirectWithMessage(req, res, "Erreur lors de la génération des salaires.", 'danger', mois, annee);
   }
 };
